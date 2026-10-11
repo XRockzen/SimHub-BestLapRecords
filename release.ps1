@@ -77,17 +77,25 @@ try {
     [IO.File]::WriteAllText((Join-Path $dist "notes.md"), $Notes, (New-Object Text.UTF8Encoding($false)))
     Write-Host "SHA-256 : $hash"
 
+    # git and gh report progress on stderr: judge them by exit code, not by output
+    $ErrorActionPreference = "Continue"
+
     Step "Commit, tag et push"
-    git add -A
-    if (git status --porcelain) { git commit -m "Release $tag" | Out-Null }
+    git add -A 2>&1 | Out-Null
+    if (git status --porcelain) {
+        git commit -q -m "Release $tag" 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) { Fail "Le commit a échoué" }
+    }
     git tag -a $tag -m "Release $tag"
-    git push origin HEAD --follow-tags
+    if ($LASTEXITCODE -ne 0) { Fail "La création du tag a échoué" }
+    git push -q origin HEAD --follow-tags 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) { Fail "Le push a échoué" }
 
     Step "Release GitHub"
     gh release create $tag (Join-Path $dist $dllName) (Join-Path $dist "$dllName.sha256") `
-        --title $tag --notes-file (Join-Path $dist "notes.md")
+        --title $tag --notes-file (Join-Path $dist "notes.md") 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) { Fail "La création de la release a échoué" }
+    $ErrorActionPreference = "Stop"
 
     if ($Deploy) {
         Step "Installation locale"
