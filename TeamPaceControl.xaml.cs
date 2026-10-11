@@ -40,8 +40,13 @@ namespace User.TeamPace
             public string Circuit;
             public string ClassLabel;
             public Dictionary<string, LmuSessionRecord> Sessions;   // driver key → session
-            public string Title;
+            public string Title;      // analysis: circuit name
+            public string Subtitle;   // analysis: "Course du 20/09/26 · 18:50"
+            public string Crumb;      // short label in the breadcrumb
+            public string BadgeClass; // raw car class for the title badge
         }
+
+        private ProgressionChart _progressChart;
 
         // Kept across control re-creations (SimHub rebuilds the settings page)
         private static readonly List<string> SelectedKeys = new List<string> { "" };
@@ -77,8 +82,19 @@ namespace User.TeamPace
             TxtTeamFolder.Text = LmuSessionStore.TeamFolder;
             _lmuSettingsDirty = false;
 
+            // Settings stay open until the player name is known, then fold away
+            SetSettingsOpen(string.IsNullOrWhiteSpace(LmuSessionStore.PlayerName));
+
+            // Mouse "back" button and Alt+Left go back, like in a browser
+            PreviewMouseDown += (s, e) => { if (e.ChangedButton == MouseButton.XButton1) { GoBack(); e.Handled = true; } };
+            PreviewKeyDown   += (s, e) =>
+            {
+                if (e.Key == Key.System && e.SystemKey == Key.Left && Keyboard.Modifiers == ModifierKeys.Alt)
+                { GoBack(); e.Handled = true; }
+            };
+
             RebuildDrivers();
-            Navigate(new NavState { Screen = Screen.Career }, false);
+            Navigate(new NavState { Screen = Screen.Career, Crumb = "Carrière" }, false);
 
             TxtVersion.Text = "TeamPace " + PluginUpdater.Format(PluginUpdater.CurrentVersion);
             Loaded   += (s, e) => { PluginUpdater.Changed += OnUpdateChanged; RefreshUpdateBanner(); };
@@ -197,23 +213,83 @@ namespace User.TeamPace
             Render();
         }
 
-        private void BtnBack_Click(object sender, RoutedEventArgs e)
+        private void BtnBack_Click(object sender, RoutedEventArgs e) { GoBack(); }
+
+        private void GoBack()
         {
             if (_back.Count == 0) return;
             _state = _back.Pop();
             Render();
         }
 
+        /// <summary>Jumps back to the i-th breadcrumb level (0 = root of the stack).</summary>
+        private void GoToCrumb(int index)
+        {
+            var path = new List<NavState>(_back);
+            path.Reverse();                       // oldest first
+            if (index < 0 || index >= path.Count) return;
+            _back.Clear();
+            for (int i = 0; i < index; i++) _back.Push(path[i]);
+            _state = path[index];
+            Render();
+        }
+
         private void BtnTabCareer_Click(object sender, RoutedEventArgs e)
         {
             _back.Clear();
-            Navigate(new NavState { Screen = Screen.Career }, false);
+            Navigate(new NavState { Screen = Screen.Career, Crumb = "Carrière" }, false);
         }
 
         private void BtnTabHistory_Click(object sender, RoutedEventArgs e)
         {
             _back.Clear();
-            Navigate(new NavState { Screen = Screen.History }, false);
+            Navigate(new NavState { Screen = Screen.History, Crumb = "Historique" }, false);
+        }
+
+        private void BtnSettings_Click(object sender, RoutedEventArgs e)
+        {
+            SetSettingsOpen(SettingsPanel.Visibility != Visibility.Visible);
+        }
+
+        private void SetSettingsOpen(bool open)
+        {
+            SettingsPanel.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+            BtnSettings.Content = open ? "⚙ Masquer les réglages" : "⚙ Réglages";
+        }
+
+        /// <summary>Page title, subtitle, optional category badge and clickable breadcrumb.</summary>
+        private void SetHeader(string title, string subtitle, string carClass)
+        {
+            TxtPageTitle.Text    = title;
+            TxtPageSubtitle.Text = subtitle ?? "";
+            if (string.IsNullOrEmpty(carClass))
+                PageBadge.Visibility = Visibility.Collapsed;
+            else
+            {
+                PageBadge.Visibility = Visibility.Visible;
+                PageBadge.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(LmuCategoryStyle.GetBg(carClass)));
+                TxtPageBadge.Text    = LmuCategoryStyle.GetShortName(carClass);
+            }
+
+            BreadcrumbPanel.Children.Clear();
+            var path = new List<NavState>(_back);
+            path.Reverse();
+            BreadcrumbPanel.Visibility = path.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            for (int i = 0; i < path.Count; i++)
+            {
+                int index = i;
+                var link = new TextBlock { Text = path[i].Crumb ?? "…", Style = (Style)FindResource("CrumbLink") };
+                link.MouseLeftButtonDown += (s, e) => { GoToCrumb(index); e.Handled = true; };
+                BreadcrumbPanel.Children.Add(link);
+                BreadcrumbPanel.Children.Add(new TextBlock { Text = "  ›  ", FontSize = 12, Foreground = new SolidColorBrush(Color.FromArgb(110, 255, 255, 255)) });
+            }
+            BreadcrumbPanel.Children.Add(new TextBlock { Text = _state.Crumb ?? title, FontSize = 12,
+                                                         Foreground = new SolidColorBrush(Color.FromArgb(170, 255, 255, 255)) });
+        }
+
+        private void SetTopStatus(string text)
+        {
+            TxtTopStatus.Text = text ?? "";
         }
 
         private void OpenAnalysis(DriverView driver, LmuSessionRecord session)
@@ -226,12 +302,17 @@ namespace User.TeamPace
                 var m = d.FindMatch(session);
                 if (m != null) map[d.Key] = m;
             }
+            var when = session.SessionDate != DateTime.MinValue ? session.SessionDate.ToString("dd/MM/yy · HH:mm") : "?";
             Navigate(new NavState
             {
-                Screen   = Screen.Analysis,
-                Sessions = map,
-                Title    = string.Format("{0}  ·  {1} du {2}", session.TrackDisplayName, session.SessionTypeLong,
-                                         session.SessionDate != DateTime.MinValue ? session.SessionDate.ToString("dd/MM/yy HH:mm") : "?"),
+                Screen     = Screen.Analysis,
+                Sessions   = map,
+                Title      = session.TrackDisplayName,
+                Subtitle   = string.Format("{0} du {1}{2}", session.SessionTypeLong, when,
+                                           map.Count > 1 ? string.Format("  ·  session commune à {0} pilotes", map.Count) : ""),
+                Crumb      = string.Format("{0} {1}", session.SessionTypeLong,
+                                           session.SessionDate != DateTime.MinValue ? session.SessionDate.ToString("dd/MM") : ""),
+                BadgeClass = session.CarClass,
             }, true);
         }
 
@@ -244,9 +325,13 @@ namespace User.TeamPace
 
             ClearColumns();
             BtnBack.Visibility = _back.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-            SetTabActive(BtnTabCareer,  _state.Screen == Screen.Career || _state.Screen == Screen.Progress);
-            SetTabActive(BtnTabHistory, _state.Screen == Screen.History);
+            // The tab the current path started from stays highlighted
+            var rootScreen = _back.Count > 0 ? new List<NavState>(_back)[_back.Count - 1].Screen : _state.Screen;
+            SetTabActive(BtnTabCareer,  rootScreen == Screen.Career);
+            SetTabActive(BtnTabHistory, rootScreen == Screen.History);
 
+            ProgressChartPanel.Visibility = _state.Screen == Screen.Progress ? Visibility.Visible : Visibility.Collapsed;
+            if (_progressChart != null) { _progressChart.Detach(); _progressChart = null; }
             ClassFilterBar.Visibility = _state.Screen == Screen.Career   ? Visibility.Visible : Visibility.Collapsed;
             TypeFilterBar.Visibility  = _state.Screen == Screen.History  ? Visibility.Visible : Visibility.Collapsed;
             CommonLegend.Visibility   = (_state.Screen == Screen.History || _state.Screen == Screen.Progress) && _drivers.Count > 1
@@ -267,7 +352,9 @@ namespace User.TeamPace
         {
             b.BorderBrush = active
                 ? new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FF2196F3"))
-                : new SolidColorBrush(Color.FromArgb(68, 255, 255, 255));
+                : Brushes.Transparent;
+            b.Foreground = active ? Brushes.White : new SolidColorBrush(Color.FromArgb(166, 255, 255, 255));
+            b.FontWeight = active ? FontWeights.SemiBold : FontWeights.Normal;
         }
 
         private void ClearColumns()
@@ -310,9 +397,10 @@ namespace User.TeamPace
 
         private void RenderCareer()
         {
-            TxtBreadcrumb.Text = _drivers.Count > 1
-                ? string.Format("Carrière  ·  comparaison de {0} pilotes", _drivers.Count)
-                : "Carrière";
+            SetHeader("Carrière",
+                _drivers.Count > 1 ? string.Format("Comparaison de {0} pilotes", _drivers.Count)
+                                   : "Vos statistiques sur Le Mans Ultimate",
+                null);
 
             // Shared activity scale so the charts compare at a glance
             DateTime? scaleMin = null;
@@ -332,6 +420,7 @@ namespace User.TeamPace
                 col.CircuitOpened   += row => Navigate(new NavState
                 {
                     Screen = Screen.Progress, Circuit = row.Circuit, ClassLabel = row.CarClassLabel,
+                    Crumb = ShortCircuit(row.Circuit) + " · " + row.CarClassLabel,
                 }, true);
                 _careerCols.Add(col);
                 AddColumn(d, col, string.Format("{0} sessions", d.Sessions.Count));
@@ -407,7 +496,7 @@ namespace User.TeamPace
 
         private void RenderHistory()
         {
-            TxtBreadcrumb.Text = "Historique de toutes les sessions";
+            SetHeader("Historique", "Toutes les sessions, de la plus récente à la plus ancienne", null);
             UpdateTypeFilterButtons();
             int total = 0;
             foreach (var d in _drivers)
@@ -467,6 +556,7 @@ namespace User.TeamPace
             {
                 if (rec == null) return;
                 foreach (var c in _listCols) if (c != col) c.SelectMatching(rec);
+                if (_progressChart != null) _progressChart.Highlight(rec);
             };
             col.SessionOpened += OpenAnalysis;
             _listCols.Add(col);
@@ -477,7 +567,9 @@ namespace User.TeamPace
 
         private void RenderProgress()
         {
-            TxtBreadcrumb.Text = string.Format("Carrière  ›  {0}  [{1}]  ·  progression", _state.Circuit, _state.ClassLabel);
+            // Sessions of each driver on this circuit × class, oldest first
+            var perDriver = new List<List<LmuSessionRecord>>();
+            string rawClass = null;
             foreach (var d in _drivers)
             {
                 var matching = new List<LmuSessionRecord>();
@@ -487,8 +579,23 @@ namespace User.TeamPace
                     if (!string.Equals(s.TrackDisplayName, _state.Circuit, StringComparison.OrdinalIgnoreCase)) continue;
                     if (!string.Equals(LmuCategoryStyle.GetShortName(s.CarClass), _state.ClassLabel, StringComparison.OrdinalIgnoreCase)) continue;
                     matching.Add(s);
+                    if (rawClass == null) rawClass = s.CarClass;
                 }
                 matching.Sort((a, b) => a.SessionDate.CompareTo(b.SessionDate));
+                perDriver.Add(matching);
+            }
+            SetHeader(_state.Circuit, "Progression du meilleur tour, session après session", rawClass);
+
+            long teamBest = long.MaxValue;
+            foreach (var list in perDriver)
+                foreach (var s in list) if (s.BestLapTime.Ticks < teamBest) teamBest = s.BestLapTime.Ticks;
+
+            var series = new List<ProgressionChart.Series>();
+            for (int i = 0; i < _drivers.Count; i++)
+            {
+                var d = _drivers[i];
+                var matching = perDriver[i];
+                var common = new HashSet<LmuSessionRecord>();
 
                 long best = long.MaxValue;
                 foreach (var s in matching) if (s.BestLapTime.Ticks < best) best = s.BestLapTime.Ticks;
@@ -504,25 +611,101 @@ namespace User.TeamPace
                         if (Math.Abs(diff.TotalSeconds) < 0.001) delta = "=";
                         else { delta = Fmt.Signed(diff); fg = diff.Ticks < 0 ? "#FF4CAF50" : "#FFEF5350"; }
                     }
-                    rows.Add(new LmuSessionRow
+                    var row = new LmuSessionRow
                     {
                         Record = s, IsPersonalBest = s.BestLapTime.Ticks == best,
                         Delta = delta, DeltaFg = fg, CommonColors = CommonColorsFor(d, s),
-                    });
+                    };
+                    if (row.IsCommon) common.Add(s);
+                    rows.Add(row);
                     prev = s;
                 }
                 rows.Reverse();   // newest first, delta still against the previous outing
-                AddListColumn(d, rows, true,
-                    best < long.MaxValue ? "record " + Fmt.Lap(TimeSpan.FromTicks(best)) : "aucune session");
+
+                AddListColumn(d, rows, true, null);
+                _listCols[_listCols.Count - 1].SetSummary(BuildProgressSummary(matching, best, teamBest));
+                series.Add(new ProgressionChart.Series { Driver = d, Sessions = matching, IsCommon = common.Contains });
             }
-            TxtStatus.Text = "Δ précédente : écart avec la session précédente du même pilote  ·  double-clic : analyse";
+
+            _progressChart = new ProgressionChart();
+            _progressChart.PointSelected += (drv, rec) =>
+            {
+                foreach (var c in _listCols)
+                {
+                    if (c.Driver == drv) c.SelectSession(rec);
+                    else c.SelectMatching(rec);
+                }
+                _progressChart.Highlight(rec);
+            };
+            _progressChart.PointOpened += OpenAnalysis;
+            _progressChart.Attach(ProgressCanvas, series);
+
+            TxtStatus.Text = "Δ précédente : écart avec la session précédente du même pilote";
+        }
+
+        private List<SessionListColumn.SummaryItem> BuildProgressSummary(List<LmuSessionRecord> sessions, long best, long teamBest)
+        {
+            var items = new List<SessionListColumn.SummaryItem>();
+            if (sessions.Count == 0)
+            {
+                items.Add(new SessionListColumn.SummaryItem { Label = "SESSIONS", Value = "0", Detail = "jamais roulé ici", Color = "#F2FFFFFF" });
+                return items;
+            }
+            LmuSessionRecord recordSession = sessions[0];
+            foreach (var s in sessions) if (s.BestLapTime.Ticks == best) recordSession = s;
+            var first = sessions[0];
+            var last  = sessions[sessions.Count - 1];
+
+            items.Add(new SessionListColumn.SummaryItem
+            {
+                Label = "RECORD", Value = Fmt.Lap(TimeSpan.FromTicks(best)), Color = "#FF66BB6A",
+                Detail = string.Format("{0} du {1}", recordSession.SessionTypeLong, recordSession.SessionDate.ToString("dd/MM/yy")),
+            });
+            if (_drivers.Count > 1)
+                items.Add(new SessionListColumn.SummaryItem
+                {
+                    Label = "ÉCART ÉQUIPE",
+                    Value = best == teamBest ? "★ meilleur" : "+" + Fmt.Seconds(TimeSpan.FromTicks(best - teamBest)),
+                    Color = best == teamBest ? "#FF66BB6A" : "#FFEF9A9A",
+                    Detail = "sur le record du circuit",
+                });
+            var gain = TimeSpan.FromTicks(best - first.BestLapTime.Ticks);
+            items.Add(new SessionListColumn.SummaryItem
+            {
+                Label = "PROGRESSION",
+                Value = sessions.Count > 1 && gain.Ticks < 0 ? Fmt.Signed(gain) : "—",
+                Color = "#F2FFFFFF",
+                Detail = sessions.Count > 1 ? "depuis le " + first.SessionDate.ToString("dd/MM/yy") : "une seule session",
+            });
+            items.Add(new SessionListColumn.SummaryItem
+            {
+                Label = "DERNIÈRE SÉANCE", Value = last.BestLapFormatted, Color = "#F2FFFFFF",
+                Detail = last.BestLapTime.Ticks == best ? "★ record"
+                       : "+" + Fmt.Seconds(TimeSpan.FromTicks(last.BestLapTime.Ticks - best)) + " du record",
+            });
+            var driving = TimeSpan.Zero; int laps = 0;
+            foreach (var s in sessions) { driving = driving + CareerColumn.SessionDuration(s); laps += s.TotalLaps; }
+            items.Add(new SessionListColumn.SummaryItem
+            {
+                Label = "ROULAGE", Value = Fmt.TotalTime(driving), Color = "#FF80DEEA",
+                Detail = string.Format("{0} sessions · {1} tours", sessions.Count, laps),
+            });
+            return items;
+        }
+
+        private static string ShortCircuit(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return "Circuit";
+            int dash = name.IndexOf(" – ", StringComparison.Ordinal);
+            var s = dash > 0 ? name.Substring(0, dash) : name;
+            return s.Length > 28 ? s.Substring(0, 27) + "…" : s;
         }
 
         // ─── Analysis ─────────────────────────────────────────────────────────
 
         private void RenderAnalysis()
         {
-            TxtBreadcrumb.Text = "Analyse  ›  " + _state.Title;
+            SetHeader(_state.Title, _state.Subtitle, _state.BadgeClass);
             foreach (var d in _drivers)
             {
                 LmuSessionRecord s;
@@ -689,6 +872,7 @@ namespace User.TeamPace
                 Dispatcher.Invoke(() =>
                 {
                     TxtLmuStatus.Text = string.Format("{0} session(s)", LmuSessionStore.GetSessionCount());
+                    SetTopStatus("Import terminé : " + TxtLmuStatus.Text);
                     BtnLmuScan.IsEnabled = BtnForceRescan.IsEnabled = true;
                     _loadTimer.Start();
                 });
@@ -733,6 +917,7 @@ namespace User.TeamPace
                         ? "Échec de l'envoi : " + error
                         : string.Format("Envoyé à {0:HH:mm}  ·  {1} coéquipier(s){2}", DateTime.Now, mates,
                             updated > 0 ? string.Format(", {0} mis à jour", updated) : "");
+                    SetTopStatus("Équipe : " + TxtTeamStatus.Text);
                     BtnTeamSync.IsEnabled = true;
                     ReloadData();
                 });

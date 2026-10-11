@@ -12,12 +12,33 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <TextBlock x:Name="TxtSummary" Grid.Row="0" FontSize="10" Opacity="0.55" Margin="0,0,0,4"/>
+        <!-- Key figures (circuit progression only) -->
+        <Border x:Name="SummaryCard" Grid.Row="0" Background="#0DFFFFFF" CornerRadius="8" Padding="14,10,14,2"
+                Margin="0,0,0,10" Visibility="Collapsed">
+            <ItemsControl x:Name="SummaryItems">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><UniformGrid Rows="1"/></ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Margin="0,0,8,8">
+                            <TextBlock Text="{Binding Label}" FontSize="9.5" Foreground="#8CFFFFFF" Margin="0,0,0,2"/>
+                            <TextBlock Text="{Binding Value}" FontSize="16" FontWeight="SemiBold" Foreground="{Binding Color}"
+                                       TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Text="{Binding Detail}" FontSize="10.5" Foreground="#99FFFFFF" TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Border>
 
-        <DataGrid x:Name="SessionGrid" Grid.Row="1" Style="{StaticResource GridBase}"
+        <TextBlock x:Name="TxtSummary" Grid.Row="1" FontSize="11" Foreground="#99FFFFFF" Margin="2,0,0,5"/>
+
+        <DataGrid x:Name="SessionGrid" Grid.Row="2" Style="{StaticResource GridBase}"
                   IsReadOnly="True" CanUserSortColumns="True"
                   RowStyle="{StaticResource SessionRowStyle}"
                   SelectionChanged="SessionGrid_SelectionChanged"

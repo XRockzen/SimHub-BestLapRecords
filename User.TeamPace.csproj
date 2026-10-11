@@ -92,6 +92,7 @@
     <Compile Include="DriverView.cs" />
     <Compile Include="PluginUpdater.cs" />
     <Compile Include="PluginPaths.cs" />
+    <Compile Include="ProgressionChart.cs" />
     <Compile Include="CareerColumn.xaml.cs">
       <DependentUpon>CareerColumn.xaml</DependentUpon>
     </Compile>

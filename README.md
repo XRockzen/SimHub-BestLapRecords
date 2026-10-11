@@ -50,10 +50,12 @@ C'est la seule installation manuelle : les versions suivantes s'installent depui
 
 ![Premiers réglages](docs/images/02-premiers-reglages.png)
 
-1. **Joueur LMU** : votre nom exactement comme dans Le Mans Ultimate.
-2. **Dossier résultats** : le dossier des résultats LMU. Il est détecté automatiquement dans la
+1. **⚙ Réglages** : ouvre ou replie ce panneau. Il est ouvert d'office au premier lancement, puis
+   se replie pour laisser la place à vos données.
+2. **Joueur LMU** : votre nom exactement comme dans Le Mans Ultimate.
+3. **Dossier résultats** : le dossier des résultats LMU. Il est détecté automatiquement dans la
    plupart des cas (`…\Le Mans Ultimate\UserData\Log\Results`).
-3. **⟳ Importer** : récupère toutes vos sessions passées. La première fois, comptez quelques secondes.
+4. **⟳ Importer** : récupère toutes vos sessions passées. La première fois, comptez quelques secondes.
 
 Ensuite, plus rien à faire : chaque session que vous terminez dans LMU est ajoutée toute seule.
 
@@ -97,7 +99,7 @@ Google Drive :
 
 ![Choisir le dossier d'équipe](docs/images/drive-4-choisir-dossier.svg)
 
-La synchronisation démarre aussitôt. Le dossier choisi s'affiche dans le plugin :
+La synchronisation démarre aussitôt. Le dossier choisi s'affiche dans les **⚙ Réglages** :
 
 ![Réglages d'équipe dans TeamPace](docs/images/04-dossier-equipe.png)
 
@@ -108,6 +110,13 @@ La synchronisation démarre aussitôt. Le dossier choisi s'affiche dans le plugi
 4. **Pilotes affichés** : vous et les coéquipiers ajoutés (voir ci-dessous).
 
 ## 4. Se comparer
+
+### Se déplacer dans TeamPace
+
+Deux onglets en haut : **Carrière** (point de départ) et **Historique** (toutes les sessions).
+Un double-clic descend d'un niveau : *circuit → progression → analyse d'une session*. Pour remonter,
+le bouton **←**, le **fil d'Ariane** au-dessus du titre (chaque niveau est cliquable), le bouton
+« précédent » de la souris ou **Alt + ←**.
 
 ### Ajouter un coéquipier à l'écran
 
@@ -122,7 +131,19 @@ sont en lecture seule : vous ne pouvez rien modifier chez eux, et eux rien chez 
 Une colonne par pilote : statistiques, record par circuit et catégorie, et activité.
 La colonne **Écart** indique qui détient le record (★) et à combien sont les autres.
 Les filtres de catégorie s'appliquent à toutes les colonnes. Cliquer un circuit le sélectionne chez
-tout le monde ; un double-clic ouvre sa **progression**, session après session.
+tout le monde ; un double-clic ouvre sa **progression**.
+
+### Progression sur un circuit
+
+![Progression sur un circuit](docs/images/03-progression.png)
+
+1. Le **fil d'Ariane** : cliquez « Carrière » pour remonter directement.
+2. La **courbe** : chaque point est le meilleur tour d'une session, une couleur par pilote. La ligne
+   suit le record de chacun au fil du temps (★ = record). Les points cerclés d'orange sont des
+   sessions communes. Un clic sélectionne la session dans les tableaux ; un double-clic l'analyse.
+3. Les **chiffres clés** de chaque pilote : record, écart au meilleur de l'équipe, progression depuis
+   la première session, dernière séance et temps roulé sur ce circuit.
+4. **←** : retour à l'écran précédent.
 
 ### Sessions communes
 

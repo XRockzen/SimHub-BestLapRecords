@@ -36,6 +36,29 @@ namespace User.TeamPace
             SessionGrid.ItemsSource = rows;
         }
 
+        public class SummaryItem
+        {
+            public string Label  { get; set; }
+            public string Value  { get; set; }
+            public string Detail { get; set; }
+            public string Color  { get; set; }
+        }
+
+        public void SetSummary(List<SummaryItem> items)
+        {
+            SummaryCard.Visibility = items != null && items.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            SummaryItems.ItemsSource = items;
+        }
+
+        /// <summary>Selects this driver's own session (e.g. clicked on the progression chart).</summary>
+        public void SelectSession(LmuSessionRecord session)
+        {
+            _syncing = true;
+            foreach (LmuSessionRow r in SessionGrid.Items)
+                if (r.Record == session) { SessionGrid.SelectedItem = r; SessionGrid.ScrollIntoView(r); break; }
+            _syncing = false;
+        }
+
         /// <summary>Selects the row matching another driver's session, without re-raising the event.</summary>
         public void SelectMatching(LmuSessionRecord other)
         {
