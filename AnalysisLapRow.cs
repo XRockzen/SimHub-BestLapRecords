@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.Globalization;
 
 namespace User.TeamPace
 {
@@ -64,8 +65,8 @@ namespace User.TeamPace
         {
             get
             {
-                if (HasLiveFuel)      return Lap.LiveFuelUsedL.ToString("F2") + " L";
-                if (Lap.FuelUsed > 0) return (Lap.FuelUsed * 100).ToString("F1") + " %";
+                if (HasLiveFuel)      return Lap.LiveFuelUsedL.ToString("F2", CultureInfo.InvariantCulture) + " L";
+                if (Lap.FuelUsed > 0) return (Lap.FuelUsed * 100).ToString("F1", CultureInfo.InvariantCulture) + " %";
                 return "—";
             }
         }
@@ -74,14 +75,14 @@ namespace User.TeamPace
         {
             get
             {
-                if (Lap.HasLive && Lap.LiveFuelLevelL > 0) return Lap.LiveFuelLevelL.ToString("F1") + " L";
-                if (Lap.FuelRemaining > 0)                 return (Lap.FuelRemaining * 100).ToString("F0") + " %";
+                if (Lap.HasLive && Lap.LiveFuelLevelL > 0) return Lap.LiveFuelLevelL.ToString("F1", CultureInfo.InvariantCulture) + " L";
+                if (Lap.FuelRemaining > 0)                 return (Lap.FuelRemaining * 100).ToString("F0", CultureInfo.InvariantCulture) + " %";
                 return "—";
             }
         }
 
         public bool   HasVe  { get { return Lap.VirtualEnergyUsed > 0; } }
-        public string VeUsed { get { return HasVe ? (Lap.VirtualEnergyUsed * 100).ToString("F1") + " %" : "—"; } }
+        public string VeUsed { get { return HasVe ? (Lap.VirtualEnergyUsed * 100).ToString("F1", CultureInfo.InvariantCulture) + " %" : "—"; } }
 
         // ── Tyre wear during this lap (% of tyre, set by the builder) ─────────
 
@@ -97,7 +98,7 @@ namespace User.TeamPace
             get
             {
                 if (!HasTireData) return "—";
-                return ((WearLapFL + WearLapFR + WearLapRL + WearLapRR) / 4f).ToString("F2") + " %";
+                return ((WearLapFL + WearLapFR + WearLapRL + WearLapRR) / 4f).ToString("F2", CultureInfo.InvariantCulture) + " %";
             }
         }
 

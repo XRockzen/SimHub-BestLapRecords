@@ -7,6 +7,55 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/User.TeamPace;component/Styles.xaml"/>
             </ResourceDictionary.MergedDictionaries>
+
+            <!-- Key figure of the session card: small caps label above a large value -->
+            <Style x:Key="KpiBox" TargetType="StackPanel">
+                <Setter Property="Margin" Value="0,0,8,8"/>
+            </Style>
+            <Style x:Key="KpiLbl" TargetType="TextBlock">
+                <Setter Property="FontSize"   Value="9.5"/>
+                <Setter Property="Foreground" Value="#8CFFFFFF"/>
+                <Setter Property="Margin"     Value="0,0,0,2"/>
+            </Style>
+            <Style x:Key="KpiVal" TargetType="TextBlock">
+                <Setter Property="FontSize"   Value="14"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="Foreground" Value="#F2FFFFFF"/>
+                <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            </Style>
+
+            <!-- Analysis blocks share one height so the lap tables line up across drivers -->
+            <Style x:Key="AnaBlock" TargetType="Border">
+                <Setter Property="Background"   Value="#10FFFFFF"/>
+                <Setter Property="CornerRadius" Value="6"/>
+                <Setter Property="Padding"      Value="12,9"/>
+                <Setter Property="Margin"       Value="0,0,8,8"/>
+                <Setter Property="Width"        Value="196"/>
+                <Setter Property="Height"       Value="112"/>
+            </Style>
+            <Style x:Key="BlockTitle" TargetType="TextBlock">
+                <Setter Property="FontSize"   Value="10"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="Foreground" Value="#99FFFFFF"/>
+                <Setter Property="Margin"     Value="0,0,0,4"/>
+            </Style>
+            <Style x:Key="BlockBig" TargetType="TextBlock">
+                <Setter Property="FontSize"   Value="20"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="Foreground" Value="White"/>
+            </Style>
+            <Style x:Key="BlockLine" TargetType="TextBlock">
+                <Setter Property="FontSize"   Value="11"/>
+                <Setter Property="Foreground" Value="#C8FFFFFF"/>
+                <Setter Property="Margin"     Value="0,2,0,0"/>
+                <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            </Style>
+            <Style x:Key="SectionTitle" TargetType="TextBlock">
+                <Setter Property="FontSize"   Value="12"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="Foreground" Value="#E6FFFFFF"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+            </Style>
         </ResourceDictionary>
     </UserControl.Resources>
 
@@ -15,92 +64,149 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*" MinHeight="120"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*" MinHeight="140"/>
         </Grid.RowDefinitions>
 
-        <!-- Session header -->
-        <StackPanel Grid.Row="0" Margin="0,0,0,6">
-            <StackPanel Orientation="Horizontal">
-                <Border x:Name="BadgeClass" CornerRadius="3" Padding="6,2" Margin="0,0,8,0" VerticalAlignment="Center">
-                    <TextBlock x:Name="TxtClass" FontSize="9" FontWeight="Bold" Foreground="White"/>
-                </Border>
-                <TextBlock x:Name="TxtCar" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"
-                           TextTrimming="CharacterEllipsis"/>
-                <TextBlock x:Name="TxtTeam" FontSize="10" Opacity="0.5" VerticalAlignment="Center" Margin="8,0,0,0"
-                           TextTrimming="CharacterEllipsis"/>
+        <!-- ═══ 1. Session card ═══════════════════════════════════════════ -->
+        <Border Grid.Row="0" Background="#0DFFFFFF" CornerRadius="8" Padding="14,10,14,4" Margin="0,0,0,12">
+            <StackPanel>
+                <DockPanel>
+                    <TextBlock x:Name="TxtDate" DockPanel.Dock="Right" FontSize="11" Foreground="#99FFFFFF"
+                               VerticalAlignment="Center" Margin="12,0,0,0"/>
+                    <Border x:Name="BadgeClass" CornerRadius="3" Padding="6,2" Margin="0,0,10,0" VerticalAlignment="Center">
+                        <TextBlock x:Name="TxtClass" FontSize="10" FontWeight="Bold" Foreground="White"/>
+                    </Border>
+                    <TextBlock x:Name="TxtCar" FontSize="16" FontWeight="SemiBold" Foreground="White"
+                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                </DockPanel>
+                <WrapPanel Margin="0,5,0,10">
+                    <TextBlock x:Name="TxtTeam" FontSize="11" Foreground="#99FFFFFF" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <WrapPanel x:Name="SimBadges" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="TxtLive" FontSize="11" Foreground="#99FFFFFF" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                </WrapPanel>
+                <UniformGrid x:Name="KpiGridPanel" Rows="1" SizeChanged="KpiGridPanel_SizeChanged">
+                    <StackPanel x:Name="KpiFinishBox" Style="{StaticResource KpiBox}">
+                        <TextBlock Style="{StaticResource KpiLbl}" Text="ARRIVÉE"/>
+                        <TextBlock x:Name="KpiFinish" Style="{StaticResource KpiVal}"/>
+                    </StackPanel>
+                    <StackPanel x:Name="KpiGridBox" Style="{StaticResource KpiBox}">
+                        <TextBlock Style="{StaticResource KpiLbl}" Text="DÉPART"/>
+                        <TextBlock x:Name="KpiGrid" Style="{StaticResource KpiVal}"/>
+                    </StackPanel>
+                    <StackPanel Style="{StaticResource KpiBox}">
+                        <TextBlock Style="{StaticResource KpiLbl}" Text="MEILLEUR TOUR"/>
+                        <TextBlock x:Name="KpiBest" Style="{StaticResource KpiVal}" Foreground="#FF66BB6A"/>
+                    </StackPanel>
+                    <StackPanel Style="{StaticResource KpiBox}">
+                        <TextBlock Style="{StaticResource KpiLbl}" Text="THÉORIQUE"/>
+                        <TextBlock x:Name="KpiTheo" Style="{StaticResource KpiVal}" Foreground="#FF90CAF9"/>
+                    </StackPanel>
+                    <StackPanel Style="{StaticResource KpiBox}">
+                        <TextBlock Style="{StaticResource KpiLbl}" Text="VITESSE MAX"/>
+                        <TextBlock x:Name="KpiTop" Style="{StaticResource KpiVal}"/>
+                    </StackPanel>
+                    <StackPanel Style="{StaticResource KpiBox}">
+                        <TextBlock Style="{StaticResource KpiLbl}" Text="TOURS"/>
+                        <TextBlock x:Name="KpiLaps" Style="{StaticResource KpiVal}"/>
+                    </StackPanel>
+                    <StackPanel Style="{StaticResource KpiBox}">
+                        <TextBlock Style="{StaticResource KpiLbl}" Text="ARRÊTS"/>
+                        <TextBlock x:Name="KpiPits" Style="{StaticResource KpiVal}"/>
+                    </StackPanel>
+                    <StackPanel Style="{StaticResource KpiBox}">
+                        <TextBlock Style="{StaticResource KpiLbl}" Text="INCIDENTS"/>
+                        <TextBlock x:Name="KpiIncidents" Style="{StaticResource KpiVal}"/>
+                    </StackPanel>
+                </UniformGrid>
             </StackPanel>
-            <TextBlock x:Name="TxtResult" FontSize="10" Opacity="0.75" Margin="0,3,0,0" TextWrapping="Wrap"/>
-            <WrapPanel Margin="0,3,0,0">
-                <WrapPanel x:Name="SimBadges"/>
-                <TextBlock x:Name="TxtLive" FontSize="10" Opacity="0.55" VerticalAlignment="Center" Margin="4,0,0,0"/>
+        </Border>
+
+        <!-- ═══ 2. Analysis of the checked laps ═══════════════════════════ -->
+        <DockPanel Grid.Row="1" Margin="0,0,0,6">
+            <TextBlock x:Name="TxtSelSummary" DockPanel.Dock="Right" FontSize="11" Foreground="#99FFFFFF" VerticalAlignment="Center"/>
+            <TextBlock Style="{StaticResource SectionTitle}" Text="Analyse des tours sélectionnés"/>
+        </DockPanel>
+
+        <StackPanel Grid.Row="2" Margin="0,0,0,8">
+            <WrapPanel>
+                <Border Style="{StaticResource AnaBlock}"><StackPanel>
+                    <TextBlock Style="{StaticResource BlockTitle}" Text="RYTHME (moyenne)"/>
+                    <TextBlock x:Name="TxtStAvg" Style="{StaticResource BlockBig}"/>
+                    <TextBlock x:Name="TxtStVsBest" Style="{StaticResource BlockLine}" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="TxtStBestWorst" Style="{StaticResource BlockLine}"/>
+                </StackPanel></Border>
+
+                <Border Style="{StaticResource AnaBlock}"><StackPanel>
+                    <TextBlock Style="{StaticResource BlockTitle}" Text="RÉGULARITÉ"
+                               ToolTip="Écart-type des tours sélectionnés : plus il est bas, plus les tours se ressemblent"/>
+                    <TextBlock x:Name="TxtStSigma" Style="{StaticResource BlockBig}"/>
+                    <TextBlock x:Name="TxtStSpread" Style="{StaticResource BlockLine}"/>
+                    <TextBlock x:Name="TxtStDuree" Style="{StaticResource BlockLine}"/>
+                </StackPanel></Border>
+
+                <Border x:Name="StatsFuelPanel" Style="{StaticResource AnaBlock}"><StackPanel>
+                    <TextBlock Style="{StaticResource BlockTitle}" Text="CARBURANT"/>
+                    <TextBlock x:Name="TxtStFuelAvg" Style="{StaticResource BlockBig}"/>
+                    <TextBlock x:Name="TxtStFuelTot" Style="{StaticResource BlockLine}"/>
+                    <TextBlock x:Name="TxtStFuelLaps" Style="{StaticResource BlockLine}" TextWrapping="Wrap" TextTrimming="None"/>
+                </StackPanel></Border>
+
+                <Border x:Name="StatsVePanel" Style="{StaticResource AnaBlock}"><StackPanel>
+                    <TextBlock Style="{StaticResource BlockTitle}" Text="ÉNERGIE VIRTUELLE"/>
+                    <TextBlock x:Name="TxtStVeAvg" Style="{StaticResource BlockBig}"/>
+                    <TextBlock x:Name="TxtStVeTot" Style="{StaticResource BlockLine}" TextWrapping="Wrap" TextTrimming="None"/>
+                </StackPanel></Border>
+
+                <Border x:Name="StatsTirePanel" Style="{StaticResource AnaBlock}"><StackPanel>
+                    <TextBlock Style="{StaticResource BlockTitle}" Text="USURE PNEUS PAR TOUR"/>
+                    <Grid Margin="0,2,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition/><ColumnDefinition/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/><RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Name="TxtStTireFL" Grid.Row="0" Grid.Column="0" Style="{StaticResource BlockLine}"/>
+                        <TextBlock x:Name="TxtStTireFR" Grid.Row="0" Grid.Column="1" Style="{StaticResource BlockLine}"/>
+                        <TextBlock x:Name="TxtStTireRL" Grid.Row="1" Grid.Column="0" Style="{StaticResource BlockLine}"/>
+                        <TextBlock x:Name="TxtStTireRR" Grid.Row="1" Grid.Column="1" Style="{StaticResource BlockLine}"/>
+                    </Grid>
+                </StackPanel></Border>
+
+                <Border x:Name="StatsPitPanel" Style="{StaticResource AnaBlock}"><DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Style="{StaticResource BlockTitle}" Text="ARRÊTS AUX STANDS"/>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl x:Name="StatsPitList">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" Style="{StaticResource BlockLine}" TextWrapping="Wrap" TextTrimming="None"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel></Border>
             </WrapPanel>
+            <TextBlock x:Name="TxtNoLiveHint" FontSize="11" Foreground="#80FFFFFF" FontStyle="Italic" TextWrapping="Wrap"
+                       Text="Carburant et pneus : ces données sont capturées en direct, roulez avec SimHub ouvert pour les obtenir."/>
         </StackPanel>
 
-        <!-- Lap selection -->
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,6">
-            <Button Style="{StaticResource SmallBtn}" Click="BtnValid_Click"
-                    ToolTip="Tours de rythme : valides, hors tour 1, hors passage aux stands et tour de sortie">Rythme</Button>
-            <Button Style="{StaticResource SmallBtn}" Click="BtnAll_Click">Tout</Button>
-            <Button Style="{StaticResource SmallBtn}" Click="BtnNone_Click" Margin="0,0,12,0">Aucun</Button>
-            <TextBlock x:Name="TxtSelSummary" FontSize="10" Opacity="0.5" VerticalAlignment="Center"/>
-        </StackPanel>
+        <!-- ═══ 3. Lap table, with its selection toolbar right above it ════ -->
+        <Border Grid.Row="3" Background="#10FFFFFF" CornerRadius="6,6,0,0" Padding="10,6">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Cocher :" FontSize="11" Foreground="#99FFFFFF" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <Button Style="{StaticResource SmallBtn}" Click="BtnValid_Click"
+                            ToolTip="Tours représentatifs : valides, hors tour 1, hors passage aux stands et tour de sortie">Rythme</Button>
+                    <Button Style="{StaticResource SmallBtn}" Click="BtnAll_Click">Tout</Button>
+                    <Button Style="{StaticResource SmallBtn}" Click="BtnNone_Click" Margin="0">Aucun</Button>
+                </StackPanel>
+                <TextBlock Style="{StaticResource SectionTitle}" Text="Tour par tour"/>
+            </DockPanel>
+        </Border>
 
-        <!-- Stats on the checked laps -->
-        <WrapPanel Grid.Row="2" Margin="0,0,0,4">
-            <Border Style="{StaticResource StatBlock}"><StackPanel>
-                <TextBlock Style="{StaticResource StatLbl}">TEMPS AU TOUR (moyenne)</TextBlock>
-                <TextBlock x:Name="TxtStAvg" Style="{StaticResource StatVal}"/>
-                <TextBlock x:Name="TxtStVsBest" Style="{StaticResource StatSub}"/>
-                <TextBlock x:Name="TxtStBest"  FontSize="10" Foreground="#FF4CAF50" Margin="0,1,0,0"/>
-                <TextBlock x:Name="TxtStWorst" FontSize="10" Foreground="#FFEF9A9A" Margin="0,1,0,0"/>
-                <TextBlock x:Name="TxtStDelta" Style="{StaticResource StatSub}"/>
-                <TextBlock x:Name="TxtStDuree" Style="{StaticResource StatSub}"/>
-            </StackPanel></Border>
-
-            <Border Style="{StaticResource StatBlock}"><StackPanel>
-                <TextBlock Style="{StaticResource StatLbl}">SESSION</TextBlock>
-                <TextBlock x:Name="TxtBestLap" Style="{StaticResource StatVal}" Foreground="#FF4CAF50"/>
-                <TextBlock x:Name="TxtTheo" Style="{StaticResource StatSub}"/>
-                <TextBlock x:Name="TxtTopSpeed" Style="{StaticResource StatSub}"/>
-            </StackPanel></Border>
-
-            <Border Style="{StaticResource StatBlock}"><StackPanel>
-                <TextBlock Style="{StaticResource StatLbl}">CARBURANT</TextBlock>
-                <TextBlock x:Name="TxtStFuelAvg"  Style="{StaticResource StatVal}"/>
-                <TextBlock x:Name="TxtStFuelTot"  Style="{StaticResource StatSub}"/>
-                <TextBlock x:Name="TxtStFuelLaps" Style="{StaticResource StatSub}"/>
-            </StackPanel></Border>
-
-            <Border x:Name="StatsVePanel" Style="{StaticResource StatBlock}" Visibility="Collapsed"><StackPanel>
-                <TextBlock Style="{StaticResource StatLbl}">ÉNERGIE (VE)</TextBlock>
-                <TextBlock x:Name="TxtStVeAvg" Style="{StaticResource StatVal}"/>
-                <TextBlock x:Name="TxtStVeTot" Style="{StaticResource StatSub}"/>
-            </StackPanel></Border>
-
-            <Border x:Name="StatsTirePanel" Style="{StaticResource StatBlock}" Visibility="Collapsed"><StackPanel>
-                <TextBlock Style="{StaticResource StatLbl}">USURE PNEUS / TOUR</TextBlock>
-                <TextBlock x:Name="TxtStTireFL" FontSize="10"/>
-                <TextBlock x:Name="TxtStTireFR" FontSize="10"/>
-                <TextBlock x:Name="TxtStTireRL" FontSize="10"/>
-                <TextBlock x:Name="TxtStTireRR" FontSize="10"/>
-            </StackPanel></Border>
-
-            <Border x:Name="StatsPitPanel" Style="{StaticResource StatBlock}" Width="368" Visibility="Collapsed"><StackPanel>
-                <TextBlock Style="{StaticResource StatLbl}">ARRÊTS AUX STANDS</TextBlock>
-                <ItemsControl x:Name="StatsPitList">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding}" FontSize="10" Margin="0,1,0,0" TextWrapping="Wrap"/>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </StackPanel></Border>
-        </WrapPanel>
-
-        <!-- Laps -->
-        <DataGrid x:Name="LapGrid" Grid.Row="3" Style="{StaticResource GridBase}"
-                  IsReadOnly="False" CanUserSortColumns="False"
-                  AlternatingRowBackground="#0AFFFFFF">
+        <DataGrid x:Name="LapGrid" Grid.Row="4" Style="{StaticResource GridBase}"
+                  IsReadOnly="False" CanUserSortColumns="False">
             <DataGrid.RowStyle>
                 <Style TargetType="DataGridRow">
                     <Setter Property="Background"      Value="{Binding RowBg}"/>
@@ -167,10 +273,10 @@
                         <DataTemplate><TextBlock Text="{Binding S3}" Foreground="{Binding S3Fg}"/></DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="Conso" Binding="{Binding FuelUsed}" Width="56" IsReadOnly="True"/>
-                <DataGridTextColumn Header="Carbu" Binding="{Binding FuelRemaining}" Width="54" IsReadOnly="True"/>
+                <DataGridTextColumn x:Name="ColFuel" Header="Conso" Binding="{Binding FuelUsed}" Width="56" IsReadOnly="True"/>
+                <DataGridTextColumn x:Name="ColFuelLeft" Header="Carbu" Binding="{Binding FuelRemaining}" Width="54" IsReadOnly="True"/>
                 <DataGridTextColumn x:Name="ColVe" Header="VE" Binding="{Binding VeUsed}" Width="52" IsReadOnly="True" Visibility="Collapsed"/>
-                <DataGridTextColumn Header="Usure" Binding="{Binding TireWearAvg}" Width="60" IsReadOnly="True"/>
+                <DataGridTextColumn x:Name="ColWear" Header="Usure" Binding="{Binding TireWearAvg}" Width="60" IsReadOnly="True"/>
             </DataGrid.Columns>
         </DataGrid>
     </Grid>

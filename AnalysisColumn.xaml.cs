@@ -11,6 +11,9 @@ namespace User.TeamPace
     /// <summary>Lap-by-lap analysis of one driver's session, with stats on the checked laps.</summary>
     public partial class AnalysisColumn : UserControl
     {
+        // Decimal point everywhere, like lap times (1:58.335), whatever the Windows locale
+        private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
+
         /// <summary>Raised when the checked laps change (average lap may have moved).</summary>
         public event Action<AnalysisColumn> StatsChanged;
 
@@ -44,7 +47,19 @@ namespace User.TeamPace
             TxtClass.Text = LmuCategoryStyle.GetShortName(cls);
             TxtCar.Text   = r.CarType ?? "";
             TxtTeam.Text  = r.TeamName ?? "";
-            TxtResult.Text = BuildResultLine(r);
+            TxtDate.Text  = r.SessionDate != DateTime.MinValue
+                ? r.SessionDate.ToString("ddd d MMM yyyy · HH:mm", CultureInfo.GetCultureInfo("fr-FR")) : "";
+
+            KpiFinishBox.Visibility = r.IsRace ? Visibility.Visible : Visibility.Collapsed;
+            KpiGridBox.Visibility   = r.IsRace ? Visibility.Visible : Visibility.Collapsed;
+            KpiFinish.Text = r.IsFinished ? Pos(r.ClassPosition, r.Position) : (r.TotalLaps > 0 ? "Abandon" : "—");
+            KpiGrid.Text   = Pos(r.ClassGridPos, r.GridPos);
+            KpiBest.Text   = r.BestLapFormatted;
+            KpiLaps.Text   = r.TotalLaps.ToString();
+            KpiPits.Text   = r.Pitstops.ToString();
+            KpiIncidents.Text = r.PenaltyCount > 0
+                ? string.Format(Inv, "{0} · {1} pén.", r.IncidentCount, r.PenaltyCount)
+                : r.IncidentCount.ToString();
 
             SimBadges.Children.Clear();
             AddBadge(r.IsFullSim ? "SIM COMPLÈTE" : "ARCADE", r.IsFullSim ? "#CC1565B0" : "#CC666666");
@@ -63,9 +78,8 @@ namespace User.TeamPace
                 if (l.TopSpeedKph > top) top = l.TopSpeedKph;
             }
             if (b1 < float.MaxValue && b2 < float.MaxValue && b3 < float.MaxValue) theo = b1 + b2 + b3;
-            TxtBestLap.Text  = r.BestLapFormatted;
-            TxtTheo.Text     = theo > 0 ? "Théorique " + Fmt.LapSec(theo) : "";
-            TxtTopSpeed.Text = top > 0 ? string.Format("Vmax {0:0} km/h", top) : "";
+            KpiTheo.Text = theo > 0 ? Fmt.LapSec(theo) : "—";
+            KpiTop.Text  = top > 0 ? string.Format(Inv, "{0:0} km/h", top) : "—";
 
             bool hasVe = false, hasTire = false;
             string prevCompound = null;
@@ -105,37 +119,57 @@ namespace User.TeamPace
                 if (!string.IsNullOrEmpty(l.FrontCompound)) prevCompound = l.FrontCompound;
             }
 
-            LapGrid.ItemsSource       = _rows;
-            ColVe.Visibility          = hasVe   ? Visibility.Visible : Visibility.Collapsed;
-            StatsVePanel.Visibility   = hasVe   ? Visibility.Visible : Visibility.Collapsed;
-            StatsTirePanel.Visibility = hasTire ? Visibility.Visible : Visibility.Collapsed;
+            LapGrid.ItemsSource = _rows;
+            HasVe    = hasVe;
+            HasTyres = hasTire;
+            foreach (var row in _rows)
+            {
+                if (row.FuelUsed != "—") HasFuel = true;
+                if (row.IsPitLap) HasPits = true;
+            }
             TxtLive.Text = liveMatched > 0
-                ? string.Format("● direct : {0} tour(s)", liveMatched)
-                : "○ pas de données direct";
+                ? string.Format(Inv, "● capture directe : {0} tour(s)", liveMatched)
+                : "";
+            SetOptionalBlocks(HasFuel, HasVe, HasTyres, HasPits);
 
             Recalc();
         }
 
-        private static string BuildResultLine(LmuSessionRecord r)
+        // One row of key figures, two when the column is too narrow (3-4 drivers)
+        private void KpiGridPanel_SizeChanged(object sender, SizeChangedEventArgs e)
         {
-            var parts = new List<string>();
-            parts.Add(r.SessionDate != DateTime.MinValue
-                ? r.SessionDate.ToString("ddd d MMM yyyy HH:mm", CultureInfo.GetCultureInfo("fr-FR")) : r.SessionTypeLong);
-            if (r.IsRace)
-            {
-                parts.Add("départ " + Pos(r.ClassGridPos, r.GridPos));
-                parts.Add("arrivée " + (r.IsFinished ? Pos(r.ClassPosition, r.Position) : (r.TotalLaps > 0 ? "DNF" : "—")));
-                parts.Add(string.Format("{0} arrêt(s)", r.Pitstops));
-            }
-            parts.Add(string.Format("{0} tour(s)", r.TotalLaps));
-            parts.Add(string.Format("{0} incident(s)", r.IncidentCount));
-            if (r.PenaltyCount > 0) parts.Add(string.Format("{0} pénalité(s)", r.PenaltyCount));
-            return string.Join("  ·  ", parts);
+            int visible = 0;
+            foreach (UIElement c in KpiGridPanel.Children) if (c.Visibility == Visibility.Visible) visible++;
+            if (visible == 0) return;
+            int rows = e.NewSize.Width / visible < 84 ? 2 : 1;
+            if (KpiGridPanel.Rows != rows) KpiGridPanel.Rows = rows;
+        }
+
+        public bool HasFuel  { get; private set; }
+        public bool HasVe    { get; private set; }
+        public bool HasTyres { get; private set; }
+        public bool HasPits  { get; private set; }
+
+        /// <summary>
+        /// Shows the optional blocks and columns. In a comparison the host passes the union over
+        /// all drivers, so every column keeps the same layout and the lap tables stay aligned.
+        /// </summary>
+        public void SetOptionalBlocks(bool fuel, bool ve, bool tyres, bool pits)
+        {
+            StatsFuelPanel.Visibility = fuel  ? Visibility.Visible : Visibility.Collapsed;
+            StatsVePanel.Visibility   = ve    ? Visibility.Visible : Visibility.Collapsed;
+            StatsTirePanel.Visibility = tyres ? Visibility.Visible : Visibility.Collapsed;
+            StatsPitPanel.Visibility  = pits  ? Visibility.Visible : Visibility.Collapsed;
+            ColFuel.Visibility        = fuel  ? Visibility.Visible : Visibility.Collapsed;
+            ColFuelLeft.Visibility    = fuel  ? Visibility.Visible : Visibility.Collapsed;
+            ColVe.Visibility          = ve    ? Visibility.Visible : Visibility.Collapsed;
+            ColWear.Visibility        = tyres ? Visibility.Visible : Visibility.Collapsed;
+            TxtNoLiveHint.Visibility  = fuel && tyres ? Visibility.Collapsed : Visibility.Visible;
         }
 
         private static string Pos(int cls, int overall)
         {
-            if (cls > 0 && overall > 0 && cls != overall) return string.Format("P{0} (P{1} gén.)", cls, overall);
+            if (cls > 0 && overall > 0 && cls != overall) return string.Format(Inv, "P{0} (P{1})", cls, overall);
             if (cls > 0) return "P" + cls;
             if (overall > 0) return "P" + overall;
             return "—";
@@ -194,12 +228,12 @@ namespace User.TeamPace
             long gap = AverageTicks - _referenceAvg;
             if (gap <= 0)
             {
-                TxtStVsBest.Text = "meilleure moyenne";
+                TxtStVsBest.Text = "★ meilleure moyenne";
                 TxtStVsBest.Foreground = Brushes.LightGreen;
             }
             else
             {
-                TxtStVsBest.Text = string.Format("+{0} vs {1}", Fmt.Seconds(TimeSpan.FromTicks(gap)), _referenceName);
+                TxtStVsBest.Text = string.Format(Inv, "+{0} s vs {1}", Fmt.Seconds(TimeSpan.FromTicks(gap)), _referenceName);
                 TxtStVsBest.Foreground = Brush("#FFEF9A9A");
             }
         }
@@ -228,36 +262,44 @@ namespace User.TeamPace
             var sel = new List<AnalysisLapRow>();
             foreach (var row in _rows) if (row.IsChecked) sel.Add(row);
 
-            TxtSelSummary.Text = string.Format("{0} / {1} tour(s) sélectionné(s)", sel.Count, _rows.Count);
+            TxtSelSummary.Text = string.Format(Inv, "{0} tour(s) coché(s) sur {1}", sel.Count, _rows.Count);
             UpdateHighlights(sel);
 
             // Lap times
             long best = long.MaxValue, worst = 0, sum = 0; int cnt = 0;
+            var secs = new List<double>();
             foreach (var row in sel)
             {
                 if (!row.IsValid) continue;
                 var t = row.Lap.LapTimeTicks;
                 if (t <= 0) continue;
                 sum += t; cnt++;
+                secs.Add(TimeSpan.FromTicks(t).TotalSeconds);
                 if (t < best) best = t;
                 if (t > worst) worst = t;
             }
             AverageTicks = cnt > 0 ? sum / cnt : 0;
             if (cnt > 0)
             {
-                TxtStAvg.Text   = Fmt.Lap(TimeSpan.FromTicks(AverageTicks));
-                TxtStBest.Text  = "Meilleur " + Fmt.Lap(TimeSpan.FromTicks(best));
-                TxtStWorst.Text = "Pire " + Fmt.Lap(TimeSpan.FromTicks(worst));
-                TxtStDelta.Text = "Écart meilleur/pire " + Fmt.Seconds(TimeSpan.FromTicks(worst - best));
+                double mean = TimeSpan.FromTicks(AverageTicks).TotalSeconds, sq = 0;
+                foreach (var s in secs) sq += (s - mean) * (s - mean);
+                double sigma = cnt > 1 ? Math.Sqrt(sq / (cnt - 1)) : 0;
+
+                TxtStAvg.Text       = Fmt.Lap(TimeSpan.FromTicks(AverageTicks));
+                TxtStBestWorst.Text = string.Format(Inv, "Meilleur {0}  ·  Pire {1}",
+                    Fmt.Lap(TimeSpan.FromTicks(best)), Fmt.Lap(TimeSpan.FromTicks(worst)));
+                TxtStSigma.Text  = cnt > 1 ? string.Format(Inv, "± {0:0.000} s", sigma) : "—";
+                TxtStSpread.Text = "Écart meilleur / pire : " + Fmt.Seconds(TimeSpan.FromTicks(worst - best));
                 var d = TimeSpan.FromTicks(sum);
-                TxtStDuree.Text = string.Format("{0} tour(s) · {1}", cnt,
-                    d.TotalHours >= 1 ? string.Format("{0}h {1:00}m", (int)d.TotalHours, d.Minutes)
-                                      : string.Format("{0}m {1:00}s", d.Minutes, d.Seconds));
+                TxtStDuree.Text = string.Format(Inv, "{0} tour(s) · {1}", cnt,
+                    d.TotalHours >= 1 ? string.Format(Inv, "{0}h {1:00}m", (int)d.TotalHours, d.Minutes)
+                                      : string.Format(Inv, "{0}m {1:00}s", d.Minutes, d.Seconds));
             }
             else
             {
-                TxtStAvg.Text = "—";
-                TxtStBest.Text = TxtStWorst.Text = TxtStDelta.Text = TxtStDuree.Text = "";
+                TxtStAvg.Text = TxtStSigma.Text = "—";
+                TxtStBestWorst.Text = TxtStSpread.Text = "";
+                TxtStDuree.Text = "Cochez des tours dans le tableau";
             }
             UpdateVsBest();
 
@@ -328,12 +370,12 @@ namespace User.TeamPace
                 return;
             }
             float avg = tot / cnt;
-            TxtStFuelAvg.Text  = string.Format("{0:F2} {1}/tour", avg, unit);
-            TxtStFuelTot.Text  = string.Format("Total {0:F1} {1} sur {2} tour(s)", tot, unit, cnt);
-            TxtStFuelLaps.Text = left > 0 ? string.Format("Autonomie ≈ {0:F1} tours", left / avg) : "";
+            TxtStFuelAvg.Text  = string.Format(Inv, "{0:F2} {1}/tour", avg, unit);
+            TxtStFuelTot.Text  = string.Format(Inv, "Total {0:F1} {1} sur {2} tour(s)", tot, unit, cnt);
+            TxtStFuelLaps.Text = left > 0 ? string.Format(Inv, "Autonomie ≈ {0:F1} tours", left / avg) : "";
             if (!litres)
                 TxtStFuelLaps.Text += (TxtStFuelLaps.Text.Length > 0 ? "\n" : "") +
-                                      string.Format("Plein ≈ {0:F1} tours", 100f / avg);
+                                      string.Format(Inv, "Plein ≈ {0:F1} tours", 100f / avg);
         }
 
         private void UpdateEnergy(List<AnalysisLapRow> sel)
@@ -343,15 +385,15 @@ namespace User.TeamPace
                 if (!row.IsPitLap && row.Lap.VirtualEnergyUsed > 0) { tot += row.Lap.VirtualEnergyUsed * 100f; cnt++; }
             if (cnt == 0) { TxtStVeAvg.Text = "—"; TxtStVeTot.Text = ""; return; }
             float avg = tot / cnt;
-            TxtStVeAvg.Text = string.Format("{0:F2} %/tour", avg);
-            TxtStVeTot.Text = string.Format("Total {0:F1} %  ·  100 % ≈ {1:F1} tours", tot, 100f / avg);
+            TxtStVeAvg.Text = string.Format(Inv, "{0:F2} %/tour", avg);
+            TxtStVeTot.Text = string.Format(Inv, "Total {0:F1} %  ·  100 % ≈ {1:F1} tours", tot, 100f / avg);
         }
 
         private static string WearPerLap(List<AnalysisLapRow> rows, Func<AnalysisLapRow, float> wear)
         {
             float sum = 0f; int cnt = 0;
             foreach (var row in rows) { float w = wear(row); if (w > 0) { sum += w; cnt++; } }
-            return cnt > 0 ? string.Format("{0:F2} %/tour", sum / cnt) : "—";
+            return cnt > 0 ? string.Format(Inv, "{0:F2} %/tour", sum / cnt) : "—";
         }
 
         // Measured when captured live, otherwise estimated from lap times:
@@ -372,10 +414,10 @@ namespace User.TeamPace
                 var p = row.Lap.LivePit;
                 if (p != null)
                 {
-                    parts.Add(string.Format("voie {0:F1} s", p.LaneSec));
-                    parts.Add(string.Format("arrêt {0:F1} s", p.StoppedSec));
-                    if (p.LimiterSec > 0)   parts.Add(string.Format("limiteur {0:F1} s", p.LimiterSec));
-                    if (p.FuelAddedL > 0.5) parts.Add(string.Format("+{0:F1} L", p.FuelAddedL));
+                    parts.Add(string.Format(Inv, "voie {0:F1} s", p.LaneSec));
+                    parts.Add(string.Format(Inv, "arrêt {0:F1} s", p.StoppedSec));
+                    if (p.LimiterSec > 0)   parts.Add(string.Format(Inv, "limiteur {0:F1} s", p.LimiterSec));
+                    if (p.FuelAddedL > 0.5) parts.Add(string.Format(Inv, "+{0:F1} L", p.FuelAddedL));
                     if (p.TyresChanged)     parts.Add("pneus");
                 }
                 if (refSec > 0 && row.Lap.LapTimeTicks > 0)
@@ -383,11 +425,11 @@ namespace User.TeamPace
                     double loss = row.Lap.LapTime.TotalSeconds - refSec;
                     if (i + 1 < _rows.Count && _rows[i + 1].Lap.LapTimeTicks > 0 && !_rows[i + 1].IsPitLap)
                         loss += _rows[i + 1].Lap.LapTime.TotalSeconds - refSec;
-                    parts.Add(string.Format("perte ≈ {0:+0.0;-0.0} s", loss));
+                    parts.Add(string.Format(Inv, "perte ≈ {0:+0.0;-0.0} s", loss));
                 }
                 items.Add(string.Join("  ·  ", parts));
             }
-            StatsPitPanel.Visibility = items.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            if (items.Count == 0) items.Add("Aucun arrêt pour ce pilote");
             StatsPitList.ItemsSource = items;
         }
 

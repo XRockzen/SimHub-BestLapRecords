@@ -22,6 +22,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0">
@@ -161,34 +162,53 @@
                 <TextBlock FontSize="10" Opacity="0.6" Margin="5,0,0,0" VerticalAlignment="Center"
                            Text="session commune : ligne ambrée + pastilles aux couleurs des autres pilotes  ·  un clic sélectionne la même session partout  ·  double-clic : analyse"/>
             </WrapPanel>
-            <WrapPanel x:Name="AnalysisLegend">
-                <Border CornerRadius="2" Padding="3,0" Background="#BB1565B0" VerticalAlignment="Center">
-                    <TextBlock Text="PIT" FontSize="8" FontWeight="Bold" Foreground="White"/>
-                </Border>
-                <TextBlock Text="passage aux stands" FontSize="10" Opacity="0.6" Margin="4,0,12,0" VerticalAlignment="Center"/>
-                <Border CornerRadius="2" Padding="3,0" Background="#BB2E7D32" VerticalAlignment="Center">
-                    <TextBlock Text="PNEU" FontSize="8" FontWeight="Bold" Foreground="White"/>
-                </Border>
-                <TextBlock Text="changement de gomme" FontSize="10" Opacity="0.6" Margin="4,0,12,0" VerticalAlignment="Center"/>
-                <Border CornerRadius="2" Padding="3,0" Background="#BBC62828" VerticalAlignment="Center">
-                    <TextBlock Text="INV" FontSize="8" FontWeight="Bold" Foreground="White"/>
-                </Border>
-                <TextBlock Text="tour invalidé" FontSize="10" Opacity="0.6" Margin="4,0,12,0" VerticalAlignment="Center"/>
-                <TextBlock Text="■" Foreground="#FF4CAF50" FontSize="10" VerticalAlignment="Center"/>
-                <TextBlock Text="meilleur tour" FontSize="10" Opacity="0.6" Margin="4,0,12,0" VerticalAlignment="Center"/>
-                <TextBlock Text="■" Foreground="#FFEF5350" FontSize="10" VerticalAlignment="Center"/>
-                <TextBlock Text="pire tour" FontSize="10" Opacity="0.6" Margin="4,0,12,0" VerticalAlignment="Center"/>
-                <TextBlock Text="■" Foreground="#FFBA68C8" FontSize="10" VerticalAlignment="Center"/>
-                <TextBlock Text="meilleur secteur (tours cochés)" FontSize="10" Opacity="0.6" Margin="4,0,12,0" VerticalAlignment="Center"/>
-                <TextBlock x:Name="TxtLegendTeam" Text="Δ pilotes : écart au plus rapide sur le même tour (★ = le plus rapide)"
-                           FontSize="10" Opacity="0.6" VerticalAlignment="Center"/>
-            </WrapPanel>
         </StackPanel>
 
         <!-- ═══ Colonnes : une par pilote ═════════════════════════════════ -->
         <Grid Grid.Row="4" x:Name="ColumnsHost"/>
 
-        <DockPanel Grid.Row="5" Margin="0,6,0,0">
+        <!-- ═══ Légende du tableau des tours, juste sous les tableaux ══════ -->
+        <Border Grid.Row="5" x:Name="AnalysisLegend" Background="#10FFFFFF" CornerRadius="0,0,6,6"
+                Padding="12,7" Margin="0,0,0,0">
+            <WrapPanel>
+                <WrapPanel.Resources>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="FontSize" Value="11"/>
+                        <Setter Property="Foreground" Value="#C8FFFFFF"/>
+                        <Setter Property="VerticalAlignment" Value="Center"/>
+                    </Style>
+                </WrapPanel.Resources>
+                <TextBlock Text="Repères" FontWeight="SemiBold" Foreground="White" Margin="0,0,10,0"/>
+                <Border CornerRadius="2" Padding="4,1" Background="#BB1565B0" VerticalAlignment="Center">
+                    <TextBlock Text="PIT" FontSize="9" FontWeight="Bold" Foreground="White"/>
+                </Border>
+                <TextBlock Text="passage aux stands" Margin="5,0,14,0"/>
+                <Border CornerRadius="2" Padding="4,1" Background="#BB2E7D32" VerticalAlignment="Center">
+                    <TextBlock Text="PNEU" FontSize="9" FontWeight="Bold" Foreground="White"/>
+                </Border>
+                <TextBlock Text="changement de gomme" Margin="5,0,14,0"/>
+                <Border CornerRadius="2" Padding="4,1" Background="#BBC62828" VerticalAlignment="Center">
+                    <TextBlock Text="INV" FontSize="9" FontWeight="Bold" Foreground="White"/>
+                </Border>
+                <TextBlock Text="tour invalidé" Margin="5,0,24,0"/>
+                <TextBlock Text="Couleurs" FontWeight="SemiBold" Foreground="White" Margin="0,0,10,0"/>
+                <TextBlock Text="1:36.779" Foreground="#FF4CAF50" FontWeight="SemiBold"/>
+                <TextBlock Text="meilleur tour" Margin="5,0,14,0"/>
+                <TextBlock Text="2:06.707" Foreground="#FFEF5350" FontWeight="SemiBold"/>
+                <TextBlock Text="pire tour" Margin="5,0,14,0"/>
+                <TextBlock Text="0:25.813" Foreground="#FFBA68C8" FontWeight="SemiBold"/>
+                <TextBlock Text="meilleur secteur" Margin="5,0,6,0"/>
+                <TextBlock Text="(parmi les tours cochés)" Foreground="#80FFFFFF" Margin="0,0,24,0"/>
+                <StackPanel x:Name="TxtLegendTeam" Orientation="Horizontal">
+                    <TextBlock Text="Δ pilotes" FontWeight="SemiBold" Foreground="White" Margin="0,0,8,0"/>
+                    <TextBlock Text="écart au plus rapide sur le même tour,"/>
+                    <TextBlock Text=" ★" Foreground="#FF4CAF50" FontWeight="SemiBold"/>
+                    <TextBlock Text=" = le plus rapide"/>
+                </StackPanel>
+            </WrapPanel>
+        </Border>
+
+        <DockPanel Grid.Row="6" Margin="0,6,0,0">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                 <TextBlock x:Name="TxtVersion" FontSize="10" Opacity="0.5" VerticalAlignment="Center"/>
                 <TextBlock x:Name="LnkCheckUpdate" Text="  ·  Vérifier les mises à jour" FontSize="10"

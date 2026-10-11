@@ -289,10 +289,10 @@ namespace User.TeamPace
 
             var header = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 6) };
             header.Children.Add(new TextBlock { Text = d.DbPath == null ? d.Name + "  (moi)" : d.Name,
-                                                FontSize = 13, FontWeight = FontWeights.Bold, Foreground = d.Brush });
+                                                FontSize = 17, FontWeight = FontWeights.Bold, Foreground = d.Brush });
             if (!string.IsNullOrEmpty(subtitle))
-                header.Children.Add(new TextBlock { Text = "  " + subtitle, FontSize = 10, Opacity = 0.5,
-                                                    VerticalAlignment = VerticalAlignment.Bottom });
+                header.Children.Add(new TextBlock { Text = "   " + subtitle, FontSize = 12, Opacity = 0.6,
+                                                    VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 0, 2) });
 
             var dock = new DockPanel();
             var bar = new Border { Height = 3, Background = d.Brush, CornerRadius = new CornerRadius(1.5) };
@@ -543,6 +543,13 @@ namespace User.TeamPace
                     }, null);
                 }
             }
+
+            bool fuel = false, ve = false, tyres = false, pits = false;
+            foreach (var c in _analysisCols)
+            {
+                fuel |= c.HasFuel; ve |= c.HasVe; tyres |= c.HasTyres; pits |= c.HasPits;
+            }
+            foreach (var c in _analysisCols) c.SetOptionalBlocks(fuel, ve, tyres, pits);
 
             if (_analysisCols.Count > 1)
             {
