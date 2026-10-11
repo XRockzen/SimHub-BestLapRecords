@@ -110,6 +110,7 @@ namespace User.TeamPace
             CircuitGrid.Items.Refresh();
         }
 
+        /// <summary>Focus requested by another driver's column: same circuit × class, or nothing.</summary>
         public void SelectCircuit(string key)
         {
             _syncing = true;
@@ -119,8 +120,18 @@ namespace User.TeamPace
                     if (r.Key == key) { match = r; break; }
             CircuitGrid.SelectedItem = match;
             if (match != null) CircuitGrid.ScrollIntoView(match);
-            _activity.SelectTrack(match != null ? match.Circuit : null);
+            Focus(key);
             _syncing = false;
+        }
+
+        /// <summary>
+        /// Greys out every row except the focused circuit × class, and highlights that circuit in
+        /// the activity chart. A driver who never drove it there ends up with every row greyed.
+        /// </summary>
+        private void Focus(string key)
+        {
+            foreach (var r in _allRows) r.IsDimmed = key != null && r.Key != key;
+            _activity.SelectTrack(key != null ? key.Split('|')[0] : null);
         }
 
         // ─── Events ───────────────────────────────────────────────────────────
@@ -128,8 +139,22 @@ namespace User.TeamPace
         private void CircuitGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             var row = CircuitGrid.SelectedItem as LmuCircuitBestRow;
-            _activity.SelectTrack(row != null ? row.Circuit : null);
+            Focus(row != null ? row.Key : null);
             if (!_syncing && CircuitSelected != null) CircuitSelected(row != null ? row.Key : null);
+        }
+
+        // Clicking the focused row again clears the focus
+        private void CircuitGrid_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ClickCount != 1) return;
+            var dep = e.OriginalSource as DependencyObject;
+            while (dep != null && !(dep is DataGridRow)) dep = System.Windows.Media.VisualTreeHelper.GetParent(dep);
+            var row = dep as DataGridRow;
+            if (row != null && row.IsSelected)
+            {
+                CircuitGrid.SelectedItem = null;
+                e.Handled = true;
+            }
         }
 
         private void CircuitGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)

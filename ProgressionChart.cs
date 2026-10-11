@@ -108,8 +108,9 @@ namespace User.TeamPace
 
             double cw = w - ML - MR, ch = h - MT - MB;
             Func<LmuSessionRecord, double> X = s => ML + (slotOf[s] + 0.5) / slots * cw;
-            // Faster lap = smaller value = drawn higher; slower outliers are clamped to the bottom edge
-            Func<double, double> Yt = v => MT + (Math.Min(v, yMax) - yMin) / (yMax - yMin) * ch;
+            // Usual axis: faster lap = lower on screen, so progress reads as a falling curve.
+            // Slower outliers are clamped to the top edge.
+            Func<double, double> Yt = v => MT + ch - (Math.Min(v, yMax) - yMin) / (yMax - yMin) * ch;
 
             // ── Grid + labels ────────────────────────────────────────────────
             double step = NiceStep((yMax - yMin) / 4);
@@ -187,7 +188,7 @@ namespace User.TeamPace
             }
 
             if (secs[secs.Count - 1] > yMax)
-                AddText("○ en bas = session plus lente, hors échelle", w - MR - 250, MT + ch - 16, LabelBrush, 10);
+                AddText("○ en haut = session plus lente, hors échelle", w - MR - 250, MT + 2, LabelBrush, 10);
 
             Highlight(_highlighted);
         }

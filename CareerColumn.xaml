@@ -64,14 +64,24 @@
             </StackPanel></Border>
         </WrapPanel>
 
-        <TextBlock Grid.Row="1" Text="MEILLEURES PERFORMANCES PAR CIRCUIT  ·  double-clic : progression"
-                   Style="{StaticResource SectionLbl}"/>
+        <TextBlock Grid.Row="1" Style="{StaticResource SectionLbl}"
+                   Text="MEILLEURES PERFORMANCES PAR CIRCUIT  ·  clic : mettre en évidence chez tous les pilotes (re-clic pour annuler)  ·  double-clic : progression"
+                   TextTrimming="CharacterEllipsis"/>
 
         <DataGrid x:Name="CircuitGrid" Grid.Row="2" Style="{StaticResource GridBase}"
                   IsReadOnly="True" CanUserSortColumns="True"
-                  RowStyle="{StaticResource BaseRowStyle}"
                   SelectionChanged="CircuitGrid_SelectionChanged"
+                  PreviewMouseLeftButtonDown="CircuitGrid_PreviewMouseLeftButtonDown"
                   MouseDoubleClick="CircuitGrid_MouseDoubleClick">
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow" BasedOn="{StaticResource BaseRowStyle}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsDimmed}" Value="True">
+                            <Setter Property="Opacity" Value="0.22"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </DataGrid.RowStyle>
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Circuit" Binding="{Binding Circuit}" Width="*" MinWidth="110"/>
                 <DataGridTemplateColumn Header="Cl." Width="72" SortMemberPath="CarClassLabel"

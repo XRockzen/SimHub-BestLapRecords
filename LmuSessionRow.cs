@@ -93,8 +93,24 @@ namespace User.TeamPace
     }
 
     /// <summary>Display row for the career circuit-bests DataGrid.</summary>
-    public class LmuCircuitBestRow
+    public class LmuCircuitBestRow : System.ComponentModel.INotifyPropertyChanged
     {
+        public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
+
+        private bool _isDimmed;
+        /// <summary>Greyed out while another circuit is focused.</summary>
+        public bool IsDimmed
+        {
+            get { return _isDimmed; }
+            set
+            {
+                if (_isDimmed == value) return;
+                _isDimmed = value;
+                var h = PropertyChanged;
+                if (h != null) h(this, new System.ComponentModel.PropertyChangedEventArgs("IsDimmed"));
+            }
+        }
+
         public string Circuit        { get; set; }
         public string CarClassLabel  { get; set; }
         public string CarClassBg     { get; set; }

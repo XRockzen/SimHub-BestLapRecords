@@ -17,6 +17,7 @@ courses d'endurance : consommation, usure des pneus, temps perdu aux stands.
 - [Se comparer](#4-se-comparer)
 - [Mises à jour](#5-mises-à-jour)
 - [Dépannage](#dépannage)
+- [Historique des versions](CHANGELOG.md)
 
 ## Ce que fait TeamPace
 
@@ -25,6 +26,7 @@ courses d'endurance : consommation, usure des pneus, temps perdu aux stands.
 | **Comparaison entre coéquipiers** | jusqu'à 4 pilotes côte à côte, une colonne et une couleur par pilote |
 | **Sessions communes** | les courses et essais faits ensemble sont détectés et surlignés automatiquement |
 | **Carrière** | courses, victoires, podiums, temps de roulage, record par circuit et par catégorie, activité semaine par semaine |
+| **Progression** | courbe du meilleur tour de chaque pilote sur un circuit, session après session |
 | **Analyse tour par tour** | secteurs, écart au coéquipier sur chaque tour, carburant, énergie virtuelle, usure des pneus, arrêts aux stands |
 | **Capture en direct** | pendant que vous roulez (SimHub ouvert) : litres par tour, usure par tour, temps dans la voie des stands et à l'arrêt |
 | **Automatique** | chaque session terminée dans LMU est importée seule, serveurs privés compris |
@@ -128,19 +130,27 @@ sont en lecture seule : vous ne pouvez rien modifier chez eux, et eux rien chez 
 
 ### Carrière
 
-Une colonne par pilote : statistiques, record par circuit et catégorie, et activité.
-La colonne **Écart** indique qui détient le record (★) et à combien sont les autres.
-Les filtres de catégorie s'appliquent à toutes les colonnes. Cliquer un circuit le sélectionne chez
-tout le monde ; un double-clic ouvre sa **progression**.
+Une colonne par pilote : statistiques, record par circuit et catégorie, et activité semaine par
+semaine (même échelle pour tous les pilotes). La colonne **Écart** indique qui détient le record (★)
+et à combien sont les autres. Les filtres de catégorie s'appliquent à toutes les colonnes.
+
+![Mise en évidence d'un circuit](docs/images/09-carriere-focus.png)
+
+**Un clic sur un circuit le met en évidence chez tous les pilotes** : toutes les autres lignes sont
+grisées, il ne reste que ce circuit dans cette catégorie (1, 2), et les graphiques d'activité ne
+colorent plus que lui. Un coéquipier qui n'y a jamais roulé dans cette catégorie a toute sa colonne
+grisée. Re-cliquez sur la ligne pour annuler. Un **double-clic** ouvre la **progression**.
 
 ### Progression sur un circuit
 
 ![Progression sur un circuit](docs/images/03-progression.png)
 
 1. Le **fil d'Ariane** : cliquez « Carrière » pour remonter directement.
-2. La **courbe** : chaque point est le meilleur tour d'une session, une couleur par pilote. La ligne
-   suit le record de chacun au fil du temps (★ = record). Les points cerclés d'orange sont des
-   sessions communes. Un clic sélectionne la session dans les tableaux ; un double-clic l'analyse.
+2. La **courbe** : chaque point est le meilleur tour d'une session, une couleur par pilote, et la
+   ligne suit le record de chacun. **Plus c'est bas, plus c'est rapide** : une courbe qui descend,
+   c'est un pilote qui progresse (★ = record). Les sessions sont espacées régulièrement, dans l'ordre
+   chronologique ; les points cerclés d'orange sont des sessions communes. Un clic sélectionne la
+   session dans les tableaux ; un double-clic l'analyse.
 3. Les **chiffres clés** de chaque pilote : record, écart au meilleur de l'équipe, progression depuis
    la première session, dernière séance et temps roulé sur ce circuit.
 4. **←** : retour à l'écran précédent.
@@ -149,7 +159,10 @@ tout le monde ; un double-clic ouvre sa **progression**.
 
 ![Historique et sessions communes](docs/images/06-historique-sessions-communes.png)
 
-1. **⇄ Communes** : n'affiche que les sessions faites ensemble.
+Les filtres en haut (**Courses**, **Qualifs**, **Essais**, **Sim complète**) s'appliquent à tous les
+pilotes.
+
+1. **⇄ Communes uniquement** : n'affiche que les sessions faites ensemble.
 2. Les **pastilles de couleur** indiquent avec quels pilotes la session a été courue.
 3. Les **lignes ambrées** sont les sessions communes. Un clic sélectionne la même session dans toutes
    les colonnes ; un **double-clic ouvre l'analyse côte à côte**.
@@ -158,6 +171,15 @@ tout le monde ; un double-clic ouvre sa **progression**.
 
 ![Analyse d'une course commune](docs/images/07-analyse-cote-a-cote.png)
 
+Chaque colonne se lit de haut en bas :
+
+- la **carte de session** : voiture, équipe, et les chiffres clés (arrivée, départ, meilleur tour,
+  théorique, vitesse max, tours, arrêts, incidents) ;
+- l'**analyse des tours cochés** : *Rythme* (moyenne), *Régularité* (écart-type : plus il est bas,
+  plus les tours se ressemblent), carburant, énergie virtuelle, usure des pneus et arrêts aux stands
+  avec le temps perdu ;
+- le **tableau tour par tour**, avec sa sélection juste au-dessus et sa légende juste en dessous.
+
 1. **Δ pilotes** : sur chaque tour, l'écart au plus rapide de l'équipe (★ = le plus rapide).
 2. L'écart de votre **moyenne** à la meilleure moyenne de l'équipe.
 3. **Rythme** coche les tours représentatifs (hors tour 1, passages aux stands et tour de sortie).
@@ -165,7 +187,8 @@ tout le monde ; un double-clic ouvre sa **progression**.
 
 Les couleurs : vert = meilleur tour, rouge = pire tour, violet = meilleur secteur.
 Les badges **PIT**, **PNEU** et **INV** signalent un passage aux stands, un changement de gomme et
-un tour invalidé.
+un tour invalidé. Les colonnes des pilotes gardent la même structure, pour que les tableaux restent
+alignés tour par tour.
 
 ## 5. Mises à jour
 
@@ -201,7 +224,7 @@ $env:SIMHUB_INSTALL_PATH = "F:\Program Files (x86)\SimHub\"
 & "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\MSBuild.exe" User.TeamPace.csproj /p:Configuration=Release
 
 # Publier une nouvelle version (bandeau de mise à jour chez tous les pilotes)
-.\release.ps1 -Version 2.1.0 -NotesFile notes.md -Deploy
+.\release.ps1 -Version 2.4.0 -NotesFile notes.md -Deploy
 ```
 
 Le projet référence les DLL de SimHub via `SIMHUB_INSTALL_PATH` : elles ne sont pas incluses dans ce
