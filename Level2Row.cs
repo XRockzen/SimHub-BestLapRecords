@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Media;
 
-namespace User.BestLapRecords
+namespace User.TeamPace
 {
     /// <summary>Level 2 display: one row per Category for a given Circuit.</summary>
     public class Level2Row

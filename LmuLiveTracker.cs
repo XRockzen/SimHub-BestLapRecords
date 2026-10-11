@@ -2,7 +2,7 @@ using GameReaderCommon;
 using System;
 using System.Threading.Tasks;
 
-namespace User.BestLapRecords
+namespace User.TeamPace
 {
     public class LmuLiveLap
     {

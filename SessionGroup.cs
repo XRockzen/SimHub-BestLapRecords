@@ -4,7 +4,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Windows;
 
-namespace User.BestLapRecords
+namespace User.TeamPace
 {
     public class SessionGroup : INotifyPropertyChanged
     {

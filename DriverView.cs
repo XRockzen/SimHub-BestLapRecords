@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Windows.Media;
 
-namespace User.BestLapRecords
+namespace User.TeamPace
 {
     /// <summary>A driver shown as one column in the UI: identity, colour and lazily loaded sessions.</summary>
     public class DriverView

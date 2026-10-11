@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-namespace User.BestLapRecords
+namespace User.TeamPace
 {
     public static class LmuSessionStore
     {
@@ -31,9 +31,7 @@ namespace User.BestLapRecords
 
         public static void Init(string commonPath)
         {
-            var dir = Path.Combine(commonPath, "BestLapRecords");
-            Directory.CreateDirectory(dir);
-            _dbPath = Path.Combine(dir, "lmu_sessions.db");
+            _dbPath = Path.Combine(PluginPaths.DataDir(commonPath), "lmu_sessions.db");
 
             try
             {

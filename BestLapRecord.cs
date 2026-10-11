@@ -1,6 +1,6 @@
 using System;
 
-namespace User.BestLapRecords
+namespace User.TeamPace
 {
     public class BestLapRecord
     {

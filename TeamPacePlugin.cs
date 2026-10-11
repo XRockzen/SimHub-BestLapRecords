@@ -7,12 +7,12 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Media;
 
-namespace User.BestLapRecords
+namespace User.TeamPace
 {
-    [PluginDescription("Hall of Records - Best laps and best rhythm per game / category / track / car")]
-    [PluginAuthor("Amaury")]
-    [PluginName("Best Lap Records")]
-    public class BestLapRecordsPlugin : IPlugin, IDataPlugin, IWPFSettingsV2
+    [PluginDescription("Le Mans Ultimate : comparez votre rythme à celui de vos coéquipiers, session par session et tour par tour")]
+    [PluginAuthor("XRockzen")]
+    [PluginName("TeamPace")]
+    public class TeamPacePlugin : IPlugin, IDataPlugin, IWPFSettingsV2
     {
         internal List<BestLapRecord> AllRecords;
         internal bool   IsLoading;
@@ -32,7 +32,7 @@ namespace User.BestLapRecords
 
         private readonly LmuLiveTracker _liveTracker = new LmuLiveTracker();
 
-        public BestLapRecordsPlugin()
+        public TeamPacePlugin()
         {
             AllRecords = new List<BestLapRecord>();
             IsLoading  = true;
@@ -41,11 +41,11 @@ namespace User.BestLapRecords
         public PluginManager PluginManager { get; set; }
 
         public ImageSource PictureIcon  { get { return null; } }
-        public string      LeftMenuTitle{ get { return "Best Laps"; } }
+        public string      LeftMenuTitle{ get { return "TeamPace"; } }
 
         public void Init(PluginManager pluginManager)
         {
-            SimHub.Logging.Current.Info("[BestLapRecords] Starting plugin");
+            SimHub.Logging.Current.Info("[TeamPace] Starting plugin");
 
             this.AttachDelegate("CurrentBestLap",    () => _currentRecord != null ? _currentRecord.BestLapFormatted    : "-");
             this.AttachDelegate("CurrentBestRhythm", () => _currentRecord != null ? _currentRecord.BestRhythmFormatted : "-");
@@ -68,12 +68,12 @@ namespace User.BestLapRecords
                     var newest = AllRecords.OrderByDescending(r => r.RecordDate).FirstOrDefault();
                     LastGame = newest != null ? newest.Game : null;
                     SimHub.Logging.Current.Info(
-                        string.Format("[BestLapRecords] Loaded {0} records — last game: {1}", AllRecords.Count, LastGame));
+                        string.Format("[TeamPace] Loaded {0} records — last game: {1}", AllRecords.Count, LastGame));
                 }
                 catch (Exception ex)
                 {
                     LoadError = ex.Message;
-                    SimHub.Logging.Current.Error(string.Format("[BestLapRecords] Load error: {0}", ex));
+                    SimHub.Logging.Current.Error(string.Format("[TeamPace] Load error: {0}", ex));
                 }
                 finally { IsLoading = false; }
             });
@@ -155,7 +155,7 @@ namespace User.BestLapRecords
                             completedLaps, _sessionId ?? "", DateTime.UtcNow);
 
                         SimHub.Logging.Current.Info(
-                            string.Format("[BestLapRecords] Captured invalid lap #{0} — {1} / {2}",
+                            string.Format("[TeamPace] Captured invalid lap #{0} — {1} / {2}",
                                 completedLaps, lapTrack, carId));
                     }
                 }
@@ -187,14 +187,14 @@ namespace User.BestLapRecords
                 if (string.IsNullOrEmpty(resultsPath))
                 {
                     SimHub.Logging.Current.Info(
-                        "[BestLapRecords] LMU results path not found — set it in plugin settings");
+                        "[TeamPace] LMU results path not found — set it in plugin settings");
                     return;
                 }
 
                 if (string.IsNullOrEmpty(playerName))
                 {
                     SimHub.Logging.Current.Info(
-                        "[BestLapRecords] LMU player name not set — configure it in plugin settings");
+                        "[TeamPace] LMU player name not set — configure it in plugin settings");
                     return;
                 }
 
@@ -209,12 +209,12 @@ namespace User.BestLapRecords
 
                 if (imported > 0)
                     SimHub.Logging.Current.Info(
-                        string.Format("[BestLapRecords] LMU import done: {0} new sessions", imported));
+                        string.Format("[TeamPace] LMU import done: {0} new sessions", imported));
             }
             catch (Exception ex)
             {
                 SimHub.Logging.Current.Warn(
-                    string.Format("[BestLapRecords] LMU import error: {0}", ex.Message));
+                    string.Format("[TeamPace] LMU import error: {0}", ex.Message));
             }
             finally
             {
@@ -229,7 +229,7 @@ namespace User.BestLapRecords
 
         public System.Windows.Controls.Control GetWPFSettingsControl(PluginManager pluginManager)
         {
-            return new BestLapRecordsControl(this);
+            return new TeamPaceControl(this);
         }
 
         internal void Reload()

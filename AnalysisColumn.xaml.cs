@@ -6,7 +6,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 
-namespace User.BestLapRecords
+namespace User.TeamPace
 {
     /// <summary>Lap-by-lap analysis of one driver's session, with stats on the checked laps.</summary>
     public partial class AnalysisColumn : UserControl

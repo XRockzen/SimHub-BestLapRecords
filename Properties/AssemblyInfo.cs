@@ -1,11 +1,11 @@
 ﻿using System.Reflection;
 using System.Runtime.InteropServices;
 
-[assembly: AssemblyTitle("User.BestLapRecords")]
-[assembly: AssemblyDescription("SimHub plugin - Hall of Records")]
+[assembly: AssemblyTitle("User.TeamPace")]
+[assembly: AssemblyDescription("TeamPace - plugin SimHub de comparaison entre coéquipiers pour Le Mans Ultimate")]
 [assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("User.BestLapRecords")]
+[assembly: AssemblyProduct("TeamPace")]
 [assembly: AssemblyCopyright("")]
 [assembly: ComVisible(false)]
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyVersion("2.0.0.0")]
+[assembly: AssemblyFileVersion("2.0.0.0")]

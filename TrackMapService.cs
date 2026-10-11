@@ -7,7 +7,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Windows;
 
-namespace User.BestLapRecords
+namespace User.TeamPace
 {
     public class TrackMapInfo
     {
@@ -56,7 +56,7 @@ namespace User.BestLapRecords
             }
             catch (Exception ex)
             {
-                SimHub.Logging.Current.Warn(string.Format("[BestLapRecords] TrackMap error for {0}: {1}", trackName, ex.Message));
+                SimHub.Logging.Current.Warn(string.Format("[TeamPace] TrackMap error for {0}: {1}", trackName, ex.Message));
             }
 
             return result;

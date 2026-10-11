@@ -1,7 +1,7 @@
 using System;
 using System.ComponentModel;
 
-namespace User.BestLapRecords
+namespace User.TeamPace
 {
     /// <summary>Row model for the analysis lap DataGrid (view 7). Supports INotifyPropertyChanged for live stats recalc.</summary>
     public class AnalysisLapRow : INotifyPropertyChanged

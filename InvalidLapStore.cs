@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-namespace User.BestLapRecords
+namespace User.TeamPace
 {
     /// <summary>
     /// Stores invalid laps (LapTime=0) that SimHub detects but does not persist in its own DB.
@@ -17,9 +17,7 @@ namespace User.BestLapRecords
 
         public static void Init(string commonPath)
         {
-            var dir = Path.Combine(commonPath, "BestLapRecords");
-            Directory.CreateDirectory(dir);
-            _dbPath = Path.Combine(dir, "invalid_laps.db");
+            _dbPath = Path.Combine(PluginPaths.DataDir(commonPath), "invalid_laps.db");
         }
 
         // ─── Write (called from DataUpdate) ──────────────────────────────────
@@ -62,7 +60,7 @@ namespace User.BestLapRecords
                 catch (Exception ex)
                 {
                     SimHub.Logging.Current.Warn(
-                        string.Format("[BestLapRecords] InvalidLapStore.AddLap error: {0}", ex.Message));
+                        string.Format("[TeamPace] InvalidLapStore.AddLap error: {0}", ex.Message));
                 }
             }
         }

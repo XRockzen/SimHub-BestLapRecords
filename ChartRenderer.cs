@@ -8,7 +8,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
 
-namespace User.BestLapRecords
+namespace User.TeamPace
 {
     /// <summary>
     /// Interactive progress-chart renderer attached to a WPF Canvas.

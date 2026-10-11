@@ -4,7 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Xml.Linq;
 
-namespace User.BestLapRecords
+namespace User.TeamPace
 {
     public static class LmuXmlParser
     {

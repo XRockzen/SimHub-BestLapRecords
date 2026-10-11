@@ -1,11 +1,11 @@
-<UserControl x:Class="User.BestLapRecords.AnalysisColumn"
+<UserControl x:Class="User.TeamPace.AnalysisColumn"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:User.BestLapRecords">
+             xmlns:local="clr-namespace:User.TeamPace">
     <UserControl.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="/User.BestLapRecords;component/Styles.xaml"/>
+                <ResourceDictionary Source="/User.TeamPace;component/Styles.xaml"/>
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </UserControl.Resources>

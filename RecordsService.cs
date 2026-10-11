@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-namespace User.BestLapRecords
+namespace User.TeamPace
 {
     public static class RecordsService
     {
@@ -48,7 +48,7 @@ namespace User.BestLapRecords
                 catch (Exception ex)
                 {
                     SimHub.Logging.Current.Warn(
-                        string.Format("[BestLapRecords] Failed to load {0}: {1}", dbPath, ex.Message));
+                        string.Format("[TeamPace] Failed to load {0}: {1}", dbPath, ex.Message));
                 }
             }
 
@@ -206,7 +206,7 @@ namespace User.BestLapRecords
             }
             catch (Exception ex)
             {
-                SimHub.Logging.Current.Warn(string.Format("[BestLapRecords] LoadLapTimes error: {0}", ex.Message));
+                SimHub.Logging.Current.Warn(string.Format("[TeamPace] LoadLapTimes error: {0}", ex.Message));
             }
 
             // Merge supplementary invalid laps captured at runtime (one query per carId)
@@ -330,7 +330,7 @@ namespace User.BestLapRecords
                 catch (Exception ex)
                 {
                     SimHub.Logging.Current.Warn(
-                        string.Format("[BestLapRecords] LoadActivityLaps error: {0}", ex.Message));
+                        string.Format("[TeamPace] LoadActivityLaps error: {0}", ex.Message));
                 }
             }
 

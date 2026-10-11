@@ -1,4 +1,4 @@
-namespace User.BestLapRecords
+namespace User.TeamPace
 {
     public static class LmuCategoryStyle
     {

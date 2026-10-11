@@ -10,7 +10,7 @@ using System.Windows.Media;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 
-namespace User.BestLapRecords
+namespace User.TeamPace
 {
     // ── Converter : "" → Collapsed, non-empty → Visible ─────────────────────
     public class VisibleWhenNotEmptyConverter : IValueConverter
@@ -30,7 +30,7 @@ namespace User.BestLapRecords
     /// Main screen: every view is rendered as one column per displayed driver,
     /// with shared filters and a back stack (career → circuit → session analysis).
     /// </summary>
-    public partial class BestLapRecordsControl : UserControl
+    public partial class TeamPaceControl : UserControl
     {
         private enum Screen { Career, History, Progress, Analysis }
 
@@ -46,7 +46,7 @@ namespace User.BestLapRecords
         // Kept across control re-creations (SimHub rebuilds the settings page)
         private static readonly List<string> SelectedKeys = new List<string> { "" };
 
-        private readonly BestLapRecordsPlugin _plugin;
+        private readonly TeamPacePlugin _plugin;
         private readonly DispatcherTimer      _loadTimer;
         private bool _lmuSettingsDirty;
 
@@ -65,7 +65,7 @@ namespace User.BestLapRecords
         private readonly List<AnalysisColumn>    _analysisCols = new List<AnalysisColumn>();
         private bool _populatingDrivers;
 
-        public BestLapRecordsControl(BestLapRecordsPlugin plugin)
+        public TeamPaceControl(TeamPacePlugin plugin)
         {
             _plugin = plugin;
             InitializeComponent();
@@ -80,7 +80,7 @@ namespace User.BestLapRecords
             RebuildDrivers();
             Navigate(new NavState { Screen = Screen.Career }, false);
 
-            TxtVersion.Text = "Best Lap Records " + PluginUpdater.Format(PluginUpdater.CurrentVersion);
+            TxtVersion.Text = "TeamPace " + PluginUpdater.Format(PluginUpdater.CurrentVersion);
             Loaded   += (s, e) => { PluginUpdater.Changed += OnUpdateChanged; RefreshUpdateBanner(); };
             Unloaded += (s, e) => PluginUpdater.Changed -= OnUpdateChanged;
 

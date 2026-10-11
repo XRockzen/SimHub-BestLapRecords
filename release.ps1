@@ -21,7 +21,7 @@ $root    = $PSScriptRoot
 $tag     = "v$Version"
 $simhub  = if ($env:SIMHUB_INSTALL_PATH) { $env:SIMHUB_INSTALL_PATH } else { "F:\Program Files (x86)\SimHub\" }
 $msbuild = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\MSBuild.exe"
-$dllName = "User.BestLapRecords.dll"
+$dllName = "User.TeamPace.dll"
 
 function Step($msg) { Write-Host "`n==> $msg" -ForegroundColor Cyan }
 function Fail($msg) { Write-Host "ERREUR : $msg" -ForegroundColor Red; exit 1 }
@@ -60,7 +60,7 @@ try {
 
     Step "Compilation Release"
     $env:SIMHUB_INSTALL_PATH = $simhub
-    & $msbuild (Join-Path $root "User.BestLapRecords.csproj") /p:Configuration=Release /t:Rebuild /v:minimal /nologo "/p:PostBuildEvent=" |
+    & $msbuild (Join-Path $root "User.TeamPace.csproj") /p:Configuration=Release /t:Rebuild /v:minimal /nologo "/p:PostBuildEvent=" |
         Where-Object { $_ -match 'error|->' }
     if ($LASTEXITCODE -ne 0) { Fail "La compilation a échoué" }
     $built = Join-Path $root "bin\Release\$dllName"

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Media;
 
-namespace User.BestLapRecords
+namespace User.TeamPace
 {
     public class CategoryBadge
     {

@@ -4,7 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 
-namespace User.BestLapRecords
+namespace User.TeamPace
 {
     public partial class CareerColumn : UserControl
     {

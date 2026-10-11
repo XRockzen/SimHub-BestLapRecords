@@ -6,7 +6,7 @@ using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace User.BestLapRecords
+namespace User.TeamPace
 {
     public class CarInfo
     {
@@ -29,7 +29,7 @@ namespace User.BestLapRecords
             _lookup.Clear();
             _modelToCarIds.Clear();
 
-            var aliasFile = Path.Combine(pluginsDataCommonPath, "BestLapRecords", "car_aliases.json");
+            var aliasFile = Path.Combine(PluginPaths.DataDir(pluginsDataCommonPath), "car_aliases.json");
             if (!File.Exists(aliasFile)) return;
 
             try
@@ -67,11 +67,11 @@ namespace User.BestLapRecords
                     }
                 }
 
-                SimHub.Logging.Current.Info(string.Format("[BestLapRecords] Loaded {0} car aliases", _lookup.Count));
+                SimHub.Logging.Current.Info(string.Format("[TeamPace] Loaded {0} car aliases", _lookup.Count));
             }
             catch (Exception ex)
             {
-                SimHub.Logging.Current.Warn(string.Format("[BestLapRecords] car_aliases.json error: {0}", ex.Message));
+                SimHub.Logging.Current.Warn(string.Format("[TeamPace] car_aliases.json error: {0}", ex.Message));
             }
         }
 

@@ -1,6 +1,6 @@
 using System;
 
-namespace User.BestLapRecords
+namespace User.TeamPace
 {
     /// <summary>Level 3 display: one row per individual lap.</summary>
     public class LapTimeEntry

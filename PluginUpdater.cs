@@ -9,7 +9,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
-namespace User.BestLapRecords
+namespace User.TeamPace
 {
     public class UpdateInfo
     {
@@ -28,8 +28,8 @@ namespace User.BestLapRecords
     public static class PluginUpdater
     {
         public const string Owner   = "XRockzen";
-        public const string Repo    = "SimHub-BestLapRecords";
-        public const string DllName = "User.BestLapRecords.dll";
+        public const string Repo    = "SimHub-TeamPace";
+        public const string DllName = "User.TeamPace.dll";
 
         // Overridable so the flow can be tested against local files
         public static string ApiBase = "https://api.github.com";
@@ -74,7 +74,7 @@ namespace User.BestLapRecords
                 catch (Exception ex)
                 {
                     LastError = ex.Message;
-                    SimHub.Logging.Current.Info("[BestLapRecords] Update check failed: " + ex.Message);
+                    SimHub.Logging.Current.Info("[TeamPace] Update check failed: " + ex.Message);
                 }
                 Raise();
             });
@@ -141,7 +141,7 @@ namespace User.BestLapRecords
                         return "Adresse de téléchargement inattendue, mise à jour refusée";
                 }
 
-                var dir = Path.Combine(Path.GetTempPath(), "BestLapRecords_update");
+                var dir = Path.Combine(Path.GetTempPath(), "TeamPace_update");
                 Directory.CreateDirectory(dir);
                 var tmp = Path.Combine(dir, DllName);
                 File.WriteAllBytes(tmp, Download(info.DllUrl));
@@ -152,7 +152,7 @@ namespace User.BestLapRecords
                     return "Empreinte SHA-256 différente : fichier corrompu ou modifié, mise à jour refusée";
 
                 var name = AssemblyName.GetAssemblyName(tmp);
-                if (name.Name != "User.BestLapRecords") return "Le fichier téléchargé n'est pas ce plugin";
+                if (name.Name != "User.TeamPace") return "Le fichier téléchargé n'est pas ce plugin";
                 if (Normalize(name.Version) != Normalize(info.Version))
                     return string.Format("Version du fichier ({0}) différente de la release ({1})", Format(name.Version), Format(info.Version));
 
@@ -241,7 +241,7 @@ namespace User.BestLapRecords
             var http = req as HttpWebRequest;
             if (http != null)
             {
-                http.UserAgent = "User.BestLapRecords-updater";
+                http.UserAgent = "User.TeamPace-updater";
                 http.Accept = url.Contains("/releases/download/") ? "application/octet-stream" : "application/vnd.github+json";
             }
             using (var resp = req.GetResponse())

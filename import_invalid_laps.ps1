@@ -15,7 +15,7 @@ if (-not (Test-Path $liteDbPath)) { Write-Error "LiteDB.dll not found at: $liteD
 Add-Type -Path $liteDbPath
 
 $simhubDb  = Join-Path $SimHubData "$GameFolder\DataStore.db"
-$suppDbDir = Join-Path $SimHubData "Common\BestLapRecords"
+$suppDbDir = Join-Path $SimHubData "Common\TeamPace"
 $suppDb    = Join-Path $suppDbDir "invalid_laps.db"
 
 if (-not (Test-Path $simhubDb))     { Write-Error "SimHub DB not found: $simhubDb"; exit 1 }

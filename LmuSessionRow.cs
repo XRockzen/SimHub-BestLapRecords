@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Windows.Media;
 
-namespace User.BestLapRecords
+namespace User.TeamPace
 {
     /// <summary>Row of a session list column (history and circuit progression).</summary>
     public class LmuSessionRow
