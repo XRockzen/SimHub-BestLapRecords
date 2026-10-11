@@ -1,0 +1,113 @@
+<UserControl x:Class="User.BestLapRecords.CareerColumn"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/User.BestLapRecords;component/Styles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            <Style x:Key="TileBorder" TargetType="Border">
+                <Setter Property="Background"   Value="#0DFFFFFF"/>
+                <Setter Property="CornerRadius" Value="5"/>
+                <Setter Property="Padding"      Value="10,6"/>
+                <Setter Property="Margin"       Value="0,0,6,6"/>
+                <Setter Property="MinWidth"     Value="70"/>
+            </Style>
+            <Style x:Key="TileLbl" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="9"/>
+                <Setter Property="Opacity"  Value="0.45"/>
+                <Setter Property="Margin"   Value="0,0,0,2"/>
+            </Style>
+            <Style x:Key="TileVal" TargetType="TextBlock">
+                <Setter Property="FontSize"   Value="20"/>
+                <Setter Property="FontWeight" Value="Bold"/>
+            </Style>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <WrapPanel Grid.Row="0" Margin="0,0,0,4">
+            <Border Style="{StaticResource TileBorder}"><StackPanel>
+                <TextBlock Text="COURSES" Style="{StaticResource TileLbl}"/>
+                <TextBlock x:Name="TxtRaces" Style="{StaticResource TileVal}" Foreground="#FF90CAF9"/>
+            </StackPanel></Border>
+            <Border Style="{StaticResource TileBorder}"><StackPanel>
+                <TextBlock Text="VICTOIRES" Style="{StaticResource TileLbl}"/>
+                <TextBlock x:Name="TxtWins" Style="{StaticResource TileVal}" Foreground="#FFFBC02D"/>
+            </StackPanel></Border>
+            <Border Style="{StaticResource TileBorder}"><StackPanel>
+                <TextBlock Text="PODIUMS" Style="{StaticResource TileLbl}"/>
+                <TextBlock x:Name="TxtPodiums" Style="{StaticResource TileVal}" Foreground="#FFB0BEC5"/>
+            </StackPanel></Border>
+            <Border Style="{StaticResource TileBorder}"><StackPanel>
+                <TextBlock Text="TOP 5" Style="{StaticResource TileLbl}"/>
+                <TextBlock x:Name="TxtTop5" Style="{StaticResource TileVal}"/>
+            </StackPanel></Border>
+            <Border Style="{StaticResource TileBorder}"><StackPanel>
+                <TextBlock Text="DNF" Style="{StaticResource TileLbl}"/>
+                <TextBlock x:Name="TxtDnf" Style="{StaticResource TileVal}" Foreground="#FFEF9A9A"/>
+            </StackPanel></Border>
+            <Border Style="{StaticResource TileBorder}"><StackPanel>
+                <TextBlock Text="TOURS" Style="{StaticResource TileLbl}"/>
+                <TextBlock x:Name="TxtLaps" Style="{StaticResource TileVal}"/>
+            </StackPanel></Border>
+            <Border Style="{StaticResource TileBorder}"><StackPanel>
+                <TextBlock Text="ROULAGE" Style="{StaticResource TileLbl}"/>
+                <TextBlock x:Name="TxtTime" Style="{StaticResource TileVal}" Foreground="#FF80DEEA"/>
+            </StackPanel></Border>
+        </WrapPanel>
+
+        <TextBlock Grid.Row="1" Text="MEILLEURES PERFORMANCES PAR CIRCUIT  ·  double-clic : progression"
+                   Style="{StaticResource SectionLbl}"/>
+
+        <DataGrid x:Name="CircuitGrid" Grid.Row="2" Style="{StaticResource GridBase}"
+                  IsReadOnly="True" CanUserSortColumns="True"
+                  RowStyle="{StaticResource BaseRowStyle}"
+                  SelectionChanged="CircuitGrid_SelectionChanged"
+                  MouseDoubleClick="CircuitGrid_MouseDoubleClick">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Circuit" Binding="{Binding Circuit}" Width="*" MinWidth="110"/>
+                <DataGridTemplateColumn Header="Cl." Width="72" SortMemberPath="CarClassLabel"
+                                        CellTemplate="{StaticResource ClassBadgeTemplate}"/>
+                <DataGridTextColumn Header="Best" Binding="{Binding BestLap}" Width="76" SortMemberPath="BestTicks">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="#FF4CAF50"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTemplateColumn x:Name="ColGap" Header="Écart" Width="70" SortMemberPath="GapTicks"
+                                        Visibility="Collapsed">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Gap}" Foreground="{Binding GapFg}" FontSize="11"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Voiture" Binding="{Binding Voiture}" Width="100"/>
+                <DataGridTextColumn Header="Date"    Binding="{Binding Date}"    Width="64"/>
+                <DataGridTextColumn Header="Temps"   Binding="{Binding TotalTime}" Width="62" SortMemberPath="TotalTimeTicks">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Opacity" Value="0.65"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <StackPanel Grid.Row="3" Margin="0,8,0,0">
+            <TextBlock Text="ACTIVITÉ (heures par semaine)" Style="{StaticResource SectionLbl}"/>
+            <Canvas x:Name="ActivityCanvas" Height="120" ClipToBounds="True"/>
+            <WrapPanel x:Name="ActivityLegend" Margin="32,4,0,0" MaxHeight="40"/>
+        </StackPanel>
+    </Grid>
+</UserControl>

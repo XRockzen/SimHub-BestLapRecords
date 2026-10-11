@@ -1,0 +1,201 @@
+<UserControl x:Class="User.BestLapRecords.BestLapRecordsControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:styles="clr-namespace:SimHub.Plugins.Styles;assembly=SimHub.Plugins"
+             mc:Ignorable="d" d:DesignHeight="700" d:DesignWidth="1150">
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/User.BestLapRecords;component/Styles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+
+        <!-- ═══ Bandeau de mise à jour ═════════════════════════════════════ -->
+        <Border x:Name="UpdateBanner" Visibility="Collapsed" Margin="0,0,0,8" Padding="12,8"
+                CornerRadius="5" Background="#262196F3" BorderBrush="#AA2196F3" BorderThickness="1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock x:Name="TxtUpdateTitle" FontSize="13" FontWeight="Bold" Foreground="White"/>
+                    <TextBlock x:Name="TxtUpdateNotes" FontSize="11" Foreground="#D9FFFFFF" Margin="0,3,0,0"
+                               TextWrapping="Wrap" MaxHeight="64" TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+                <StackPanel x:Name="UpdateButtons" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                    <styles:SHButtonPrimary x:Name="BtnUpdateInstall" Click="BtnUpdateInstall_Click"
+                                            FontSize="11" Padding="10,3">⬇ Installer</styles:SHButtonPrimary>
+                    <styles:SHButtonSecondary x:Name="BtnUpdateNotes" Click="BtnUpdateNotes_Click"
+                                              FontSize="11" Padding="8,3" Margin="6,0,0,0">Notes de version</styles:SHButtonSecondary>
+                    <styles:SHButtonSecondary x:Name="BtnUpdateLater" Click="BtnUpdateLater_Click"
+                                              FontSize="11" Padding="8,3" Margin="6,0,0,0">Plus tard</styles:SHButtonSecondary>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ═══ Config LMU : joueur + dossier résultats + import ═══════════ -->
+        <Grid Margin="0,0,0,6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="160"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="4"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="Joueur LMU :" VerticalAlignment="Center"
+                       Margin="0,0,6,0" Opacity="0.6" FontSize="11"/>
+            <TextBox Grid.Column="1" x:Name="TxtLmuPlayer" FontSize="11" Height="22"
+                     VerticalContentAlignment="Center" TextChanged="TxtLmuPlayer_TextChanged"
+                     ToolTip="Nom exact du joueur dans les résultats LMU"/>
+            <TextBlock Grid.Column="3" Text="Dossier résultats :" VerticalAlignment="Center"
+                       Margin="0,0,6,0" Opacity="0.6" FontSize="11"/>
+            <TextBox Grid.Column="4" x:Name="TxtLmuPath" FontSize="11" Height="22"
+                     VerticalContentAlignment="Center" TextChanged="TxtLmuPath_TextChanged"
+                     ToolTip="Chemin vers …\Le Mans Ultimate\UserData\Log\Results"/>
+            <StackPanel Grid.Column="5" Orientation="Horizontal" VerticalAlignment="Center">
+                <styles:SHButtonSecondary x:Name="BtnLmuScan" Click="BtnLmuScan_Click"
+                                          FontSize="10" Padding="6,2" Margin="4,0,0,0">
+                    ⟳ Importer
+                </styles:SHButtonSecondary>
+                <styles:SHButtonSecondary x:Name="BtnForceRescan" Click="BtnForceRescan_Click"
+                                          FontSize="10" Padding="6,2" Margin="4,0,0,0"
+                                          ToolTip="Relit tous les fichiers résultats LMU, y compris ceux déjà analysés">
+                    ⟳ Tout réimporter
+                </styles:SHButtonSecondary>
+            </StackPanel>
+            <TextBlock Grid.Column="7" x:Name="TxtLmuStatus" VerticalAlignment="Center"
+                       FontSize="10" Opacity="0.55" FontStyle="Italic"/>
+        </Grid>
+        </StackPanel>
+
+        <!-- ═══ Pilotes affichés + dossier d'équipe ═══════════════════════ -->
+        <Grid Grid.Row="1" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="220"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="Pilotes :" VerticalAlignment="Center"
+                       Margin="0,0,6,0" Opacity="0.6" FontSize="11"/>
+            <WrapPanel Grid.Column="1" VerticalAlignment="Center">
+                <StackPanel x:Name="DriverChips" Orientation="Horizontal"/>
+                <ComboBox x:Name="CmbAddDriver" Width="190" Height="22" FontSize="11"
+                          SelectionChanged="CmbAddDriver_SelectionChanged"
+                          ToolTip="Ajouter un pilote à comparer (4 maximum)"/>
+            </WrapPanel>
+            <TextBlock Grid.Column="2" Text="Dossier équipe :" VerticalAlignment="Center"
+                       Margin="12,0,6,0" Opacity="0.6" FontSize="11"/>
+            <TextBox Grid.Column="3" x:Name="TxtTeamFolder" IsReadOnly="True" FontSize="11" Height="22"
+                     VerticalContentAlignment="Center"
+                     ToolTip="Dossier Google Drive partagé avec vos coéquipiers"/>
+            <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
+                <styles:SHButtonSecondary x:Name="BtnTeamBrowse" Click="BtnTeamBrowse_Click"
+                                          FontSize="10" Padding="6,2" Margin="4,0,0,0">
+                    📁 Choisir…
+                </styles:SHButtonSecondary>
+                <styles:SHButtonSecondary x:Name="BtnTeamSync" Click="BtnTeamSync_Click"
+                                          FontSize="10" Padding="6,2" Margin="4,0,0,0"
+                                          ToolTip="Publie vos données et récupère celles des coéquipiers">
+                    ⇅ Synchroniser
+                </styles:SHButtonSecondary>
+            </StackPanel>
+            <TextBlock Grid.Column="5" x:Name="TxtTeamStatus" VerticalAlignment="Center"
+                       Margin="6,0,0,0" FontSize="10" Opacity="0.55" FontStyle="Italic"/>
+        </Grid>
+
+        <!-- ═══ Navigation : retour + onglets + fil d'Ariane ══════════════ -->
+        <Grid Grid.Row="2" Margin="0,0,0,6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Button Grid.Column="0" x:Name="BtnBack" Style="{StaticResource NavBtn}"
+                    Click="BtnBack_Click" Margin="0,0,10,0" Visibility="Collapsed">← Retour</Button>
+            <Button Grid.Column="1" x:Name="BtnTabCareer" Style="{StaticResource NavBtn}"
+                    Click="BtnTabCareer_Click" Margin="0,0,4,0">🏁 Carrière</Button>
+            <Button Grid.Column="2" x:Name="BtnTabHistory" Style="{StaticResource NavBtn}"
+                    Click="BtnTabHistory_Click" Margin="0,0,12,0">📋 Historique</Button>
+            <TextBlock Grid.Column="3" x:Name="TxtBreadcrumb" FontSize="12" Opacity="0.6"
+                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+        </Grid>
+
+        <!-- ═══ Barre contextuelle : filtres partagés / légende ═══════════ -->
+        <StackPanel Grid.Row="3" Margin="0,0,0,6">
+            <WrapPanel x:Name="ClassFilterBar"/>
+            <StackPanel x:Name="TypeFilterBar" Orientation="Horizontal">
+                <Button x:Name="BtnFAll"   Style="{StaticResource SmallBtn}" Click="TypeFilter_Click" Tag="ALL">Tout</Button>
+                <Button x:Name="BtnFRace"  Style="{StaticResource SmallBtn}" Click="TypeFilter_Click" Tag="R">Course</Button>
+                <Button x:Name="BtnFQuali" Style="{StaticResource SmallBtn}" Click="TypeFilter_Click" Tag="Q">Qualif.</Button>
+                <Button x:Name="BtnFPrac"  Style="{StaticResource SmallBtn}" Click="TypeFilter_Click" Tag="P" Margin="0,0,8,0">Essais</Button>
+                <Button x:Name="BtnFSim"   Style="{StaticResource SmallBtn}" Click="SimFilter_Click">⚙ Sim</Button>
+                <Button x:Name="BtnFCommon" Style="{StaticResource SmallBtn}" Click="CommonFilter_Click"
+                        ToolTip="N'afficher que les sessions partagées avec un autre pilote affiché">⇄ Communes</Button>
+            </StackPanel>
+            <WrapPanel x:Name="CommonLegend" Margin="0,4,0,0">
+                <Border Background="#33FFC857" CornerRadius="2" Width="22" Height="10" VerticalAlignment="Center"/>
+                <TextBlock FontSize="10" Opacity="0.6" Margin="5,0,0,0" VerticalAlignment="Center"
+                           Text="session commune : ligne ambrée + pastilles aux couleurs des autres pilotes  ·  un clic sélectionne la même session partout  ·  double-clic : analyse"/>
+            </WrapPanel>
+            <WrapPanel x:Name="AnalysisLegend">
+                <Border CornerRadius="2" Padding="3,0" Background="#BB1565B0" VerticalAlignment="Center">
+                    <TextBlock Text="PIT" FontSize="8" FontWeight="Bold" Foreground="White"/>
+                </Border>
+                <TextBlock Text="passage aux stands" FontSize="10" Opacity="0.6" Margin="4,0,12,0" VerticalAlignment="Center"/>
+                <Border CornerRadius="2" Padding="3,0" Background="#BB2E7D32" VerticalAlignment="Center">
+                    <TextBlock Text="PNEU" FontSize="8" FontWeight="Bold" Foreground="White"/>
+                </Border>
+                <TextBlock Text="changement de gomme" FontSize="10" Opacity="0.6" Margin="4,0,12,0" VerticalAlignment="Center"/>
+                <Border CornerRadius="2" Padding="3,0" Background="#BBC62828" VerticalAlignment="Center">
+                    <TextBlock Text="INV" FontSize="8" FontWeight="Bold" Foreground="White"/>
+                </Border>
+                <TextBlock Text="tour invalidé" FontSize="10" Opacity="0.6" Margin="4,0,12,0" VerticalAlignment="Center"/>
+                <TextBlock Text="■" Foreground="#FF4CAF50" FontSize="10" VerticalAlignment="Center"/>
+                <TextBlock Text="meilleur tour" FontSize="10" Opacity="0.6" Margin="4,0,12,0" VerticalAlignment="Center"/>
+                <TextBlock Text="■" Foreground="#FFEF5350" FontSize="10" VerticalAlignment="Center"/>
+                <TextBlock Text="pire tour" FontSize="10" Opacity="0.6" Margin="4,0,12,0" VerticalAlignment="Center"/>
+                <TextBlock Text="■" Foreground="#FFBA68C8" FontSize="10" VerticalAlignment="Center"/>
+                <TextBlock Text="meilleur secteur (tours cochés)" FontSize="10" Opacity="0.6" Margin="4,0,12,0" VerticalAlignment="Center"/>
+                <TextBlock x:Name="TxtLegendTeam" Text="Δ pilotes : écart au plus rapide sur le même tour (★ = le plus rapide)"
+                           FontSize="10" Opacity="0.6" VerticalAlignment="Center"/>
+            </WrapPanel>
+        </StackPanel>
+
+        <!-- ═══ Colonnes : une par pilote ═════════════════════════════════ -->
+        <Grid Grid.Row="4" x:Name="ColumnsHost"/>
+
+        <DockPanel Grid.Row="5" Margin="0,6,0,0">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <TextBlock x:Name="TxtVersion" FontSize="10" Opacity="0.5" VerticalAlignment="Center"/>
+                <TextBlock x:Name="LnkCheckUpdate" Text="  ·  Vérifier les mises à jour" FontSize="10"
+                           Foreground="#FF64B5F6" Cursor="Hand" VerticalAlignment="Center"
+                           MouseLeftButtonDown="LnkCheckUpdate_Click"/>
+            </StackPanel>
+            <TextBlock x:Name="TxtStatus" Opacity="0.4" FontSize="10" FontStyle="Italic"/>
+        </DockPanel>
+    </Grid>
+</UserControl>

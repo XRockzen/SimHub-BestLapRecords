@@ -1,0 +1,177 @@
+<UserControl x:Class="User.BestLapRecords.AnalysisColumn"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:User.BestLapRecords">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/User.BestLapRecords;component/Styles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*" MinHeight="120"/>
+        </Grid.RowDefinitions>
+
+        <!-- Session header -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,6">
+            <StackPanel Orientation="Horizontal">
+                <Border x:Name="BadgeClass" CornerRadius="3" Padding="6,2" Margin="0,0,8,0" VerticalAlignment="Center">
+                    <TextBlock x:Name="TxtClass" FontSize="9" FontWeight="Bold" Foreground="White"/>
+                </Border>
+                <TextBlock x:Name="TxtCar" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"/>
+                <TextBlock x:Name="TxtTeam" FontSize="10" Opacity="0.5" VerticalAlignment="Center" Margin="8,0,0,0"
+                           TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
+            <TextBlock x:Name="TxtResult" FontSize="10" Opacity="0.75" Margin="0,3,0,0" TextWrapping="Wrap"/>
+            <WrapPanel Margin="0,3,0,0">
+                <WrapPanel x:Name="SimBadges"/>
+                <TextBlock x:Name="TxtLive" FontSize="10" Opacity="0.55" VerticalAlignment="Center" Margin="4,0,0,0"/>
+            </WrapPanel>
+        </StackPanel>
+
+        <!-- Lap selection -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,6">
+            <Button Style="{StaticResource SmallBtn}" Click="BtnValid_Click"
+                    ToolTip="Tours de rythme : valides, hors tour 1, hors passage aux stands et tour de sortie">Rythme</Button>
+            <Button Style="{StaticResource SmallBtn}" Click="BtnAll_Click">Tout</Button>
+            <Button Style="{StaticResource SmallBtn}" Click="BtnNone_Click" Margin="0,0,12,0">Aucun</Button>
+            <TextBlock x:Name="TxtSelSummary" FontSize="10" Opacity="0.5" VerticalAlignment="Center"/>
+        </StackPanel>
+
+        <!-- Stats on the checked laps -->
+        <WrapPanel Grid.Row="2" Margin="0,0,0,4">
+            <Border Style="{StaticResource StatBlock}"><StackPanel>
+                <TextBlock Style="{StaticResource StatLbl}">TEMPS AU TOUR (moyenne)</TextBlock>
+                <TextBlock x:Name="TxtStAvg" Style="{StaticResource StatVal}"/>
+                <TextBlock x:Name="TxtStVsBest" Style="{StaticResource StatSub}"/>
+                <TextBlock x:Name="TxtStBest"  FontSize="10" Foreground="#FF4CAF50" Margin="0,1,0,0"/>
+                <TextBlock x:Name="TxtStWorst" FontSize="10" Foreground="#FFEF9A9A" Margin="0,1,0,0"/>
+                <TextBlock x:Name="TxtStDelta" Style="{StaticResource StatSub}"/>
+                <TextBlock x:Name="TxtStDuree" Style="{StaticResource StatSub}"/>
+            </StackPanel></Border>
+
+            <Border Style="{StaticResource StatBlock}"><StackPanel>
+                <TextBlock Style="{StaticResource StatLbl}">SESSION</TextBlock>
+                <TextBlock x:Name="TxtBestLap" Style="{StaticResource StatVal}" Foreground="#FF4CAF50"/>
+                <TextBlock x:Name="TxtTheo" Style="{StaticResource StatSub}"/>
+                <TextBlock x:Name="TxtTopSpeed" Style="{StaticResource StatSub}"/>
+            </StackPanel></Border>
+
+            <Border Style="{StaticResource StatBlock}"><StackPanel>
+                <TextBlock Style="{StaticResource StatLbl}">CARBURANT</TextBlock>
+                <TextBlock x:Name="TxtStFuelAvg"  Style="{StaticResource StatVal}"/>
+                <TextBlock x:Name="TxtStFuelTot"  Style="{StaticResource StatSub}"/>
+                <TextBlock x:Name="TxtStFuelLaps" Style="{StaticResource StatSub}"/>
+            </StackPanel></Border>
+
+            <Border x:Name="StatsVePanel" Style="{StaticResource StatBlock}" Visibility="Collapsed"><StackPanel>
+                <TextBlock Style="{StaticResource StatLbl}">ÉNERGIE (VE)</TextBlock>
+                <TextBlock x:Name="TxtStVeAvg" Style="{StaticResource StatVal}"/>
+                <TextBlock x:Name="TxtStVeTot" Style="{StaticResource StatSub}"/>
+            </StackPanel></Border>
+
+            <Border x:Name="StatsTirePanel" Style="{StaticResource StatBlock}" Visibility="Collapsed"><StackPanel>
+                <TextBlock Style="{StaticResource StatLbl}">USURE PNEUS / TOUR</TextBlock>
+                <TextBlock x:Name="TxtStTireFL" FontSize="10"/>
+                <TextBlock x:Name="TxtStTireFR" FontSize="10"/>
+                <TextBlock x:Name="TxtStTireRL" FontSize="10"/>
+                <TextBlock x:Name="TxtStTireRR" FontSize="10"/>
+            </StackPanel></Border>
+
+            <Border x:Name="StatsPitPanel" Style="{StaticResource StatBlock}" Width="368" Visibility="Collapsed"><StackPanel>
+                <TextBlock Style="{StaticResource StatLbl}">ARRÊTS AUX STANDS</TextBlock>
+                <ItemsControl x:Name="StatsPitList">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" FontSize="10" Margin="0,1,0,0" TextWrapping="Wrap"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel></Border>
+        </WrapPanel>
+
+        <!-- Laps -->
+        <DataGrid x:Name="LapGrid" Grid.Row="3" Style="{StaticResource GridBase}"
+                  IsReadOnly="False" CanUserSortColumns="False"
+                  AlternatingRowBackground="#0AFFFFFF">
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow">
+                    <Setter Property="Background"      Value="{Binding RowBg}"/>
+                    <Setter Property="BorderThickness" Value="0"/>
+                    <Setter Property="Cursor"          Value="Arrow"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsValid}" Value="False">
+                            <Setter Property="Opacity"   Value="0.5"/>
+                            <Setter Property="FontStyle" Value="Italic"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </DataGrid.RowStyle>
+            <DataGrid.Columns>
+                <DataGridCheckBoxColumn Header="" Width="26"
+                    Binding="{Binding IsChecked, UpdateSourceTrigger=PropertyChanged}"/>
+                <DataGridTextColumn Header="#" Binding="{Binding LapNum}" Width="30" IsReadOnly="True"/>
+                <DataGridTemplateColumn Header="Info" Width="82">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <Border CornerRadius="2" Padding="3,0" Margin="0,1,2,1" Background="#BB1565B0"
+                                        Visibility="{Binding FlagPit, Converter={x:Static local:VisibleWhenNotEmptyConverter.Instance}}">
+                                    <TextBlock Text="{Binding FlagPit}" FontSize="8" FontWeight="Bold" Foreground="White"/>
+                                </Border>
+                                <Border CornerRadius="2" Padding="3,0" Margin="0,1,2,1" Background="#BB2E7D32"
+                                        Visibility="{Binding FlagTire, Converter={x:Static local:VisibleWhenNotEmptyConverter.Instance}}">
+                                    <TextBlock Text="{Binding FlagTire}" FontSize="8" FontWeight="Bold" Foreground="White"/>
+                                </Border>
+                                <Border CornerRadius="2" Padding="3,0" Margin="0,1,2,1" Background="#BBC62828"
+                                        Visibility="{Binding FlagInvalid, Converter={x:Static local:VisibleWhenNotEmptyConverter.Instance}}">
+                                    <TextBlock Text="{Binding FlagInvalid}" FontSize="8" FontWeight="Bold" Foreground="White"/>
+                                </Border>
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Temps" Width="78">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding LapTime}" Foreground="{Binding LapTimeFg}" FontWeight="SemiBold" FontSize="12"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn x:Name="ColTeamDelta" Header="Δ pilotes" Width="70" Visibility="Collapsed">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding TeamDelta}" Foreground="{Binding TeamDeltaFg}" FontSize="11"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="S1" Width="60">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate><TextBlock Text="{Binding S1}" Foreground="{Binding S1Fg}"/></DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="S2" Width="60">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate><TextBlock Text="{Binding S2}" Foreground="{Binding S2Fg}"/></DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="S3" Width="60">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate><TextBlock Text="{Binding S3}" Foreground="{Binding S3Fg}"/></DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Conso" Binding="{Binding FuelUsed}" Width="56" IsReadOnly="True"/>
+                <DataGridTextColumn Header="Carbu" Binding="{Binding FuelRemaining}" Width="54" IsReadOnly="True"/>
+                <DataGridTextColumn x:Name="ColVe" Header="VE" Binding="{Binding VeUsed}" Width="52" IsReadOnly="True" Visibility="Collapsed"/>
+                <DataGridTextColumn Header="Usure" Binding="{Binding TireWearAvg}" Width="60" IsReadOnly="True"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</UserControl>

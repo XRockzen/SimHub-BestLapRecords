@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>User.BestLapRecords</RootNamespace>
+    <AssemblyName>User.BestLapRecords</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="GameReaderCommon">
+      <HintPath>$(SIMHUB_INSTALL_PATH)GameReaderCommon.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="LiteDB">
+      <HintPath>$(SIMHUB_INSTALL_PATH)LiteDB.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>$(SIMHUB_INSTALL_PATH)Newtonsoft.Json.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="log4net">
+      <HintPath>$(SIMHUB_INSTALL_PATH)log4net.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="MahApps.Metro">
+      <HintPath>$(SIMHUB_INSTALL_PATH)MahApps.Metro.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="SimHub.Logging">
+      <HintPath>$(SIMHUB_INSTALL_PATH)SimHub.Logging.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="SimHub.Plugins">
+      <HintPath>$(SIMHUB_INSTALL_PATH)SimHub.Plugins.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="WoteverCommon">
+      <HintPath>$(SIMHUB_INSTALL_PATH)WoteverCommon.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="WoteverLocalization">
+      <HintPath>$(SIMHUB_INSTALL_PATH)WoteverLocalization.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xaml" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="WindowsBase" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="LmuSessionRecord.cs" />
+    <Compile Include="LmuSessionRow.cs" />
+    <Compile Include="LmuCategoryStyle.cs" />
+    <Compile Include="LmuLapRecord.cs" />
+    <Compile Include="LmuSessionStore.cs" />
+    <Compile Include="LmuXmlParser.cs" />
+    <Compile Include="LmuLiveTracker.cs" />
+    <Compile Include="LmuTeamSync.cs" />
+    <Compile Include="DriverView.cs" />
+    <Compile Include="PluginUpdater.cs" />
+    <Compile Include="CareerColumn.xaml.cs">
+      <DependentUpon>CareerColumn.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="SessionListColumn.xaml.cs">
+      <DependentUpon>SessionListColumn.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="AnalysisColumn.xaml.cs">
+      <DependentUpon>AnalysisColumn.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="ActivityChartRenderer.cs" />
+    <Compile Include="GlobalActivityChartRenderer.cs" />
+    <Compile Include="BestLapRecord.cs" />
+    <Compile Include="BestLapRecordsPlugin.cs" />
+    <Compile Include="BestLapRecordsControl.xaml.cs">
+      <DependentUpon>BestLapRecordsControl.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="CarNameResolver.cs" />
+    <Compile Include="CategoryStyleHelper.cs" />
+    <Compile Include="ChartRenderer.cs" />
+    <Compile Include="InvalidLapStore.cs" />
+    <Compile Include="SessionGroup.cs" />
+    <Compile Include="LapTimeEntry.cs" />
+    <Compile Include="Level1Row.cs" />
+    <Compile Include="Level2Row.cs" />
+    <Compile Include="RecordsService.cs" />
+    <Compile Include="TrackMapService.cs" />
+    <Compile Include="AnalysisLapRow.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Page Include="BestLapRecordsControl.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Styles.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="CareerColumn.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="SessionListColumn.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="AnalysisColumn.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>REM --- Copy plugin DLL ---
+XCOPY /Y /R "$(TargetDir)$(TargetName).dll" "$(SIMHUB_INSTALL_PATH)"
+XCOPY /Y /R "$(TargetDir)$(TargetName).pdb" "$(SIMHUB_INSTALL_PATH)"</PostBuildEvent>
+  </PropertyGroup>
+</Project>
