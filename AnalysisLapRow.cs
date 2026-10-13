@@ -157,22 +157,66 @@ namespace User.TeamPace
         {
             get
             {
-                if (!IsValid)  return "#08FF4444";
-                if (IsPitLap)  return "#0A1565B0";
+                if (IsTrackInvalidated) return "#14FF4444";
+                if (IsPitLap || IsOutLap) return "#0A1565B0";
                 return "Transparent";
             }
         }
-
-        // ── Marker text (pit / tire / invalid) ───────────────────────────────
 
         // ── Gap to the fastest displayed driver on the same lap number ───────
 
         public string TeamDelta   { get; set; }
         public string TeamDeltaFg { get; set; }
 
-        public string FlagPit     { get { return IsPitLap   ? "PIT"  : ""; } }
+        // ── Markers ───────────────────────────────────────────────────────────
+
+        /// <summary>Lap leaving the garage or the pits (set by the builder).</summary>
+        public bool IsOutLap { get; set; }
+
+        /// <summary>
+        /// Invalidated by race control (cut / off track). A lap without a time that is only a pit
+        /// or garage lap is not counted; one without any explanation still is.
+        /// </summary>
+        public bool IsTrackInvalidated
+        {
+            get { return Lap.LimitsInvalid > 0 || (!IsValid && !IsPitLap && !IsOutLap); }
+        }
+
+        public string FlagPit     { get { return IsPitLap ? "PIT" : (IsOutLap ? "SORTIE" : ""); } }
         public string FlagTire    { get { return TireChanged ? "PNEU" : ""; } }
-        public string FlagInvalid { get { return !IsValid    ? "INV"  : ""; } }
+        public string FlagInvalid { get { return IsTrackInvalidated ? "INV" : ""; } }
+        public string FlagWarning
+        {
+            get
+            {
+                if (!string.IsNullOrEmpty(Lap.Penalty)) return "PÉN";
+                if (Lap.LimitsWarning > 0) return "AVERT";
+                if (Lap.LimitsNoAction > 0 && Lap.LimitsInvalid == 0) return "LIM";
+                return "";
+            }
+        }
+        public string FlagContact { get { return Lap.Contacts > 0 ? "CHOC" : ""; } }
+        public string FlagWarningBg { get { return FlagWarning == "PÉN" ? "#CC8E24AA" : (FlagWarning == "AVERT" ? "#CCEF6C00" : "#66777777"); } }
+
+        /// <summary>Plain-language summary shown when hovering the Info cell.</summary>
+        public string InfoTooltip
+        {
+            get
+            {
+                var parts = new System.Collections.Generic.List<string>();
+                if (IsPitLap) parts.Add("Passage aux stands");
+                if (IsOutLap) parts.Add(Lap.LapNum == 1 ? "Sortie du garage" : "Sortie des stands");
+                if (TireChanged) parts.Add("Changement de pneus");
+                if (Lap.LimitsInvalid > 0) parts.Add(string.Format("Tour invalidé : {0} coupure(s) / sortie(s) de piste", Lap.LimitsInvalid));
+                else if (!IsValid && IsTrackInvalidated) parts.Add("Tour sans chrono (invalidé par LMU)");
+                if (Lap.LimitsWarning > 0) parts.Add(string.Format("{0} avertissement(s) limites de piste", Lap.LimitsWarning));
+                if (Lap.LimitsNoAction > 0) parts.Add(string.Format("{0} dépassement(s) des limites sans conséquence", Lap.LimitsNoAction));
+                if (Lap.Contacts > 0) parts.Add(string.Format("{0} contact(s)", Lap.Contacts));
+                if (!string.IsNullOrEmpty(Lap.Penalty)) parts.Add("Pénalité : " + Lap.Penalty);
+                if (!IsValid && Lap.ReconstructedTicks > 0) parts.Add("Chrono reconstitué, hors statistiques");
+                return parts.Count > 0 ? string.Join("\n", parts) : null;
+            }
+        }
 
         // ── INotifyPropertyChanged ────────────────────────────────────────────
 

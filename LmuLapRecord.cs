@@ -32,6 +32,13 @@ namespace User.TeamPace
         public bool   IsPitLap           { get; set; }
         public float  ElapsedTime        { get; set; }   // seconds from block start to lap start
 
+        // ─── Race-control events during the lap (from the XML stream) ────────
+        public int    LimitsInvalid      { get; set; }   // "Invalid Lap Cut Track / Off Track"
+        public int    LimitsWarning      { get; set; }   // "Warning"
+        public int    LimitsNoAction     { get; set; }   // "No Further Action"
+        public int    Contacts           { get; set; }   // "reported contact"
+        public string Penalty            { get; set; }   // penalty received during the lap, if any
+
         // Invalid laps: duration rebuilt from the next lap's start (display only, never in stats)
         public long   ReconstructedTicks { get; set; }
 

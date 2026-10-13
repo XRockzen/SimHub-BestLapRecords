@@ -733,6 +733,9 @@ namespace User.TeamPace
                 fuel |= c.HasFuel; ve |= c.HasVe; tyres |= c.HasTyres; pits |= c.HasPits;
             }
             foreach (var c in _analysisCols) c.SetOptionalBlocks(fuel, ve, tyres, pits);
+            int maxStops = 0;
+            foreach (var c in _analysisCols) maxStops = Math.Max(maxStops, c.PitCount);
+            foreach (var c in _analysisCols) c.SetPitBlockStops(maxStops);
 
             if (_analysisCols.Count > 1)
             {

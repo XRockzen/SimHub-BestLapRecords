@@ -208,15 +208,35 @@
                 <Border CornerRadius="2" Padding="4,1" Background="#BB1565B0" VerticalAlignment="Center">
                     <TextBlock Text="PIT" FontSize="9" FontWeight="Bold" Foreground="White"/>
                 </Border>
-                <TextBlock Text="passage aux stands" Margin="5,0,14,0"/>
+                <TextBlock Text="stand" Margin="5,0,10,0"/>
+                <Border CornerRadius="2" Padding="4,1" Background="#BB1565B0" VerticalAlignment="Center">
+                    <TextBlock Text="SORTIE" FontSize="9" FontWeight="Bold" Foreground="White"/>
+                </Border>
+                <TextBlock Text="sortie garage / stand" Margin="5,0,10,0"/>
                 <Border CornerRadius="2" Padding="4,1" Background="#BB2E7D32" VerticalAlignment="Center">
                     <TextBlock Text="PNEU" FontSize="9" FontWeight="Bold" Foreground="White"/>
                 </Border>
-                <TextBlock Text="changement de gomme" Margin="5,0,14,0"/>
+                <TextBlock Text="gomme changée" Margin="5,0,10,0"/>
                 <Border CornerRadius="2" Padding="4,1" Background="#BBC62828" VerticalAlignment="Center">
                     <TextBlock Text="INV" FontSize="9" FontWeight="Bold" Foreground="White"/>
                 </Border>
-                <TextBlock Text="tour invalidé" Margin="5,0,24,0"/>
+                <TextBlock Text="invalidé (coupure / sortie)" Margin="5,0,10,0"/>
+                <Border CornerRadius="2" Padding="4,1" Background="#CCEF6C00" VerticalAlignment="Center">
+                    <TextBlock Text="AVERT" FontSize="9" FontWeight="Bold" Foreground="White"/>
+                </Border>
+                <TextBlock Text="avertissement" Margin="5,0,10,0"/>
+                <Border CornerRadius="2" Padding="4,1" Background="#66777777" VerticalAlignment="Center">
+                    <TextBlock Text="LIM" FontSize="9" FontWeight="Bold" Foreground="White"/>
+                </Border>
+                <TextBlock Text="limites sans suite" Margin="5,0,10,0"/>
+                <Border CornerRadius="2" Padding="4,1" Background="#CC5D4037" VerticalAlignment="Center">
+                    <TextBlock Text="CHOC" FontSize="9" FontWeight="Bold" Foreground="White"/>
+                </Border>
+                <TextBlock Text="contact" Margin="5,0,10,0"/>
+                <Border CornerRadius="2" Padding="4,1" Background="#CC8E24AA" VerticalAlignment="Center">
+                    <TextBlock Text="PÉN" FontSize="9" FontWeight="Bold" Foreground="White"/>
+                </Border>
+                <TextBlock Text="pénalité  ·  détail au survol" Margin="5,0,24,0"/>
                 <TextBlock Text="Couleurs" FontWeight="SemiBold" Foreground="White" Margin="0,0,10,0"/>
                 <TextBlock Text="1:36.779" Foreground="#FF4CAF50" FontWeight="SemiBold"/>
                 <TextBlock Text="meilleur tour" Margin="5,0,14,0"/>

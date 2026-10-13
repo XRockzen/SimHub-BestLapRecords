@@ -72,10 +72,9 @@ namespace User.TeamPace
             // Theoretical best = best S1 + best S2 + best S3 of valid laps, each with its lap
             float theo = 0f, top = 0f;
             float b1 = float.MaxValue, b2 = float.MaxValue, b3 = float.MaxValue;
-            int l1 = 0, l2 = 0, l3 = 0, invalid = 0;
+            int l1 = 0, l2 = 0, l3 = 0;
             foreach (var l in laps)
             {
-                if (!l.IsValid) invalid++;
                 if (l.IsValid && l.S1 > 0 && l.S1 < b1) { b1 = l.S1; l1 = l.LapNum; }
                 if (l.IsValid && l.S2 > 0 && l.S2 < b2) { b2 = l.S2; l2 = l.LapNum; }
                 if (l.IsValid && l.S3 > 0 && l.S3 < b3) { b3 = l.S3; l3 = l.LapNum; }
@@ -85,12 +84,11 @@ namespace User.TeamPace
             if (hasTheo) theo = b1 + b2 + b3;
             KpiTheo.Text = theo > 0 ? Fmt.LapSec(theo) : "—";
             KpiTop.Text  = top > 0 ? string.Format(Inv, "{0:0} km/h", top) : "—";
-            KpiInvalid.Text = invalid.ToString();
-            TxtTheoDetail.Text = hasTheo
-                ? string.Format(Inv, "Théorique = S1 {0} (tour {1})  +  S2 {2} (tour {3})  +  S3 {4} (tour {5})",
-                                Fmt.LapSec(b1), l1, Fmt.LapSec(b2), l2, Fmt.LapSec(b3), l3)
-                : "";
-            TxtTheoDetail.Visibility = hasTheo ? Visibility.Visible : Visibility.Collapsed;
+            KpiTheoBox.ToolTip = hasTheo
+                ? string.Format(Inv,
+                    "Meilleurs secteurs des tours valides\n\nS1   {0}   tour {1}\nS2   {2}   tour {3}\nS3   {4}   tour {5}\n\nThéorique   {6}",
+                    Fmt.LapSec(b1), l1, Fmt.LapSec(b2), l2, Fmt.LapSec(b3), l3, Fmt.LapSec(theo))
+                : "Pas assez de secteurs valides pour calculer un temps théorique";
 
             bool hasVe = false, hasTire = false;
             string prevCompound = null;
@@ -102,10 +100,15 @@ namespace User.TeamPace
                                    (l.LivePit != null && l.LivePit.TyresChanged);
                 bool rhythm = l.IsValid && !l.IsPitLap && l.LapNum > 1 &&
                               (prevLap == null || !prevLap.IsPitLap);
+                // Out lap: after a pit stop, or the first lap when leaving the garage
+                bool outLap = !l.IsPitLap &&
+                              ((prevLap != null && prevLap.IsPitLap) ||
+                               (prevLap == null && !l.IsValid && l.ElapsedTime < 1f));
                 var row = new AnalysisLapRow
                 {
                     Lap         = l,
                     TireChanged = tireChanged,
+                    IsOutLap    = outLap,
                     IsRhythmLap = rhythm,
                     IsChecked   = rhythm,
                 };
@@ -136,14 +139,51 @@ namespace User.TeamPace
             foreach (var row in _rows)
             {
                 if (row.FuelUsed != "—") HasFuel = true;
-                if (row.IsPitLap) HasPits = true;
+                if (row.IsPitLap) { HasPits = true; PitCount++; }
             }
+            ShowRaceControlSummary();
             TxtLive.Text = liveMatched > 0
                 ? string.Format(Inv, "● capture directe : {0} tour(s)", liveMatched)
                 : "";
             SetOptionalBlocks(HasFuel, HasVe, HasTyres, HasPits);
 
             Recalc();
+        }
+
+        public int PitCount { get; private set; }
+
+        /// <summary>Same height for every driver's pit block, sized on the longest list.</summary>
+        public void SetPitBlockStops(int stops)
+        {
+            StatsPitPanel.Height = Math.Max(112, 34 + Math.Max(1, stops) * 38);
+        }
+
+        /// <summary>Invalidated-lap counter, with the race-control breakdown on hover.</summary>
+        private void ShowRaceControlSummary()
+        {
+            int invalid = 0, warnings = 0, noAction = 0, contacts = 0;
+            var penalties = new List<string>();
+            foreach (var row in _rows)
+            {
+                if (row.IsTrackInvalidated) invalid++;
+                warnings += row.Lap.LimitsWarning;
+                noAction += row.Lap.LimitsNoAction;
+                contacts += row.Lap.Contacts;
+                if (!string.IsNullOrEmpty(row.Lap.Penalty))
+                    penalties.Add(string.Format(Inv, "tour {0} : {1}", row.LapNum, row.Lap.Penalty));
+            }
+            KpiInvalid.Text = invalid.ToString();
+            var tip = new List<string>
+            {
+                string.Format(Inv, "{0} tour(s) invalidé(s) : coupure ou sortie de piste", invalid),
+                string.Format(Inv, "{0} avertissement(s) limites de piste", warnings),
+                string.Format(Inv, "{0} dépassement(s) des limites sans conséquence", noAction),
+                string.Format(Inv, "{0} contact(s)", contacts),
+            };
+            if (penalties.Count > 0) { tip.Add(""); tip.Add("Pénalités :"); tip.AddRange(penalties); }
+            tip.Add("");
+            tip.Add("Les tours de stand et de sortie du garage ne sont pas comptés.");
+            KpiInvalidBox.ToolTip = string.Join("\n", tip);
         }
 
         // One row of key figures, two when the column is too narrow (3-4 drivers)
@@ -416,12 +456,22 @@ namespace User.TeamPace
                 if (row.IsValid && !row.IsPitLap && row.Lap.LapTimeTicks > 0) { refSum += row.Lap.LapTimeTicks; refCnt++; }
             double refSec = refCnt > 0 ? TimeSpan.FromTicks(refSum / refCnt).TotalSeconds : 0;
 
-            var items = new List<string>();
+            var items = new List<PitItem>();
             for (int i = 0; i < _rows.Count; i++)
             {
                 var row = _rows[i];
                 if (!row.IsPitLap) continue;
-                var parts = new List<string> { "Tour " + row.LapNum };
+                var title = "Tour " + row.LapNum;
+                double inLap = Duration(row.Lap);
+                if (refSec > 0 && inLap > 0)
+                {
+                    double loss = inLap - refSec;
+                    if (i + 1 < _rows.Count && !_rows[i + 1].IsPitLap && Duration(_rows[i + 1].Lap) > 0)
+                        loss += Duration(_rows[i + 1].Lap) - refSec;
+                    title += string.Format(Inv, "   ·   temps perdu ≈ {0:+0.0;-0.0} s", loss);
+                }
+
+                var parts = new List<string>();
                 var p = row.Lap.LivePit;
                 if (p != null)
                 {
@@ -429,19 +479,26 @@ namespace User.TeamPace
                     parts.Add(string.Format(Inv, "arrêt {0:F1} s", p.StoppedSec));
                     if (p.LimiterSec > 0)   parts.Add(string.Format(Inv, "limiteur {0:F1} s", p.LimiterSec));
                     if (p.FuelAddedL > 0.5) parts.Add(string.Format(Inv, "+{0:F1} L", p.FuelAddedL));
-                    if (p.TyresChanged)     parts.Add("pneus");
+                    if (p.TyresChanged)     parts.Add("pneus changés");
                 }
-                if (refSec > 0 && row.Lap.LapTimeTicks > 0)
-                {
-                    double loss = row.Lap.LapTime.TotalSeconds - refSec;
-                    if (i + 1 < _rows.Count && _rows[i + 1].Lap.LapTimeTicks > 0 && !_rows[i + 1].IsPitLap)
-                        loss += _rows[i + 1].Lap.LapTime.TotalSeconds - refSec;
-                    parts.Add(string.Format(Inv, "perte ≈ {0:+0.0;-0.0} s", loss));
-                }
-                items.Add(string.Join("  ·  ", parts));
+                else parts.Add("détail non capturé (SimHub fermé pendant l'arrêt)");
+                items.Add(new PitItem { Title = title, Detail = string.Join("  ·  ", parts) });
             }
-            if (items.Count == 0) items.Add("Aucun arrêt pour ce pilote");
+            if (items.Count == 0) items.Add(new PitItem { Title = "Aucun arrêt", Detail = "" });
             StatsPitList.ItemsSource = items;
+        }
+
+        public class PitItem
+        {
+            public string Title  { get; set; }
+            public string Detail { get; set; }
+        }
+
+        /// <summary>Official time, or the rebuilt one for laps LMU did not time (pit laps).</summary>
+        private static double Duration(LmuLapRecord l)
+        {
+            if (l.LapTimeTicks > 0) return l.LapTime.TotalSeconds;
+            return l.ReconstructedTicks > 0 ? TimeSpan.FromTicks(l.ReconstructedTicks).TotalSeconds : 0;
         }
 
         // ─── Live data merge ──────────────────────────────────────────────────
@@ -493,13 +550,16 @@ namespace User.TeamPace
                 if (best != null) { ApplyLive(l, best); matched++; }
             }
 
+            // A pit entry makes its lap an in-lap. Lap 1 is never one: in practice and qualifying
+            // you start in the garage, and leaving it is recorded as a pit-lane passage.
             long maxPitGap = TimeSpan.FromMinutes(10).Ticks;
             foreach (var p in pits)
                 foreach (var l in laps)
                 {
-                    if (l.LapNum != p.LapNum || l.LivePit != null) continue;
+                    if (l.LapNum != p.LapNum || l.LapNum <= 1 || l.LivePit != null) continue;
                     if (Math.Abs(p.EntryUtcTicks - xmlStart(l) - median) > maxPitGap) continue;
                     l.LivePit = p;
+                    l.IsPitLap = true;
                     break;
                 }
             return matched;
@@ -531,7 +591,8 @@ namespace User.TeamPace
             l.LiveWearFR     = (float)s.WearFR;
             l.LiveWearRL     = (float)s.WearRL;
             l.LiveWearRR     = (float)s.WearRR;
-            if (s.InPitLane) l.IsPitLap = true;
+            // InPitLane is also true for out-laps (lap started in the lane): pit laps come
+            // from the XML flag and from captured pit entries, not from this.
         }
     }
 }

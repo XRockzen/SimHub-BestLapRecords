@@ -174,8 +174,9 @@ pilotes.
 Chaque colonne se lit de haut en bas :
 
 - la **carte de session** : voiture, équipe, et les chiffres clés (arrivée, départ, meilleur tour,
-  théorique, vitesse max, tours, arrêts, incidents, tours invalides). Juste en dessous, le détail
-  du **temps théorique** : les trois meilleurs secteurs et le tour où chacun a été réalisé ;
+  théorique, vitesse max, tours, arrêts, incidents, tours invalides). Au survol du **temps
+  théorique** : les trois meilleurs secteurs et le tour où chacun a été réalisé. Au survol de
+  **Invalides** : le détail des limites de piste, des contacts et des pénalités de la session ;
 - l'**analyse des tours cochés** : *Rythme* (moyenne), *Régularité* (écart-type : plus il est bas,
   plus les tours se ressemblent), carburant, énergie virtuelle, usure des pneus et arrêts aux stands
   avec le temps perdu ;
@@ -187,10 +188,24 @@ Chaque colonne se lit de haut en bas :
    Cochez ou décochez des tours : statistiques et couleurs se recalculent.
 
 Les couleurs : vert = meilleur tour, rouge = pire tour, violet = meilleur secteur.
-Les badges **PIT**, **PNEU** et **INV** signalent un passage aux stands, un changement de gomme et
-un tour invalidé. LMU ne donne pas le chrono d'un tour invalidé : TeamPace le reconstitue à partir
-de l'heure de départ du tour suivant et l'affiche **entre parenthèses**, sans jamais le compter dans
-les statistiques. Les colonnes des pilotes gardent la même structure, pour que les tableaux restent
+La colonne **Info** reprend les décisions de la direction de course enregistrées par LMU, tour par
+tour (détail au survol) :
+
+| Repère | Signification |
+|---|---|
+| **PIT** | tour où vous êtes entré dans la voie des stands |
+| **SORTIE** | tour de sortie du garage ou des stands |
+| **PNEU** | changement de gomme |
+| **INV** | tour **invalidé** par une coupure ou une sortie de piste |
+| **AVERT** | avertissement pour limites de piste |
+| **LIM** | dépassement des limites de piste, sans conséquence |
+| **CHOC** | contact (mur, autre voiture) |
+| **PÉN** | pénalité reçue pendant ce tour |
+
+Les tours de stand et de sortie ne sont **pas** comptés comme invalides : le compteur **Invalides**
+ne compte que les tours invalidés pour limites de piste. LMU ne donne pas de chrono pour ces tours
+sans temps officiel : TeamPace le reconstitue à partir de l'heure de départ du tour suivant et
+l'affiche **entre parenthèses**, sans jamais le compter dans les statistiques. Les colonnes des pilotes gardent la même structure, pour que les tableaux restent
 alignés tour par tour.
 
 ## 5. Mises à jour

@@ -3,6 +3,18 @@
 Chaque version est publiée dans les [releases](../../releases) et proposée automatiquement dans
 TeamPace par le bandeau de mise à jour.
 
+## 2.5.0
+
+- Tours invalides : seuls les tours invalidés par une coupure ou une sortie de piste sont comptés.
+  Les tours de stand et de sortie du garage ne le sont plus.
+- Nouveaux repères tour par tour, tirés du journal de LMU : SORTIE, AVERT (avertissement limites),
+  LIM (limites sans conséquence), CHOC (contact), PÉN (pénalité), avec le détail au survol.
+- Temps théorique : les meilleurs secteurs s'affichent au survol (une ligne gagnée).
+- Arrêts aux stands : bloc sur deux largeurs, sans barre de défilement ; temps perdu calculé aussi
+  pour les tours de stand sans chrono officiel.
+- Correction : le tour qui commence dans les stands (sortie) n'est plus pris pour un passage au stand.
+- Les fichiers LMU sont relus automatiquement au premier démarrage pour extraire ces informations.
+
 ## 2.4.0
 
 - **Correction** : les données capturées en direct (carburant, usure des pneus, arrêts aux stands)

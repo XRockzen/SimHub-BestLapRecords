@@ -281,7 +281,66 @@ namespace User.TeamPace
             foreach (var lapEl in playerDriver.Elements("Lap"))
                 laps.Add(ParseLapElement(lapEl, fileId));
 
+            if (stream != null)
+                AttachStreamEvents(stream, playerDriver.Element("Name").Value.Trim(), laps);
+
             return true;
+        }
+
+        /// <summary>
+        /// Assigns the player's race-control events to the lap during which they happened
+        /// (track limits with their outcome, contacts, penalties), using the stream timestamps.
+        /// </summary>
+        private static void AttachStreamEvents(XElement stream, string driverName, List<LmuLapRecord> laps)
+        {
+            if (laps.Count == 0) return;
+            var ordered = new List<LmuLapRecord>(laps);
+            ordered.Sort((a, b) => a.LapNum.CompareTo(b.LapNum));
+
+            Func<XElement, LmuLapRecord> lapAt = ev =>
+            {
+                float et = AttrFloat(ev, "et", -1f);
+                if (et < 0) return null;
+                LmuLapRecord hit = ordered[0];
+                foreach (var l in ordered) if (l.ElapsedTime > 0 && l.ElapsedTime <= et) hit = l;
+                return hit;
+            };
+
+            foreach (var ev in stream.Elements())
+            {
+                var name = ev.Name.LocalName;
+                if (name == "TrackLimits")
+                {
+                    if (!string.Equals(Attr(ev, "Driver"), driverName, StringComparison.OrdinalIgnoreCase)) continue;
+                    var lap = lapAt(ev);
+                    if (lap == null) continue;
+                    var outcome = (ev.Value ?? "").Trim();
+                    if (outcome.StartsWith("Invalid Lap", StringComparison.OrdinalIgnoreCase)) lap.LimitsInvalid++;
+                    else if (outcome.IndexOf("Warning", StringComparison.OrdinalIgnoreCase) >= 0) lap.LimitsWarning++;
+                    else if (outcome.IndexOf("Penalty", StringComparison.OrdinalIgnoreCase) >= 0)
+                        lap.Penalty = lap.Penalty ?? "Pénalité (limites de piste)";
+                    else lap.LimitsNoAction++;
+                }
+                else if (name == "Incident")
+                {
+                    var text = ev.Value ?? "";
+                    if (!text.StartsWith(driverName + "(", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (text.IndexOf("reported contact", StringComparison.OrdinalIgnoreCase) < 0) continue;
+                    var lap = lapAt(ev);
+                    if (lap != null) lap.Contacts++;
+                }
+                else if (name == "Penalty")
+                {
+                    var text = (ev.Value ?? "").Trim();
+                    if (!text.StartsWith(driverName + " received", StringComparison.OrdinalIgnoreCase)) continue;
+                    var lap = lapAt(ev);
+                    if (lap == null) continue;
+                    // "X received Drive Thru penalty, 0s, 0laps for "Track Limits". Result: …"
+                    int start = driverName.Length + " received ".Length;
+                    int cut = text.IndexOf(". Result", StringComparison.Ordinal);
+                    lap.Penalty = cut > start ? text.Substring(start, cut - start) : text.Substring(start);
+                }
+            }
         }
 
         // ─── <Lap> parsing ─────────────────────────────────────────────────────

@@ -22,7 +22,7 @@ namespace User.TeamPace
 
         // Bump when the parser starts accepting files it used to skip: clears
         // the "already parsed" flags once so those files get re-imported.
-        private const int ParserVersion = 3;
+        private const int ParserVersion = 4;
 
         public static string PlayerName  { get; private set; }
         public static string ResultsPath { get; private set; }
@@ -464,6 +464,11 @@ namespace User.TeamPace
             d["RearCompound"]      = new BsonValue(l.RearCompound  ?? "");
             d["IsPitLap"]          = new BsonValue(l.IsPitLap);
             d["ElapsedTime"]       = new BsonValue((double)l.ElapsedTime);
+            d["LimitsInvalid"]     = new BsonValue(l.LimitsInvalid);
+            d["LimitsWarning"]     = new BsonValue(l.LimitsWarning);
+            d["LimitsNoAction"]    = new BsonValue(l.LimitsNoAction);
+            d["Contacts"]          = new BsonValue(l.Contacts);
+            d["Penalty"]           = new BsonValue(l.Penalty ?? "");
             return d;
         }
 
@@ -492,6 +497,11 @@ namespace User.TeamPace
                 RearCompound      = Str(d, "RearCompound"),
                 IsPitLap          = d.ContainsKey("IsPitLap") ? d["IsPitLap"].AsBoolean : false,
                 ElapsedTime       = Flt(d, "ElapsedTime"),
+                LimitsInvalid     = Int(d, "LimitsInvalid"),
+                LimitsWarning     = Int(d, "LimitsWarning"),
+                LimitsNoAction    = Int(d, "LimitsNoAction"),
+                Contacts          = Int(d, "Contacts"),
+                Penalty           = Str(d, "Penalty"),
             };
         }
 

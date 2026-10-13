@@ -32,6 +32,7 @@
                 <Setter Property="Margin"       Value="0,0,8,8"/>
                 <Setter Property="Width"        Value="196"/>
                 <Setter Property="Height"       Value="112"/>
+                <Setter Property="VerticalAlignment" Value="Top"/>
             </Style>
             <Style x:Key="BlockTitle" TargetType="TextBlock">
                 <Setter Property="FontSize"   Value="10"/>
@@ -98,9 +99,11 @@
                         <TextBlock Style="{StaticResource KpiLbl}" Text="MEILLEUR TOUR"/>
                         <TextBlock x:Name="KpiBest" Style="{StaticResource KpiVal}" Foreground="#FF66BB6A"/>
                     </StackPanel>
-                    <StackPanel Style="{StaticResource KpiBox}">
-                        <TextBlock Style="{StaticResource KpiLbl}" Text="THÉORIQUE"/>
-                        <TextBlock x:Name="KpiTheo" Style="{StaticResource KpiVal}" Foreground="#FF90CAF9"/>
+                    <StackPanel x:Name="KpiTheoBox" Style="{StaticResource KpiBox}" Background="Transparent" Cursor="Help"
+                                ToolTipService.InitialShowDelay="150" ToolTipService.ShowDuration="30000">
+                        <TextBlock Style="{StaticResource KpiLbl}" Text="THÉORIQUE ⓘ"/>
+                        <TextBlock x:Name="KpiTheo" Style="{StaticResource KpiVal}" Foreground="#FF90CAF9"
+                                   TextDecorations="Underline"/>
                     </StackPanel>
                     <StackPanel Style="{StaticResource KpiBox}">
                         <TextBlock Style="{StaticResource KpiLbl}" Text="VITESSE MAX"/>
@@ -118,15 +121,12 @@
                         <TextBlock Style="{StaticResource KpiLbl}" Text="INCIDENTS"/>
                         <TextBlock x:Name="KpiIncidents" Style="{StaticResource KpiVal}"/>
                     </StackPanel>
-                    <StackPanel Style="{StaticResource KpiBox}"
-                                ToolTip="Tours invalidés par LMU (hors limites, coupure…). Leur chrono, reconstitué, apparaît entre parenthèses dans le tableau.">
-                        <TextBlock Style="{StaticResource KpiLbl}" Text="INVALIDES"/>
+                    <StackPanel x:Name="KpiInvalidBox" Style="{StaticResource KpiBox}" Background="Transparent" Cursor="Help"
+                                ToolTipService.InitialShowDelay="150" ToolTipService.ShowDuration="30000">
+                        <TextBlock Style="{StaticResource KpiLbl}" Text="INVALIDES ⓘ"/>
                         <TextBlock x:Name="KpiInvalid" Style="{StaticResource KpiVal}" Foreground="#FFEF9A9A"/>
                     </StackPanel>
                 </UniformGrid>
-                <TextBlock x:Name="TxtTheoDetail" FontSize="11" Foreground="#FF90CAF9" Margin="0,0,0,8"
-                           TextTrimming="CharacterEllipsis"
-                           ToolTip="Les trois meilleurs secteurs des tours valides, et le tour où chacun a été réalisé"/>
             </StackPanel>
         </Border>
 
@@ -182,18 +182,20 @@
                     </Grid>
                 </StackPanel></Border>
 
-                <Border x:Name="StatsPitPanel" Style="{StaticResource AnaBlock}"><DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Style="{StaticResource BlockTitle}" Text="ARRÊTS AUX STANDS"/>
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <ItemsControl x:Name="StatsPitList">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding}" Style="{StaticResource BlockLine}" TextWrapping="Wrap" TextTrimming="None"/>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
-                </DockPanel></Border>
+                <!-- Two blocks wide; its height is set from the longest stop list of all drivers -->
+                <Border x:Name="StatsPitPanel" Style="{StaticResource AnaBlock}" Width="400"><StackPanel>
+                    <TextBlock Style="{StaticResource BlockTitle}" Text="ARRÊTS AUX STANDS"/>
+                    <ItemsControl x:Name="StatsPitList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="0,2,0,3">
+                                    <TextBlock Text="{Binding Title}" FontSize="11.5" FontWeight="SemiBold" Foreground="White"/>
+                                    <TextBlock Text="{Binding Detail}" Style="{StaticResource BlockLine}" Margin="0,1,0,0"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel></Border>
             </WrapPanel>
             <TextBlock x:Name="TxtNoLiveHint" FontSize="11" Foreground="#80FFFFFF" FontStyle="Italic" TextWrapping="Wrap"
                        Text="Carburant et pneus : ces données sont capturées en direct, roulez avec SimHub ouvert pour les obtenir."/>
@@ -232,10 +234,10 @@
                 <DataGridCheckBoxColumn Header="" Width="26"
                     Binding="{Binding IsChecked, UpdateSourceTrigger=PropertyChanged}"/>
                 <DataGridTextColumn Header="#" Binding="{Binding LapNum}" Width="30" IsReadOnly="True"/>
-                <DataGridTemplateColumn Header="Info" Width="82">
+                <DataGridTemplateColumn Header="Info" Width="118">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <StackPanel Orientation="Horizontal">
+                            <StackPanel Orientation="Horizontal" Background="Transparent" ToolTip="{Binding InfoTooltip}">
                                 <Border CornerRadius="2" Padding="3,0" Margin="0,1,2,1" Background="#BB1565B0"
                                         Visibility="{Binding FlagPit, Converter={x:Static local:VisibleWhenNotEmptyConverter.Instance}}">
                                     <TextBlock Text="{Binding FlagPit}" FontSize="8" FontWeight="Bold" Foreground="White"/>
@@ -247,6 +249,14 @@
                                 <Border CornerRadius="2" Padding="3,0" Margin="0,1,2,1" Background="#BBC62828"
                                         Visibility="{Binding FlagInvalid, Converter={x:Static local:VisibleWhenNotEmptyConverter.Instance}}">
                                     <TextBlock Text="{Binding FlagInvalid}" FontSize="8" FontWeight="Bold" Foreground="White"/>
+                                </Border>
+                                <Border CornerRadius="2" Padding="3,0" Margin="0,1,2,1" Background="{Binding FlagWarningBg}"
+                                        Visibility="{Binding FlagWarning, Converter={x:Static local:VisibleWhenNotEmptyConverter.Instance}}">
+                                    <TextBlock Text="{Binding FlagWarning}" FontSize="8" FontWeight="Bold" Foreground="White"/>
+                                </Border>
+                                <Border CornerRadius="2" Padding="3,0" Margin="0,1,2,1" Background="#CC5D4037"
+                                        Visibility="{Binding FlagContact, Converter={x:Static local:VisibleWhenNotEmptyConverter.Instance}}">
+                                    <TextBlock Text="{Binding FlagContact}" FontSize="8" FontWeight="Bold" Foreground="White"/>
                                 </Border>
                             </StackPanel>
                         </DataTemplate>
