@@ -118,7 +118,15 @@
                         <TextBlock Style="{StaticResource KpiLbl}" Text="INCIDENTS"/>
                         <TextBlock x:Name="KpiIncidents" Style="{StaticResource KpiVal}"/>
                     </StackPanel>
+                    <StackPanel Style="{StaticResource KpiBox}"
+                                ToolTip="Tours invalidés par LMU (hors limites, coupure…). Leur chrono, reconstitué, apparaît entre parenthèses dans le tableau.">
+                        <TextBlock Style="{StaticResource KpiLbl}" Text="INVALIDES"/>
+                        <TextBlock x:Name="KpiInvalid" Style="{StaticResource KpiVal}" Foreground="#FFEF9A9A"/>
+                    </StackPanel>
                 </UniformGrid>
+                <TextBlock x:Name="TxtTheoDetail" FontSize="11" Foreground="#FF90CAF9" Margin="0,0,0,8"
+                           TextTrimming="CharacterEllipsis"
+                           ToolTip="Les trois meilleurs secteurs des tours valides, et le tour où chacun a été réalisé"/>
             </StackPanel>
         </Border>
 

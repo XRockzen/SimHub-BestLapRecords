@@ -3,6 +3,17 @@
 Chaque version est publiée dans les [releases](../../releases) et proposée automatiquement dans
 TeamPace par le bandeau de mise à jour.
 
+## 2.4.0
+
+- **Correction** : les données capturées en direct (carburant, usure des pneus, arrêts aux stands)
+  pouvaient ne pas s'afficher dans l'analyse alors qu'elles étaient bien enregistrées. LMU écrit une
+  heure de début de session décalée de quelques minutes, différente pour chaque pilote ; le
+  rattachement se fait désormais par numéro de tour. Les sessions déjà roulées sont corrigées
+  automatiquement.
+- Temps théorique détaillé : les trois meilleurs secteurs et le tour d'où vient chacun.
+- Tours invalides : chrono reconstitué (entre parenthèses, hors statistiques) et compteur
+  « Invalides » dans la carte de session.
+
 ## 2.3.0
 
 - Progression : la courbe se lit maintenant de façon naturelle, plus bas = plus rapide.

@@ -37,7 +37,10 @@ namespace User.TeamPace
         {
             get
             {
-                if (!Lap.IsValid) return "--:--.---";
+                if (!Lap.IsValid)
+                    return Lap.ReconstructedTicks > 0
+                        ? "(" + Fmt.Lap(TimeSpan.FromTicks(Lap.ReconstructedTicks)) + ")"
+                        : "--:--.---";
                 var t = Lap.LapTime;
                 return string.Format("{0}:{1:00}.{2:000}",
                     (int)t.TotalMinutes, t.Seconds, t.Milliseconds);

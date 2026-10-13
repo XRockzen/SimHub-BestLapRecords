@@ -32,6 +32,9 @@ namespace User.TeamPace
         public bool   IsPitLap           { get; set; }
         public float  ElapsedTime        { get; set; }   // seconds from block start to lap start
 
+        // Invalid laps: duration rebuilt from the next lap's start (display only, never in stats)
+        public long   ReconstructedTicks { get; set; }
+
         // ─── Live capture, merged at display time (not persisted with XML laps) ──
         public bool   HasLive            { get; set; }
         public float  LiveFuelUsedL      { get; set; }   // litres burnt this lap

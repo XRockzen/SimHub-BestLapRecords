@@ -67,19 +67,30 @@ namespace User.TeamPace
 
             var laps = LmuSessionStore.GetLapsForSession(r.FileId, Driver.DbPath);
             int liveMatched = MergeLiveData(r, laps, Driver.DbPath);
+            ReconstructInvalidTimes(laps);
 
+            // Theoretical best = best S1 + best S2 + best S3 of valid laps, each with its lap
             float theo = 0f, top = 0f;
             float b1 = float.MaxValue, b2 = float.MaxValue, b3 = float.MaxValue;
+            int l1 = 0, l2 = 0, l3 = 0, invalid = 0;
             foreach (var l in laps)
             {
-                if (l.IsValid && l.S1 > 0 && l.S1 < b1) b1 = l.S1;
-                if (l.IsValid && l.S2 > 0 && l.S2 < b2) b2 = l.S2;
-                if (l.IsValid && l.S3 > 0 && l.S3 < b3) b3 = l.S3;
+                if (!l.IsValid) invalid++;
+                if (l.IsValid && l.S1 > 0 && l.S1 < b1) { b1 = l.S1; l1 = l.LapNum; }
+                if (l.IsValid && l.S2 > 0 && l.S2 < b2) { b2 = l.S2; l2 = l.LapNum; }
+                if (l.IsValid && l.S3 > 0 && l.S3 < b3) { b3 = l.S3; l3 = l.LapNum; }
                 if (l.TopSpeedKph > top) top = l.TopSpeedKph;
             }
-            if (b1 < float.MaxValue && b2 < float.MaxValue && b3 < float.MaxValue) theo = b1 + b2 + b3;
+            bool hasTheo = b1 < float.MaxValue && b2 < float.MaxValue && b3 < float.MaxValue;
+            if (hasTheo) theo = b1 + b2 + b3;
             KpiTheo.Text = theo > 0 ? Fmt.LapSec(theo) : "—";
             KpiTop.Text  = top > 0 ? string.Format(Inv, "{0:0} km/h", top) : "—";
+            KpiInvalid.Text = invalid.ToString();
+            TxtTheoDetail.Text = hasTheo
+                ? string.Format(Inv, "Théorique = S1 {0} (tour {1})  +  S2 {2} (tour {3})  +  S3 {4} (tour {5})",
+                                Fmt.LapSec(b1), l1, Fmt.LapSec(b2), l2, Fmt.LapSec(b3), l3)
+                : "";
+            TxtTheoDetail.Visibility = hasTheo ? Visibility.Visible : Visibility.Collapsed;
 
             bool hasVe = false, hasTire = false;
             string prevCompound = null;
@@ -141,7 +152,7 @@ namespace User.TeamPace
             int visible = 0;
             foreach (UIElement c in KpiGridPanel.Children) if (c.Visibility == Visibility.Visible) visible++;
             if (visible == 0) return;
-            int rows = e.NewSize.Width / visible < 84 ? 2 : 1;
+            int rows = e.NewSize.Width / visible < 74 ? 2 : 1;
             if (KpiGridPanel.Rows != rows) KpiGridPanel.Rows = rows;
         }
 
@@ -441,8 +452,10 @@ namespace User.TeamPace
             return (prev - cur) * 100f;
         }
 
-        // Laps are matched on absolute start time; if the clocks disagree (server
-        // time online), fall back to lap numbers within the session window.
+        // The session start written by LMU is not the real green flag: it is off by a few
+        // minutes, differently for each driver. Laps are therefore matched on lap number, and
+        // when several captured laps share a number (another session in the window), the one
+        // closest to the session's typical clock offset wins.
         private static int MergeLiveData(LmuSessionRecord r, List<LmuLapRecord> laps, string dbPath)
         {
             if (r.BlockStartUtc == DateTime.MinValue || laps.Count == 0) return 0;
@@ -456,38 +469,57 @@ namespace User.TeamPace
             var pits = LmuSessionStore.GetLivePits(from, to, dbPath);
             if (live.Count == 0 && pits.Count == 0) return 0;
 
-            long tolerance = TimeSpan.FromSeconds(10).Ticks;
+            Func<LmuLapRecord, long> xmlStart = l => r.BlockStartUtc.AddSeconds(l.ElapsedTime).Ticks;
+
+            var offsets = new List<long>();
+            foreach (var l in laps)
+                foreach (var s in live)
+                    if (s.LapNum == l.LapNum) offsets.Add(s.StartUtcTicks - xmlStart(l));
+            if (offsets.Count == 0) return 0;
+            offsets.Sort();
+            long median = offsets[offsets.Count / 2];
+
             int matched = 0;
             foreach (var l in laps)
             {
-                long start = r.BlockStartUtc.AddSeconds(l.ElapsedTime).Ticks;
-                LmuLiveLap bestMatch = null;
-                long bestGap = tolerance;
+                LmuLiveLap best = null;
+                long bestGap = long.MaxValue;
                 foreach (var s in live)
                 {
-                    long gap = Math.Abs(s.StartUtcTicks - start);
-                    if (gap <= bestGap) { bestGap = gap; bestMatch = s; }
+                    if (s.LapNum != l.LapNum) continue;
+                    long gap = Math.Abs(s.StartUtcTicks - xmlStart(l) - median);
+                    if (gap < bestGap) { bestGap = gap; best = s; }
                 }
-                if (bestMatch != null) { ApplyLive(l, bestMatch); matched++; }
+                if (best != null) { ApplyLive(l, best); matched++; }
             }
 
-            bool byLapNum = matched == 0;
-            if (byLapNum)
-                foreach (var l in laps)
-                    foreach (var s in live)
-                        if (s.LapNum == l.LapNum) { ApplyLive(l, s); matched++; break; }
-
+            long maxPitGap = TimeSpan.FromMinutes(10).Ticks;
             foreach (var p in pits)
-            {
-                LmuLapRecord target = null;
                 foreach (var l in laps)
                 {
-                    if (byLapNum) { if (l.LapNum == p.LapNum) { target = l; break; } }
-                    else if (r.BlockStartUtc.AddSeconds(l.ElapsedTime).Ticks <= p.EntryUtcTicks) target = l;
+                    if (l.LapNum != p.LapNum || l.LivePit != null) continue;
+                    if (Math.Abs(p.EntryUtcTicks - xmlStart(l) - median) > maxPitGap) continue;
+                    l.LivePit = p;
+                    break;
                 }
-                if (target != null && target.LivePit == null) target.LivePit = p;
-            }
             return matched;
+        }
+
+        /// <summary>
+        /// LMU gives no time for invalidated laps, but each lap carries its start time:
+        /// an invalid lap lasted until the next lap started.
+        /// </summary>
+        private static void ReconstructInvalidTimes(List<LmuLapRecord> laps)
+        {
+            for (int i = 0; i + 1 < laps.Count; i++)
+            {
+                var l = laps[i];
+                if (l.IsValid) continue;
+                // A lap starting at session opening includes the time spent in the garage
+                if (l.ElapsedTime < 1f) continue;
+                double sec = laps[i + 1].ElapsedTime - l.ElapsedTime;
+                if (sec > 10 && sec < 3600) l.ReconstructedTicks = TimeSpan.FromSeconds(sec).Ticks;
+            }
         }
 
         private static void ApplyLive(LmuLapRecord l, LmuLiveLap s)
