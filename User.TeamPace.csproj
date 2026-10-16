@@ -93,6 +93,10 @@
     <Compile Include="PluginUpdater.cs" />
     <Compile Include="PluginPaths.cs" />
     <Compile Include="ProgressionChart.cs" />
+    <Compile Include="TelemetryFormat.cs" />
+    <Compile Include="TelemetryService.cs" />
+    <Compile Include="TelemetryChart.cs" />
+    <Compile Include="TelemetryView.cs" />
     <Compile Include="CareerColumn.xaml.cs">
       <DependentUpon>CareerColumn.xaml</DependentUpon>
     </Compile>
@@ -145,6 +149,23 @@
     </Page>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- 64-bit telemetry extractor, embedded in the plugin DLL (SimHub is 32-bit, DuckDB is 64-bit only) -->
+  <ItemGroup>
+    <ExtractorSource Include="Extractor\*.cs" />
+    <ExtractorSource Include="TelemetryFormat.cs" />
+    <EmbeddedResource Include="obj\TeamPace.Extractor.exe">
+      <LogicalName>TeamPace.Extractor.exe</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+  <PropertyGroup>
+    <ExtractorCsc>$(MSBuildToolsPath)\csc.exe</ExtractorCsc>
+    <ExtractorCsc Condition="!Exists('$(ExtractorCsc)')">$(MSBuildToolsPath)\Roslyn\csc.exe</ExtractorCsc>
+    <ExtractorCsc Condition="!Exists('$(ExtractorCsc)')">$(MSBuildFrameworkToolsPath)csc.exe</ExtractorCsc>
+  </PropertyGroup>
+  <Target Name="BuildExtractor" BeforeTargets="PrepareForBuild" Inputs="@(ExtractorSource)" Outputs="obj\TeamPace.Extractor.exe">
+    <MakeDir Directories="obj" />
+    <Exec Command="&quot;$(ExtractorCsc)&quot; /nologo /platform:x64 /optimize+ /target:exe /out:obj\TeamPace.Extractor.exe @(ExtractorSource->'&quot;%(FullPath)&quot;', ' ')" />
+  </Target>
   <PropertyGroup>
     <PostBuildEvent>REM --- Copy plugin DLL ---
 XCOPY /Y /R "$(TargetDir)$(TargetName).dll" "$(SIMHUB_INSTALL_PATH)"

@@ -28,6 +28,7 @@ courses d'endurance : consommation, usure des pneus, temps perdu aux stands.
 | **Carrière** | courses, victoires, podiums, temps de roulage, record par circuit et par catégorie, activité semaine par semaine |
 | **Progression** | courbe du meilleur tour de chaque pilote sur un circuit, session après session |
 | **Analyse tour par tour** | secteurs, écart au coéquipier sur chaque tour, carburant, énergie virtuelle, usure des pneus, arrêts aux stands |
+| **Télémétrie** | n'importe quel tour de chaque pilote superposé sur la distance : écart cumulé, vitesse, accélérateur, frein, rapport, volant, régime, avec le tracé du circuit |
 | **Capture en direct** | pendant que vous roulez (SimHub ouvert) : litres par tour, usure par tour, temps dans la voie des stands et à l'arrêt |
 | **Automatique** | chaque session terminée dans LMU est importée seule, serveurs privés compris |
 
@@ -57,9 +58,12 @@ C'est la seule installation manuelle : les versions suivantes s'installent depui
 2. **Joueur LMU** : votre nom exactement comme dans Le Mans Ultimate.
 3. **Dossier résultats** : le dossier des résultats LMU. Il est détecté automatiquement dans la
    plupart des cas (`…\Le Mans Ultimate\UserData\Log\Results`).
-4. **⟳ Importer** : récupère toutes vos sessions passées. La première fois, comptez quelques secondes.
+4. **⟳ Tout mettre à jour** (en haut à droite) : récupère toutes vos sessions passées, extrait la
+   télémétrie enregistrée par LMU et synchronise l'équipe. La première fois, comptez une
+   trentaine de secondes.
 
-Ensuite, plus rien à faire : chaque session que vous terminez dans LMU est ajoutée toute seule.
+Ensuite, plus rien à faire : chaque session que vous terminez dans LMU est ajoutée toute seule,
+télémétrie comprise.
 
 ## 3. Partager avec ses coéquipiers (Google Drive)
 
@@ -107,8 +111,8 @@ La synchronisation démarre aussitôt. Le dossier choisi s'affiche dans les **�
 
 1. **Dossier équipe** : le dossier partagé sélectionné.
 2. **📁 Choisir…** : pour le changer.
-3. **⇅ Synchroniser** : force l'échange tout de suite. Sinon, c'est automatique (au démarrage de
-   SimHub, à la fin de chaque session et à la fermeture).
+3. **⟳ Tout mettre à jour**, en haut à droite : force l'échange tout de suite. Sinon, c'est
+   automatique (au démarrage de SimHub, à la fin de chaque session et à la fermeture).
 4. **Pilotes affichés** : vous et les coéquipiers ajoutés (voir ci-dessous).
 
 ## 4. Se comparer
@@ -208,6 +212,27 @@ sans temps officiel : TeamPace le reconstitue à partir de l'heure de départ du
 l'affiche **entre parenthèses**, sans jamais le compter dans les statistiques. Les colonnes des pilotes gardent la même structure, pour que les tableaux restent
 alignés tour par tour.
 
+### Télémétrie
+
+![Télémétrie de deux tours](docs/images/10-telemetrie.png)
+
+LMU enregistre toute la télémétrie de chacun de vos relais (dossier `UserData\Telemetry`).
+TeamPace en extrait chaque tour, le partage avec l'équipe par le dossier Google Drive et le
+superpose à ceux des autres pilotes. Ouvrez-la avec le bouton **Télémétrie des tours** d'une
+analyse ou d'une progression, ou d'un **double-clic sur un tour** du tableau.
+
+1. **Un tour par ligne**, jusqu'à 4 : pilote, séance (ou *Toutes les séances* pour choisir parmi
+   les meilleurs tours du circuit) et tour. Le premier tour sert de **référence**.
+2. **Courbes** : cochez celles à afficher. L'**écart** montre, mètre par mètre, le temps gagné ou
+   perdu sur la référence : une courbe qui monte, c'est du temps perdu.
+3. **Molette** pour zoomer, **glisser** pour se déplacer, **double-clic** pour revoir le tour entier.
+   Un clic sur le **tracé** zoome sur ce virage.
+4. Au survol, les valeurs de chaque tour à cet endroit du circuit.
+
+La télémétrie est extraite automatiquement à la fin de chaque session, et à la demande avec
+**⟳ Tout mettre à jour**. Tout votre historique depuis l'activation de la télémétrie dans LMU est
+repris, à raison de 10 à 15 Ko par tour.
+
 ## 5. Mises à jour
 
 ![Bandeau de mise à jour](docs/images/08-mise-a-jour.png)
@@ -227,8 +252,9 @@ administrateur. Le lien **Vérifier les mises à jour**, en bas à droite du plu
 |---|---|
 | TeamPace n'apparaît pas dans SimHub | Vérifiez l'étape « Débloquer » de l'installation, puis relancez SimHub. |
 | Aucune session après l'import | Le **nom de joueur** doit être exactement celui de LMU ; vérifiez le **dossier résultats**. |
-| Un coéquipier n'apparaît pas dans « + Ajouter un pilote… » | Il doit avoir choisi le même dossier d'équipe et lancé SimHub au moins une fois. Cliquez ensuite sur **⇅ Synchroniser**. |
+| Un coéquipier n'apparaît pas dans « + Ajouter un pilote… » | Il doit avoir choisi le même dossier d'équipe et lancé SimHub au moins une fois. Cliquez ensuite sur **⟳ Tout mettre à jour**. |
 | Le dossier d'équipe est introuvable dans « Choisir… » | Le coéquipier doit d'abord l'**ajouter à son Drive** (étape 3.3). |
+| Pas de télémétrie pour un pilote | Il doit avoir TeamPace 2.6 ou plus et cliquer une fois sur **⟳ Tout mettre à jour**. La télémétrie de LMU doit être active (dossier `UserData\Telemetry` non vide). |
 | Colonnes carburant / pneus vides | Ces valeurs sont capturées en direct : roulez avec SimHub ouvert. En ligne, LMU ne les écrit pas dans ses fichiers de résultats. |
 
 ## Pour le développeur

@@ -164,7 +164,7 @@ namespace User.TeamPace
             return list;
         }
 
-        private static string Sanitize(string name)
+        internal static string Sanitize(string name)
         {
             var s = string.IsNullOrWhiteSpace(name) ? "pilote" : name.Trim();
             foreach (var c in Path.GetInvalidFileNameChars()) s = s.Replace(c, '_');

@@ -3,6 +3,19 @@
 Chaque version est publiée dans les [releases](../../releases) et proposée automatiquement dans
 TeamPace par le bandeau de mise à jour.
 
+## 2.6.0
+
+- **Télémétrie** : superposez jusqu'à 4 tours (vous, vos coéquipiers, n'importe quelle séance sur le
+  circuit) : écart cumulé, vitesse, accélérateur, frein, rapport, volant et régime, avec le tracé du
+  circuit. Zoom à la molette, valeurs au survol. TeamPace reprend la télémétrie que LMU enregistre
+  déjà, historique compris, et la partage avec l'équipe par le dossier Google Drive.
+- Un seul bouton **⟳ Tout mettre à jour** : import des résultats, télémétrie et synchronisation de
+  l'équipe.
+- Arrêts aux stands : un retour au garage (Échap) suivi d'une sortie n'est plus pris pour un arrêt.
+  Le vrai arrêt du même tour s'affiche avec son temps et son carburant.
+- Temps perdu aux stands : un tour de sortie écourté (retour au garage) n'est plus compté.
+- Nombre de pneus changés (2 ou 4) détecté pendant l'arrêt.
+
 ## 2.5.0
 
 - Tours invalides : seuls les tours invalidés par une coupure ou une sortie de piste sont comptés.

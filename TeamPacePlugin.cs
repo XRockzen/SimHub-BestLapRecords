@@ -58,6 +58,7 @@ namespace User.TeamPace
             var commonPath = Path.Combine(PluginsDataPath, "Common");
             InvalidLapStore.Init(commonPath);
             LmuSessionStore.Init(commonPath);
+            TelemetryService.Init(PluginPaths.DataDir(commonPath));
 
             var dataPath = PluginsDataPath;
             Task.Run(() =>
@@ -206,6 +207,7 @@ namespace User.TeamPace
 
                 LmuTeamSync.PullTeammates();
                 LmuTeamSync.Export();
+                TelemetryService.PullTeam();
 
                 if (imported > 0)
                     SimHub.Logging.Current.Info(
@@ -220,6 +222,12 @@ namespace User.TeamPace
             {
                 IsImporting = false;
             }
+        }
+
+        /// <summary>Imports new LMU results now (blocking).</summary>
+        internal void RunLmuImport()
+        {
+            StartLmuImport();
         }
 
         internal void TriggerLmuRescan()

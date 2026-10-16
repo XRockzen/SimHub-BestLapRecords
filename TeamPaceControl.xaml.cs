@@ -32,7 +32,7 @@ namespace User.TeamPace
     /// </summary>
     public partial class TeamPaceControl : UserControl
     {
-        private enum Screen { Career, History, Progress, Analysis }
+        private enum Screen { Career, History, Progress, Analysis, Telemetry }
 
         private class NavState
         {
@@ -44,6 +44,7 @@ namespace User.TeamPace
             public string Subtitle;   // analysis: "Course du 20/09/26 · 18:50"
             public string Crumb;      // short label in the breadcrumb
             public string BadgeClass; // raw car class for the title badge
+            public List<TelemetryView.Preset> Presets;   // telemetry: laps shown, kept up to date by the view
         }
 
         private ProgressionChart _progressChart;
@@ -97,8 +98,17 @@ namespace User.TeamPace
             Navigate(new NavState { Screen = Screen.Career, Crumb = "Carrière" }, false);
 
             TxtVersion.Text = "TeamPace " + PluginUpdater.Format(PluginUpdater.CurrentVersion);
-            Loaded   += (s, e) => { PluginUpdater.Changed += OnUpdateChanged; RefreshUpdateBanner(); };
-            Unloaded += (s, e) => PluginUpdater.Changed -= OnUpdateChanged;
+            Loaded   += (s, e) =>
+            {
+                PluginUpdater.Changed += OnUpdateChanged;
+                TelemetryService.StatusChanged += OnTelemetryStatus;
+                RefreshUpdateBanner();
+            };
+            Unloaded += (s, e) =>
+            {
+                PluginUpdater.Changed -= OnUpdateChanged;
+                TelemetryService.StatusChanged -= OnTelemetryStatus;
+            };
 
             _loadTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
             _loadTimer.Tick += LoadTimer_Tick;
@@ -200,6 +210,14 @@ namespace User.TeamPace
                             var m = d.FindMatch(any);
                             if (m != null) _state.Sessions[d.Key] = m;
                         }
+            }
+            else if (_state != null && _state.Screen == Screen.Telemetry)
+            {
+                // Removed drivers lose their laps, added ones get their best lap on the circuit
+                _state.Presets.RemoveAll(p => !_drivers.Exists(d => d.Key == p.DriverKey));
+                foreach (var d in _drivers)
+                    if (!_state.Presets.Exists(p => p.DriverKey == d.Key) && _state.Presets.Count < TelemetryView.MaxSlots)
+                        _state.Presets.Add(new TelemetryView.Preset { DriverKey = d.Key });
             }
             Render();
         }
@@ -337,6 +355,8 @@ namespace User.TeamPace
             CommonLegend.Visibility   = (_state.Screen == Screen.History || _state.Screen == Screen.Progress) && _drivers.Count > 1
                                         ? Visibility.Visible : Visibility.Collapsed;
             AnalysisLegend.Visibility = _state.Screen == Screen.Analysis ? Visibility.Visible : Visibility.Collapsed;
+            BtnTelemetry.Visibility   = _state.Screen == Screen.Analysis || _state.Screen == Screen.Progress
+                                        ? Visibility.Visible : Visibility.Collapsed;
             TxtLegendTeam.Visibility  = _drivers.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
 
             switch (_state.Screen)
@@ -345,6 +365,7 @@ namespace User.TeamPace
                 case Screen.History:  RenderHistory();  break;
                 case Screen.Progress: RenderProgress(); break;
                 case Screen.Analysis: RenderAnalysis(); break;
+                case Screen.Telemetry: RenderTelemetry(); break;
             }
         }
 
@@ -584,6 +605,7 @@ namespace User.TeamPace
                 matching.Sort((a, b) => a.SessionDate.CompareTo(b.SessionDate));
                 perDriver.Add(matching);
             }
+            _state.BadgeClass = rawClass;
             SetHeader(_state.Circuit, "Progression du meilleur tour, session après session", rawClass);
 
             long teamBest = long.MaxValue;
@@ -713,6 +735,7 @@ namespace User.TeamPace
                 {
                     var col = new AnalysisColumn(d, s);
                     col.StatsChanged += c => UpdateAverageReferences();
+                    col.LapOpened    += (c, lapNum) => OpenTelemetryFromAnalysis(c.Driver.Key, lapNum);
                     _analysisCols.Add(col);
                     AddColumn(d, col, s.SessionTypeLong);
                 }
@@ -752,7 +775,7 @@ namespace User.TeamPace
             else foreach (var c in _analysisCols) c.SetTeamDeltas(null);
 
             UpdateAverageReferences();
-            TxtStatus.Text = "Cochez / décochez des tours : les stats et les couleurs se recalculent par pilote";
+            TxtStatus.Text = "Cochez / décochez des tours : les stats et les couleurs se recalculent par pilote  ·  double-clic sur un tour : sa télémétrie";
         }
 
         private void UpdateAverageReferences()
@@ -763,6 +786,58 @@ namespace User.TeamPace
                     if (c.AverageTicks > 0 && (best == null || c.AverageTicks < best.AverageTicks)) best = c;
             foreach (var c in _analysisCols)
                 c.SetAverageReference(best != null ? best.AverageTicks : 0, best != null ? best.Driver.Name : null);
+        }
+
+        // ─── Telemetry ────────────────────────────────────────────────────────
+
+        private void BtnTelemetry_Click(object sender, RoutedEventArgs e)
+        {
+            if (_state.Screen == Screen.Analysis) OpenTelemetryFromAnalysis(null, 0);
+            else if (_state.Screen == Screen.Progress)
+            {
+                var presets = new List<TelemetryView.Preset>();
+                foreach (var d in _drivers) presets.Add(new TelemetryView.Preset { DriverKey = d.Key });
+                OpenTelemetry(_state.Circuit, _state.BadgeClass, presets);
+            }
+        }
+
+        /// <summary>From a session: each driver's best lap of that session, or the given lap for one driver.</summary>
+        private void OpenTelemetryFromAnalysis(string driverKey, int lapNum)
+        {
+            var presets = new List<TelemetryView.Preset>();
+            string circuit = _state.Title, carClass = _state.BadgeClass;
+            foreach (var d in _drivers)
+            {
+                LmuSessionRecord s;
+                if (!_state.Sessions.TryGetValue(d.Key, out s)) { presets.Add(new TelemetryView.Preset { DriverKey = d.Key }); continue; }
+                circuit = s.TrackDisplayName;
+                var p = new TelemetryView.Preset { DriverKey = d.Key, SessionFileId = s.FileId, LapNum = d.Key == driverKey ? lapNum : 0 };
+                if (d.Key == driverKey) presets.Insert(0, p);   // the double-clicked lap is the reference
+                else presets.Add(p);
+            }
+            OpenTelemetry(circuit, carClass, presets);
+        }
+
+        private void OpenTelemetry(string circuit, string carClass, List<TelemetryView.Preset> presets)
+        {
+            Navigate(new NavState
+            {
+                Screen = Screen.Telemetry, Circuit = circuit, BadgeClass = carClass, Presets = presets,
+                Crumb = "Télémétrie",
+            }, true);
+        }
+
+        private void RenderTelemetry()
+        {
+            SetHeader(_state.Circuit, "Télémétrie  ·  tours superposés sur la distance parcourue", _state.BadgeClass);
+            ColumnsHost.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            ColumnsHost.Children.Add(new TelemetryView(_drivers, _state.Circuit, _state.Presets));
+            TxtStatus.Text = "Le premier tour sert de référence pour l'écart  ·  clic sur le tracé : zoom sur le virage";
+        }
+
+        private void OnTelemetryStatus()
+        {
+            Dispatcher.BeginInvoke(new Action(() => SetTopStatus(TelemetryService.Status)));
         }
 
         // ═══ Mise à jour ══════════════════════════════════════════════════════
@@ -851,33 +926,73 @@ namespace User.TeamPace
         private void TxtLmuPlayer_TextChanged(object sender, TextChangedEventArgs e) { _lmuSettingsDirty = true; }
         private void TxtLmuPath_TextChanged(object sender, TextChangedEventArgs e)   { _lmuSettingsDirty = true; }
 
-        private void BtnLmuScan_Click(object sender, RoutedEventArgs e)
+        /// <summary>
+        /// The one refresh button: new LMU results, telemetry extraction, then team sharing
+        /// (own data out, teammates' data in).
+        /// </summary>
+        private void BtnUpdateAll_Click(object sender, RoutedEventArgs e) { UpdateAll(); }
+
+        private void UpdateAll()
         {
             if (_lmuSettingsDirty)
             {
                 LmuSessionStore.SaveSettings(TxtLmuPlayer.Text.Trim(), TxtLmuPath.Text.Trim());
                 _lmuSettingsDirty = false;
             }
-            RunScan(false);
-        }
+            if (string.IsNullOrWhiteSpace(LmuSessionStore.PlayerName))
+            {
+                SetSettingsOpen(true);
+                SetTopStatus("Renseignez d'abord votre nom de joueur LMU");
+                return;
+            }
 
-        private void BtnForceRescan_Click(object sender, RoutedEventArgs e) { RunScan(true); }
-
-        private void RunScan(bool clearFlags)
-        {
-            TxtLmuStatus.Text    = clearFlags ? "Réimport complet en cours…" : "Import en cours…";
-            BtnLmuScan.IsEnabled = BtnForceRescan.IsEnabled = false;
+            BtnUpdateAll.IsEnabled = false;
+            Action<string> report = text => Dispatcher.BeginInvoke(new Action(() => SetTopStatus(text)));
             Task.Run(() =>
             {
-                if (clearFlags) LmuSessionStore.ClearParsedFlags();
-                _plugin.TriggerLmuRescan();
-                System.Threading.Thread.Sleep(3000);
+                string teamText = null;
+                TelemetryService.Result tele = null;
+                try
+                {
+                    report("Import des résultats LMU…");
+                    _plugin.RunLmuImport();
+
+                    tele = TelemetryService.Extract();
+
+                    if (LmuTeamSync.IsConfigured)
+                    {
+                        report("Synchronisation avec l'équipe…");
+                        var error   = LmuTeamSync.Export();
+                        int updated = LmuTeamSync.PullTeammates();
+                        int traces  = TelemetryService.SyncTeam();
+                        int mates   = LmuTeamSync.GetDrivers().Count - 1;
+                        teamText = error != null
+                            ? "Échec de l'envoi : " + error
+                            : string.Format("Envoyé à {0:HH:mm}  ·  {1} coéquipier(s){2}{3}", DateTime.Now, mates,
+                                updated > 0 ? string.Format(", {0} mis à jour", updated) : "",
+                                traces > 0 ? string.Format(", {0} relais de télémétrie reçus", traces) : "");
+                    }
+                    TelemetryService.Invalidate();
+                }
+                catch (Exception ex)
+                {
+                    teamText = "Erreur : " + ex.Message;
+                    SimHub.Logging.Current.Warn("[TeamPace] Update all: " + ex);
+                }
+
                 Dispatcher.Invoke(() =>
                 {
                     TxtLmuStatus.Text = string.Format("{0} session(s)", LmuSessionStore.GetSessionCount());
-                    SetTopStatus("Import terminé : " + TxtLmuStatus.Text);
-                    BtnLmuScan.IsEnabled = BtnForceRescan.IsEnabled = true;
-                    _loadTimer.Start();
+                    if (teamText != null) TxtTeamStatus.Text = teamText;
+                    var parts = new List<string> { TxtLmuStatus.Text };
+                    if (tele != null)
+                        parts.Add(tele.Error != null ? "télémétrie : " + tele.Error
+                                : tele.Laps > 0 ? string.Format("{0} tour(s) de télémétrie extrait(s)", tele.Laps)
+                                : "télémétrie à jour");
+                    if (LmuTeamSync.IsConfigured) parts.Add("équipe synchronisée");
+                    SetTopStatus("À jour : " + string.Join("  ·  ", parts));
+                    BtnUpdateAll.IsEnabled = true;
+                    ReloadData();
                 });
             });
         }
@@ -894,37 +1009,7 @@ namespace User.TeamPace
                 LmuSessionStore.SaveTeamFolder(dlg.SelectedPath);
                 TxtTeamFolder.Text = dlg.SelectedPath;
             }
-            BtnTeamSync_Click(sender, e);
-        }
-
-        private void BtnTeamSync_Click(object sender, RoutedEventArgs e)
-        {
-            if (!LmuTeamSync.IsConfigured)
-            {
-                TxtTeamStatus.Text = string.IsNullOrWhiteSpace(LmuSessionStore.PlayerName)
-                    ? "Renseignez d'abord votre nom de joueur LMU"
-                    : "Choisissez un dossier d'équipe accessible";
-                return;
-            }
-
-            BtnTeamSync.IsEnabled = false;
-            TxtTeamStatus.Text    = "Synchronisation…";
-            Task.Run(() =>
-            {
-                var error   = LmuTeamSync.Export();
-                int updated = LmuTeamSync.PullTeammates();
-                Dispatcher.Invoke(() =>
-                {
-                    int mates = LmuTeamSync.GetDrivers().Count - 1;
-                    TxtTeamStatus.Text = error != null
-                        ? "Échec de l'envoi : " + error
-                        : string.Format("Envoyé à {0:HH:mm}  ·  {1} coéquipier(s){2}", DateTime.Now, mates,
-                            updated > 0 ? string.Format(", {0} mis à jour", updated) : "");
-                    SetTopStatus("Équipe : " + TxtTeamStatus.Text);
-                    BtnTeamSync.IsEnabled = true;
-                    ReloadData();
-                });
-            });
+            UpdateAll();
         }
     }
 }

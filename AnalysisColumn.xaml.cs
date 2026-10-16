@@ -17,6 +17,9 @@ namespace User.TeamPace
         /// <summary>Raised when the checked laps change (average lap may have moved).</summary>
         public event Action<AnalysisColumn> StatsChanged;
 
+        /// <summary>Raised on a lap double-click: open that lap's telemetry.</summary>
+        public event Action<AnalysisColumn, int> LapOpened;
+
         public DriverView       Driver  { get; private set; }
         public LmuSessionRecord Session { get; private set; }
         public long AverageTicks { get; private set; }   // average of checked valid laps, 0 if none
@@ -32,7 +35,21 @@ namespace User.TeamPace
             Driver  = driver;
             Session = session;
             InitializeComponent();
+            LapGrid.MouseDoubleClick += LapGrid_MouseDoubleClick;
             Build();
+        }
+
+        private void LapGrid_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            var row = e.OriginalSource as DependencyObject;
+            while (row != null && !(row is DataGridRow))
+            {
+                if (row is CheckBox) return;   // double-click on the selection box
+                row = System.Windows.Media.VisualTreeHelper.GetParent(row);
+            }
+            var lap = row != null ? ((DataGridRow)row).Item as AnalysisLapRow : null;
+            var h = LapOpened;
+            if (lap != null && h != null) h(this, lap.LapNum);
         }
 
         // ─── Build ────────────────────────────────────────────────────────────
@@ -466,8 +483,10 @@ namespace User.TeamPace
                 if (refSec > 0 && inLap > 0)
                 {
                     double loss = inLap - refSec;
-                    if (i + 1 < _rows.Count && !_rows[i + 1].IsPitLap && Duration(_rows[i + 1].Lap) > 0)
-                        loss += Duration(_rows[i + 1].Lap) - refSec;
+                    // The out-lap counts only when it is a real lap: a return to the garage
+                    // cuts it short.
+                    double outLap = i + 1 < _rows.Count && !_rows[i + 1].IsPitLap ? Duration(_rows[i + 1].Lap) : 0;
+                    if (outLap > refSec * 0.85) loss += outLap - refSec;
                     title += string.Format(Inv, "   ·   temps perdu ≈ {0:+0.0;-0.0} s", loss);
                 }
 
@@ -479,7 +498,8 @@ namespace User.TeamPace
                     parts.Add(string.Format(Inv, "arrêt {0:F1} s", p.StoppedSec));
                     if (p.LimiterSec > 0)   parts.Add(string.Format(Inv, "limiteur {0:F1} s", p.LimiterSec));
                     if (p.FuelAddedL > 0.5) parts.Add(string.Format(Inv, "+{0:F1} L", p.FuelAddedL));
-                    if (p.TyresChanged)     parts.Add("pneus changés");
+                    if (p.TyresCount > 0)   parts.Add(p.TyresCount == 1 ? "1 pneu" : p.TyresCount + " pneus");
+                    else if (p.TyresChanged) parts.Add("pneus changés");
                 }
                 else parts.Add("détail non capturé (SimHub fermé pendant l'arrêt)");
                 items.Add(new PitItem { Title = title, Detail = string.Join("  ·  ", parts) });
@@ -554,6 +574,8 @@ namespace User.TeamPace
             // you start in the garage, and leaving it is recorded as a pit-lane passage.
             long maxPitGap = TimeSpan.FromMinutes(10).Ticks;
             foreach (var p in pits)
+            {
+                if (IsGarageExit(p, live)) continue;
                 foreach (var l in laps)
                 {
                     if (l.LapNum != p.LapNum || l.LapNum <= 1 || l.LivePit != null) continue;
@@ -562,7 +584,23 @@ namespace User.TeamPace
                     l.IsPitLap = true;
                     break;
                 }
+            }
             return matched;
+        }
+
+        /// <summary>
+        /// Escape → garage ends the lap and puts the car back in the lane; driving out is a lane
+        /// passage, not a stop. Captures made before v2.6 have no flag: such a passage starts at
+        /// the very instant a new lap starts, with nothing serviced.
+        /// </summary>
+        private static bool IsGarageExit(LmuLivePit p, List<LmuLiveLap> live)
+        {
+            if (p.FromGarage) return true;
+            if (p.FuelAddedL > 0.5 || p.TyresChanged) return false;
+            long tolerance = TimeSpan.FromSeconds(2).Ticks;
+            foreach (var s in live)
+                if (Math.Abs(s.StartUtcTicks - p.EntryUtcTicks) < tolerance) return true;
+            return false;
         }
 
         /// <summary>

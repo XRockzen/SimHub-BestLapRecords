@@ -32,6 +32,8 @@ namespace User.TeamPace
         public double LimiterSec     { get; set; }   // pit limiter engaged inside the lane
         public double FuelAddedL     { get; set; }
         public bool   TyresChanged   { get; set; }
+        public int    TyresCount     { get; set; }   // wheels changed (0 when unknown, older captures)
+        public bool   FromGarage     { get; set; }   // lane passage started in the garage, not a stop
     }
 
     /// <summary>Records per-lap fuel/tyre usage and pit stop timings from SimHub telemetry.</summary>
@@ -39,7 +41,9 @@ namespace User.TeamPace
     {
         private const double MaxTickSec     = 1.0;   // ignore gaps (pause, alt-tab)
         private const double MaxWearStepPct = 2.0;   // a bigger jump in one tick = new tyres
+        private const double PitWearStepPct = 0.2;   // same, while stopped in the lane (fresh tyres barely differ)
         private const double StoppedKmh     = 1.0;
+        private const double GarageSpawnKmh = 5.0;   // entering the lane from the track is never this slow
 
         private string   _track;
         private int      _lastCompleted = -1;
@@ -60,7 +64,8 @@ namespace User.TeamPace
         private DateTime _pitEntry;
         private int      _pitLap;
         private double   _pitStopped, _pitLimiter, _pitFuelAdded;
-        private bool     _pitTyres;
+        private bool[]   _pitTyres = new bool[4];
+        private bool     _pitFromGarage;
 
         public void Update(GameData data)
         {
@@ -84,7 +89,8 @@ namespace User.TeamPace
 
             AccumulateFuel(d.Fuel, _inLane);
             AccumulateWear(new[] { d.TyreWearFrontLeft, d.TyreWearFrontRight,
-                                   d.TyreWearRearLeft,  d.TyreWearRearRight });
+                                   d.TyreWearRearLeft,  d.TyreWearRearRight },
+                           _inLane && d.SpeedKmh < StoppedKmh);
             TrackPit(d, now, dt, completed);
 
             if (completed < 0) return;
@@ -130,14 +136,15 @@ namespace User.TeamPace
 
         // SimHub's wear convention differs per game (worn % or remaining %), so only
         // the magnitude of the change is used; large steps are tyre changes.
-        private void AccumulateWear(double[] tyre)
+        private void AccumulateWear(double[] tyre, bool stoppedInLane)
         {
             if (_prevTyre != null)
             {
+                double limit = stoppedInLane ? PitWearStepPct : MaxWearStepPct;
                 for (int i = 0; i < 4; i++)
                 {
                     double step = Math.Abs(tyre[i] - _prevTyre[i]);
-                    if (step > MaxWearStepPct) { if (_inLane) _pitTyres = true; }
+                    if (step > limit) { if (_inLane) _pitTyres[i] = true; }
                     else _wear[i] += step;
                 }
             }
@@ -155,8 +162,11 @@ namespace User.TeamPace
                 _pitStopped   = 0;
                 _pitLimiter   = 0;
                 _pitFuelAdded = 0;
-                _pitTyres     = false;
+                _pitTyres     = new bool[4];
                 _lapInPit     = true;
+                // Escape → garage puts the car back in the lane at a standstill: driving out
+                // of the garage afterwards is a lane passage, not a pit stop.
+                _pitFromGarage = dt == 0 || d.SpeedKmh < GarageSpawnKmh;
             }
             else if (inLane)
             {
@@ -165,6 +175,8 @@ namespace User.TeamPace
             }
             else if (_inLane)
             {
+                int tyres = 0;
+                foreach (var t in _pitTyres) if (t) tyres++;
                 var pit = new LmuLivePit
                 {
                     EntryUtcTicks = _pitEntry.Ticks,
@@ -175,7 +187,9 @@ namespace User.TeamPace
                     StoppedSec    = _pitStopped,
                     LimiterSec    = _pitLimiter,
                     FuelAddedL    = _pitFuelAdded,
-                    TyresChanged  = _pitTyres,
+                    TyresChanged  = tyres > 0,
+                    TyresCount    = tyres,
+                    FromGarage    = _pitFromGarage,
                 };
                 Task.Run(() => LmuSessionStore.SaveLivePit(pit));
             }

@@ -62,6 +62,8 @@
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,6">
                     <TextBlock x:Name="TxtTopStatus" FontSize="11" Foreground="#99FFFFFF" VerticalAlignment="Center"
                                Margin="0,0,10,0" TextTrimming="CharacterEllipsis" MaxWidth="320"/>
+                    <Button x:Name="BtnUpdateAll" Style="{StaticResource NavBtn}" Click="BtnUpdateAll_Click" Margin="0,0,6,0"
+                            ToolTip="Importe les nouveaux résultats LMU, extrait la télémétrie et synchronise l'équipe">⟳ Tout mettre à jour</Button>
                     <Button x:Name="BtnSettings" Style="{StaticResource NavBtn}" Click="BtnSettings_Click"
                             ToolTip="Nom de joueur, dossier des résultats LMU, dossier d'équipe">⚙ Réglages</Button>
                 </StackPanel>
@@ -99,11 +101,6 @@
                              VerticalContentAlignment="Center" TextChanged="TxtLmuPath_TextChanged"
                              ToolTip="Chemin vers …\Le Mans Ultimate\UserData\Log\Results"/>
                     <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
-                        <styles:SHButtonSecondary x:Name="BtnLmuScan" Click="BtnLmuScan_Click"
-                                                  FontSize="10" Padding="6,2" Margin="6,0,0,0">⟳ Importer</styles:SHButtonSecondary>
-                        <styles:SHButtonSecondary x:Name="BtnForceRescan" Click="BtnForceRescan_Click"
-                                                  FontSize="10" Padding="6,2" Margin="4,0,0,0"
-                                                  ToolTip="Relit tous les fichiers résultats LMU, y compris ceux déjà analysés">⟳ Tout réimporter</styles:SHButtonSecondary>
                         <TextBlock x:Name="TxtLmuStatus" Margin="8,0,0,0" FontSize="10" Foreground="#99FFFFFF"
                                    FontStyle="Italic" VerticalAlignment="Center"/>
                     </StackPanel>
@@ -121,9 +118,6 @@
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                         <styles:SHButtonSecondary x:Name="BtnTeamBrowse" Click="BtnTeamBrowse_Click"
                                                   FontSize="10" Padding="6,2" Margin="6,0,0,0">📁 Choisir…</styles:SHButtonSecondary>
-                        <styles:SHButtonSecondary x:Name="BtnTeamSync" Click="BtnTeamSync_Click"
-                                                  FontSize="10" Padding="6,2" Margin="4,0,0,0"
-                                                  ToolTip="Publie vos données et récupère celles des coéquipiers">⇅ Synchroniser</styles:SHButtonSecondary>
                         <TextBlock x:Name="TxtTeamStatus" Margin="8,0,0,0" FontSize="10" Foreground="#99FFFFFF"
                                    FontStyle="Italic" VerticalAlignment="Center"/>
                     </StackPanel>
@@ -136,7 +130,11 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
+            <styles:SHButtonPrimary Grid.Column="2" x:Name="BtnTelemetry" Click="BtnTelemetry_Click" VerticalAlignment="Bottom"
+                                    FontSize="12" Padding="12,4" Margin="12,0,0,2" Visibility="Collapsed"
+                                    ToolTip="Superposer les courbes (vitesse, freins, accélérateur, rapports, volant) des tours de chaque pilote">Télémétrie des tours  ›</styles:SHButtonPrimary>
             <Button Grid.Column="0" x:Name="BtnBack" Style="{StaticResource NavBtn}" Click="BtnBack_Click"
                     VerticalAlignment="Center" Margin="0,0,14,0" Padding="10,6" FontSize="14"
                     ToolTip="Retour (bouton précédent de la souris ou Alt + ←)">←</Button>

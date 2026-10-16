@@ -141,6 +141,8 @@ namespace User.TeamPace
                 {
                     LmuSessionStore.SaveSession(session, laps);
                     LmuTeamSync.ExportAsync();
+                    // A results file is written when a session ends: its telemetry can be extracted
+                    TelemetryService.RequestAfterSession();
                 }
                 else
                     LmuSessionStore.MarkFileParsed(fileId);
