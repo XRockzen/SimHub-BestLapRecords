@@ -224,23 +224,24 @@ analyse ou d'une progression, ou d'un **double-clic sur un tour** du tableau.
 1. **Un tour par ligne**, jusqu'à 4 : pilote, séance (ou *Toutes les séances* pour choisir parmi
    les meilleurs tours du circuit) et tour. Le premier tour sert de **référence**.
 2. **Courbes** : cochez celles à afficher. L'**écart** montre, mètre par mètre, le temps gagné ou
-   perdu sur la référence : une courbe qui monte, c'est du temps perdu. La **trajectoire** montre
-   le placement de chaque voiture sur la largeur de la piste (en gris).
+   perdu sur la référence : une courbe qui monte, c'est du temps perdu.
 3. **Molette** pour zoomer, **glisser** pour se déplacer, **double-clic** pour revoir le tour entier.
    Au survol, les valeurs de chaque tour à cet endroit s'affichent à droite.
 4. **La carte** suit le zoom des courbes : piste avec ses bords, ligne de chaque tour, point de
    **début de freinage** (anneau rouge) et de **remise des gaz** (anneau vert) de chaque pilote.
-   Un clic sur un virage zoome dessus, la molette zoome aussi depuis la carte.
+   Un clic sur un virage zoome dessus, la molette zoome aussi depuis la carte. Le bouton
+   **⤢ Agrandir**, en haut de la carte, la passe en grand.
 5. **Virages** : détectés automatiquement, avec le temps gagné ou perdu sur la référence dans
    chacun (leur somme fait l'écart au tour). Un clic sur un virage zoome dessus.
 
-**⤢ Agrandir la carte** la passe en grand, les courbes principales restant dessous, pour comparer
-précisément trajectoires, freinages et remises des gaz :
+Carte agrandie : les courbes principales restent dessous, pour comparer précisément trajectoires,
+freinages et remises des gaz :
 
 ![Carte agrandie sur un virage](docs/images/11-carte-virage.png)
 
 Les trajectoires sont reconstruites à partir du placement latéral enregistré par LMU, précis au
-centimètre, sur un tracé moyen calculé avec vos meilleurs tours du circuit.
+centimètre, sur un tracé moyen calculé automatiquement avec les meilleurs tours de toute l'équipe
+sur ce circuit : chaque circuit roulé par l'un d'entre vous a son tracé, sans rien à configurer.
 
 La télémétrie est extraite automatiquement à la fin de chaque session, et à la demande avec
 **⟳ Tout mettre à jour**. Tout votre historique depuis l'activation de la télémétrie dans LMU est

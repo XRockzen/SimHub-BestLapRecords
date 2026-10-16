@@ -3,6 +3,13 @@
 Chaque version est publiée dans les [releases](../../releases) et proposée automatiquement dans
 TeamPace par le bandeau de mise à jour.
 
+## 2.7.1
+
+- Le tracé des circuits (bords de piste, virages) utilise les tours de toute l'équipe, même des
+  pilotes non affichés : un circuit roulé par un seul coéquipier a quand même son tracé.
+- La courbe « Trajectoire » est retirée : la carte montre les trajectoires plus clairement.
+- Les commandes de la carte (« ⤢ Agrandir », clic, molette) sont regroupées en haut de la carte.
+
 ## 2.7.0
 
 - **Trajectoires** : la carte suit le zoom des courbes et montre la piste avec ses bords, la ligne

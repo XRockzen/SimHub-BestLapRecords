@@ -8,7 +8,7 @@ using System.Windows.Media;
 
 namespace User.TeamPace
 {
-    public enum TeleChannel { Delta, Speed, Line, Throttle, Brake, Gear, Steer, Rpm }
+    public enum TeleChannel { Delta, Speed, Throttle, Brake, Gear, Steer, Rpm }
 
     /// <summary>
     /// Stacked telemetry panels sharing a lap-distance axis. Traces are drawn on one layer
@@ -25,7 +25,7 @@ namespace User.TeamPace
         }
 
         public static readonly TeleChannel[] Channels =
-            { TeleChannel.Delta, TeleChannel.Speed, TeleChannel.Line, TeleChannel.Throttle, TeleChannel.Brake,
+            { TeleChannel.Delta, TeleChannel.Speed, TeleChannel.Throttle, TeleChannel.Brake,
               TeleChannel.Gear, TeleChannel.Steer, TeleChannel.Rpm };
 
         public static string Title(TeleChannel c)
@@ -34,7 +34,6 @@ namespace User.TeamPace
             {
                 case TeleChannel.Delta:    return "Écart (s)";
                 case TeleChannel.Speed:    return "Vitesse (km/h)";
-                case TeleChannel.Line:     return "Trajectoire (m, + = gauche)";
                 case TeleChannel.Throttle: return "Accélérateur (%)";
                 case TeleChannel.Brake:    return "Frein (%)";
                 case TeleChannel.Gear:     return "Rapport";
@@ -95,7 +94,7 @@ namespace User.TeamPace
             Redraw();
         }
 
-        /// <summary>Track edges for the trajectory panel and corner names above the panels.</summary>
+        /// <summary>Corner names and spans above the panels.</summary>
         public void SetTrack(TrackModel track)
         {
             _track = track;
@@ -150,7 +149,6 @@ namespace User.TeamPace
             {
                 case TeleChannel.Delta:    return t.Delta != null ? t.Delta[i] : 0;
                 case TeleChannel.Speed:    return d.Speed[i];
-                case TeleChannel.Line:     return d.Lateral != null ? -d.Lateral[i] : double.NaN;
                 case TeleChannel.Throttle: return d.Throttle[i];
                 case TeleChannel.Brake:    return d.Brake[i];
                 case TeleChannel.Gear:     return d.Gear[i];
@@ -166,20 +164,6 @@ namespace User.TeamPace
             {
                 case TeleChannel.Throttle:
                 case TeleChannel.Brake: lo = 0; hi = 100; return;
-                case TeleChannel.Line:
-                    if (_track != null)
-                    {
-                        // The whole track width over the visible part
-                        double l = 0, r = 0;
-                        for (double d = _x0; d <= _x1; d += TrackModel.Step)
-                        {
-                            int k = _track.Index(d);
-                            l = Math.Max(l, _track.EdgeLeft[k]); r = Math.Max(r, _track.EdgeRight[k]);
-                        }
-                        lo = -r - 1; hi = l + 1;
-                        return;
-                    }
-                    break;
             }
             double min = double.MaxValue, max = double.MinValue;
             foreach (var t in _traces)
@@ -205,8 +189,6 @@ namespace User.TeamPace
                 case TeleChannel.Steer:
                     double s = Math.Max(5, Math.Max(Math.Abs(min), Math.Abs(max)) * 1.1);
                     lo = -s; hi = s; return;
-                case TeleChannel.Line:
-                    lo = Math.Floor(min) - 1; hi = Math.Ceiling(max) + 1; return;
                 case TeleChannel.Gear:
                     lo = 0; hi = Math.Max(2, max) + 0.5; return;
                 case TeleChannel.Speed:
@@ -234,8 +216,6 @@ namespace User.TeamPace
         private static readonly Typeface Face   = new Typeface("Segoe UI");
         private static readonly Brush CornerBg    = Frozen(Color.FromArgb(9, 255, 255, 255));
         private static readonly Brush CornerBrush = Frozen(Color.FromArgb(170, 255, 200, 87));
-        private static readonly Brush TrackFill   = Frozen(Color.FromArgb(22, 255, 255, 255));
-        private static readonly Pen   EdgePen     = FrozenPen(Color.FromArgb(90, 255, 255, 255), 1);
 
         private void DrawTraces(DrawingContext dc)
         {
@@ -267,7 +247,6 @@ namespace User.TeamPace
                 }
 
                 dc.PushClip(new RectangleGeometry(r));
-                if (c == TeleChannel.Line && _track != null) DrawTrackBand(dc, r, lo, hi);
                 // Reference last, so it stays readable on top of the others
                 for (int k = _traces.Count - 1; k >= 0; k--) DrawSeries(dc, _traces[k], c, r, lo, hi);
                 dc.Pop();
@@ -304,25 +283,6 @@ namespace User.TeamPace
                          x, last.Bottom + 10, TextAlignment.Center, TextBrush, 10);
                 }
             }
-        }
-
-        /// <summary>Track surface between both edges, as seen from the driver (left up).</summary>
-        private void DrawTrackBand(DrawingContext dc, Rect r, double lo, double hi)
-        {
-            var geo = new StreamGeometry();
-            using (var g = geo.Open())
-            {
-                bool first = true;
-                for (double d = _x0; d <= _x1 + TrackModel.Step; d += TrackModel.Step)
-                {
-                    var p = new Point(X(d), Y(r, _track.EdgeLeft[_track.Index(d)], lo, hi));
-                    if (first) { g.BeginFigure(p, true, true); first = false; } else g.LineTo(p, true, false);
-                }
-                for (double d = _x1 + TrackModel.Step; d >= _x0 - TrackModel.Step; d -= TrackModel.Step)
-                    g.LineTo(new Point(X(d), Y(r, -_track.EdgeRight[_track.Index(d)], lo, hi)), true, false);
-            }
-            geo.Freeze();
-            dc.DrawGeometry(TrackFill, EdgePen, geo);
         }
 
         private void DrawSeries(DrawingContext dc, Trace t, TeleChannel c, Rect r, double lo, double hi)
@@ -392,7 +352,6 @@ namespace User.TeamPace
             {
                 case TeleChannel.Delta: return (v > 0 ? "+" : "") + v.ToString("0.00", CultureInfo.InvariantCulture);
                 case TeleChannel.Gear:  return Math.Round(v).ToString(CultureInfo.InvariantCulture);
-                case TeleChannel.Line:  return v.ToString("0", CultureInfo.InvariantCulture) + " m";
                 case TeleChannel.Rpm:   return (v / 1000).ToString("0.#", CultureInfo.InvariantCulture) + "k";
                 default:                return Math.Round(v).ToString(CultureInfo.InvariantCulture);
             }

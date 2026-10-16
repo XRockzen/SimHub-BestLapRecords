@@ -65,14 +65,18 @@ namespace User.TeamPace
         {
             Background = new SolidColorBrush(Color.FromArgb(13, 255, 255, 255)), CornerRadius = new CornerRadius(8),
             Padding = new Thickness(4),
-            ToolTip = "Clic : zoom sur ce virage  ·  molette : zoom  ·  survol : valeurs à cet endroit",
+        };
+        private readonly TextBlock _mapHint = new TextBlock
+        {
+            FontSize = 10.5, Foreground = new SolidColorBrush(Color.FromArgb(128, 255, 255, 255)),
+            VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis,
         };
         private readonly Grid _center = new Grid();
         private readonly StackPanel _side = new StackPanel { Margin = new Thickness(12, 0, 0, 0) };
         private readonly ScrollViewer _sideScroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         private readonly StackPanel _cornerPanel = new StackPanel { Margin = new Thickness(0, 8, 0, 0) };
         private readonly StackPanel _readout = new StackPanel { Margin = new Thickness(0, 8, 0, 0) };
-        private readonly Button _btnLarge = new Button { Margin = new Thickness(16, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+        private readonly Button _btnLarge = new Button { Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
         private static bool _large;   // kept while browsing laps
         private TrackModel _model;
         private readonly List<Border> _cornerRows = new List<Border>();
@@ -173,8 +177,8 @@ namespace User.TeamPace
         private static readonly Dictionary<string, TrackModel> Models = new Dictionary<string, TrackModel>();
 
         /// <summary>
-        /// Centre line, edges and corners rebuilt from the fastest clean laps of every displayed
-        /// driver on this circuit (up to 40), cached for the session.
+        /// Centre line, edges and corners rebuilt from the fastest clean laps of the whole team on
+        /// this circuit (up to 40), displayed or not: more laps, more complete track edges.
         /// </summary>
         private TrackModel BuildModel()
         {
@@ -182,6 +186,12 @@ namespace User.TeamPace
             foreach (var kv in _laps)
                 foreach (var l in kv.Value)
                     if (l.IsClean && l.File.Version >= 2) laps.Add(l);
+            foreach (var mate in LmuTeamSync.GetDrivers())
+            {
+                if (_laps.ContainsKey(mate.DbPath ?? "")) continue;
+                foreach (var l in TelemetryService.GetLaps(new DriverView(mate, DriverView.Palette[0]), _circuit))
+                    if (l.IsClean && l.File.Version >= 2) laps.Add(l);
+            }
             if (laps.Count == 0) return null;
             laps.Sort((a, b) => a.LapSec.CompareTo(b.LapSec));
             if (laps.Count > 40) laps.RemoveRange(40, laps.Count - 40);
@@ -219,7 +229,16 @@ namespace User.TeamPace
             top.Children.Add(_toggles);
             root.Children.Add(top);
 
-            _mapHost.Child = _map;
+            // Map header: what the map does and the enlarge button, right on top of it
+            var mapHeader = new DockPanel { Margin = new Thickness(4, 2, 2, 4) };
+            DockPanel.SetDock(_btnLarge, Dock.Right);
+            mapHeader.Children.Add(_btnLarge);
+            mapHeader.Children.Add(_mapHint);
+            var mapDock = new DockPanel();
+            DockPanel.SetDock(mapHeader, Dock.Top);
+            mapDock.Children.Add(mapHeader);
+            mapDock.Children.Add(_map);
+            _mapHost.Child = mapDock;
             _side.Children.Add(_cornerPanel);
             _side.Children.Add(_readout);
             _sideScroll.Content = _side;
@@ -262,7 +281,7 @@ namespace User.TeamPace
             }
             else
             {
-                _mapHost.Height = 250;
+                _mapHost.Height = 290;
                 _mapHost.Margin = new Thickness(0);
                 _side.Children.Insert(0, _mapHost);
                 Grid.SetRow(_chart, 0); Grid.SetRow(_empty, 0);
@@ -274,7 +293,9 @@ namespace User.TeamPace
             _map.IsLarge = _large;
             _map.InvalidateVisual();
             if (_toggles.Children.Count > 0) { BuildToggles(); _chart.SetVisible(VisibleList()); }
-            _btnLarge.Content = _large ? "⤡ Réduire la carte" : "⤢ Agrandir la carte";
+            _btnLarge.Content = _large ? "⤡ Réduire" : "⤢ Agrandir";
+            _mapHint.Text = _large ? "Carte  ·  clic sur un virage : zoom  ·  molette : zoom avant / arrière"
+                                   : "Carte  ·  clic : zoom sur un virage";
         }
 
         private void ZoomOnCorner(double dist)
@@ -301,10 +322,9 @@ namespace User.TeamPace
                 cb.Unchecked += (s, e) => { Visible.Remove(channel); _chart.SetVisible(VisibleList()); };
                 _toggles.Children.Add(cb);
             }
-            _toggles.Children.Add(_btnLarge);
             _toggles.Children.Add(new TextBlock
             {
-                Text = "molette : zoom  ·  glisser : déplacer  ·  double-clic : tour complet  ·  clic sur la carte : virage",
+                Text = "courbes : molette pour zoomer, glisser pour se déplacer, double-clic pour revoir le tour",
                 FontSize = 10.5, Foreground = new SolidColorBrush(Color.FromArgb(128, 255, 255, 255)),
                 VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0),
             });
