@@ -15,6 +15,7 @@ TeamPace par le bandeau de mise à jour.
   Le vrai arrêt du même tour s'affiche avec son temps et son carburant.
 - Temps perdu aux stands : un tour de sortie écourté (retour au garage) n'est plus compté.
 - Nombre de pneus changés (2 ou 4) détecté pendant l'arrêt.
+- Documentation : section Télémétrie et captures d'écran mises à jour (bouton « Tout mettre à jour »).
 
 ## 2.5.0
 
