@@ -44,7 +44,11 @@ namespace User.TeamPace
         }
 
         private static readonly string[] ExtraColors = { "#FFFFC857", "#FFEC6FAD", "#FF4DD0E1", "#FFB0BEC5" };
-        private static readonly HashSet<TeleChannel> Visible = new HashSet<TeleChannel>(TelemetryChart.Channels);
+        private static readonly HashSet<TeleChannel> VisibleNormal = new HashSet<TeleChannel>(TelemetryChart.Channels);
+        // Under the large map there is room for fewer curves: the pedals, speed and gap first
+        private static readonly HashSet<TeleChannel> VisibleLarge = new HashSet<TeleChannel>
+            { TeleChannel.Delta, TeleChannel.Speed, TeleChannel.Throttle, TeleChannel.Brake, TeleChannel.Gear };
+        private static HashSet<TeleChannel> Visible { get { return _large ? VisibleLarge : VisibleNormal; } }
         private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
         private readonly List<DriverView> _drivers;
@@ -56,8 +60,22 @@ namespace User.TeamPace
         private readonly StackPanel _slotPanel = new StackPanel();
         private readonly WrapPanel _toggles = new WrapPanel { Margin = new Thickness(0, 8, 0, 4) };
         private readonly TelemetryChart _chart = new TelemetryChart();
-        private readonly TrackMap _map = new TrackMap { Height = 230, Cursor = Cursors.Hand };
+        private readonly TrackMap _map = new TrackMap();
+        private readonly Border _mapHost = new Border
+        {
+            Background = new SolidColorBrush(Color.FromArgb(13, 255, 255, 255)), CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(4),
+            ToolTip = "Clic : zoom sur ce virage  ·  molette : zoom  ·  survol : valeurs à cet endroit",
+        };
+        private readonly Grid _center = new Grid();
+        private readonly StackPanel _side = new StackPanel { Margin = new Thickness(12, 0, 0, 0) };
+        private readonly ScrollViewer _sideScroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+        private readonly StackPanel _cornerPanel = new StackPanel { Margin = new Thickness(0, 8, 0, 0) };
         private readonly StackPanel _readout = new StackPanel { Margin = new Thickness(0, 8, 0, 0) };
+        private readonly Button _btnLarge = new Button { Margin = new Thickness(16, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+        private static bool _large;   // kept while browsing laps
+        private TrackModel _model;
+        private readonly List<Border> _cornerRows = new List<Border>();
         private readonly TextBlock _empty = new TextBlock
         {
             TextWrapping = TextWrapping.Wrap, Opacity = 0.6, FontStyle = FontStyles.Italic,
@@ -81,10 +99,13 @@ namespace User.TeamPace
             }
             if (_slots.Count == 0 && drivers.Count > 0) _slots.Add(CreateSlot(drivers[0], new Preset()));
 
+            _model = BuildModel();
             Content = BuildLayout();
-            _chart.CursorMoved += d => { _map.SetCursor(d); UpdateReadout(d); };
+            _chart.CursorMoved += d => { _map.SetCursor(d); UpdateReadout(d); HighlightCorner(d); };
             _chart.ViewChanged += () => _map.SetView(_chart.ViewStart, _chart.ViewEnd);
-            _map.DistanceClicked += d => _chart.SetView(d - 250, d + 250);
+            _map.DistanceClicked += ZoomOnCorner;
+            _map.HoverDistance   += d => _chart.SetCursor(d);
+            _map.ZoomRequested   += (d, f) => _chart.ZoomAt(d, f);
             Reload(false);
         }
 
@@ -147,6 +168,45 @@ namespace User.TeamPace
                 });
         }
 
+        // ─── Track model ──────────────────────────────────────────────────────
+
+        private static readonly Dictionary<string, TrackModel> Models = new Dictionary<string, TrackModel>();
+
+        /// <summary>
+        /// Centre line, edges and corners rebuilt from the fastest clean laps of every displayed
+        /// driver on this circuit (up to 40), cached for the session.
+        /// </summary>
+        private TrackModel BuildModel()
+        {
+            var laps = new List<TeleLapRef>();
+            foreach (var kv in _laps)
+                foreach (var l in kv.Value)
+                    if (l.IsClean && l.File.Version >= 2) laps.Add(l);
+            if (laps.Count == 0) return null;
+            laps.Sort((a, b) => a.LapSec.CompareTo(b.LapSec));
+            if (laps.Count > 40) laps.RemoveRange(40, laps.Count - 40);
+
+            var key = _circuit + "|" + laps.Count + "|" + laps[0].File.Path + "|" + laps[laps.Count - 1].File.Path;
+            TrackModel model;
+            if (Models.TryGetValue(key, out model)) return model;
+
+            var traces = new List<TeleTrace>();
+            double length = 0;
+            foreach (var l in laps)
+            {
+                try { traces.Add(TelemetryService.LoadTrace(l)); length = Math.Max(length, l.File.TrackLength); }
+                catch (Exception ex) { SimHub.Logging.Current.Warn("[TeamPace] Track model: " + ex.Message); }
+            }
+            try { model = TrackModel.Build(traces, length); }
+            catch (Exception ex)
+            {
+                SimHub.Logging.Current.Warn("[TeamPace] Track model failed: " + ex);
+                model = null;
+            }
+            Models[key] = model;
+            return model;
+        }
+
         // ─── Layout ───────────────────────────────────────────────────────────
 
         private UIElement BuildLayout()
@@ -159,25 +219,69 @@ namespace User.TeamPace
             top.Children.Add(_toggles);
             root.Children.Add(top);
 
-            var side = new StackPanel { Width = 300, Margin = new Thickness(12, 0, 0, 0) };
-            var mapBox = new Border
-            {
-                Background = new SolidColorBrush(Color.FromArgb(13, 255, 255, 255)), CornerRadius = new CornerRadius(8),
-                Padding = new Thickness(6), Child = _map,
-                ToolTip = "Clic sur le tracé : zoom sur ce virage",
-            };
-            side.Children.Add(mapBox);
-            side.Children.Add(_readout);
-            DockPanel.SetDock(side, Dock.Right);
-            root.Children.Add(side);
+            _mapHost.Child = _map;
+            _side.Children.Add(_cornerPanel);
+            _side.Children.Add(_readout);
+            _sideScroll.Content = _side;
+            root.Children.Add(_center);
 
-            var center = new Grid();
-            center.Children.Add(_chart);
-            center.Children.Add(_empty);
-            root.Children.Add(center);
+            _btnLarge.SetResourceReference(StyleProperty, "SmallBtn");
+            _btnLarge.Click += (s, e) => { _large = !_large; ApplyLayout(); };
 
             BuildToggles();
+            ApplyLayout();
             return root;
+        }
+
+        /// <summary>
+        /// Normal: curves with the map in the side column. Large map: the map takes the top of the
+        /// screen, the curves stay below it, still synchronised.
+        /// </summary>
+        private void ApplyLayout()
+        {
+            _center.Children.Clear();
+            _center.RowDefinitions.Clear();
+            _center.ColumnDefinitions.Clear();
+            _side.Children.Remove(_mapHost);
+
+            _center.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            _center.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(310) });
+            var scroll = _sideScroll;
+            Grid.SetColumn(scroll, 1);
+            Grid.SetRowSpan(scroll, 1);
+
+            if (_large)
+            {
+                _center.RowDefinitions.Add(new RowDefinition { Height = new GridLength(3, GridUnitType.Star) });
+                _center.RowDefinitions.Add(new RowDefinition { Height = new GridLength(2, GridUnitType.Star), MinHeight = 200 });
+                _mapHost.Height = double.NaN;
+                _mapHost.Margin = new Thickness(0, 0, 0, 8);
+                _center.Children.Add(_mapHost);
+                Grid.SetRow(_chart, 1); Grid.SetRow(_empty, 1);
+                Grid.SetRowSpan(scroll, 2);
+            }
+            else
+            {
+                _mapHost.Height = 250;
+                _mapHost.Margin = new Thickness(0);
+                _side.Children.Insert(0, _mapHost);
+                Grid.SetRow(_chart, 0); Grid.SetRow(_empty, 0);
+            }
+            _center.Children.Add(_chart);
+            _center.Children.Add(_empty);
+            _center.Children.Add(scroll);
+
+            _map.IsLarge = _large;
+            _map.InvalidateVisual();
+            if (_toggles.Children.Count > 0) { BuildToggles(); _chart.SetVisible(VisibleList()); }
+            _btnLarge.Content = _large ? "⤡ Réduire la carte" : "⤢ Agrandir la carte";
+        }
+
+        private void ZoomOnCorner(double dist)
+        {
+            var c = _model != null ? _model.CornerAt(dist) : null;
+            if (c != null) _chart.SetView(c.Start - 120, c.End + 60);
+            else _chart.SetView(dist - 150, dist + 150);
         }
 
         private void BuildToggles()
@@ -197,9 +301,10 @@ namespace User.TeamPace
                 cb.Unchecked += (s, e) => { Visible.Remove(channel); _chart.SetVisible(VisibleList()); };
                 _toggles.Children.Add(cb);
             }
+            _toggles.Children.Add(_btnLarge);
             _toggles.Children.Add(new TextBlock
             {
-                Text = "molette : zoom  ·  glisser : déplacer  ·  double-clic : tour complet",
+                Text = "molette : zoom  ·  glisser : déplacer  ·  double-clic : tour complet  ·  clic sur la carte : virage",
                 FontSize = 10.5, Foreground = new SolidColorBrush(Color.FromArgb(128, 255, 255, 255)),
                 VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0),
             });
@@ -446,10 +551,114 @@ namespace User.TeamPace
             _chart.Visibility = traces.Count == 0 ? Visibility.Hidden : Visibility.Visible;
 
             _chart.SetData(traces, VisibleList(), keepView);
-            var refSlot = _slots.Find(s => s.Trace != null);
-            _map.SetTrace(refSlot != null ? refSlot.Trace : null, refSlot != null ? refSlot.Color : Colors.White);
+            _chart.SetTrack(_model);
+
+            var lines = new List<TrackMap.Line>();
+            double length = _model != null ? _model.Length : 0;
+            foreach (var s in _slots)
+            {
+                if (s.Trace == null) continue;
+                lines.Add(MapLine(s));
+                if (_model == null) length = Math.Max(length, s.Trace.DistAt(s.Trace.N - 1));
+            }
+            _map.SetData(_model, lines, length);
             _map.SetView(_chart.ViewStart, _chart.ViewEnd);
+            UpdateCorners();
             UpdateReadout(double.NaN);
+        }
+
+        /// <summary>Lap line on the map: centre line + lateral offset when the track model allows it.</summary>
+        private TrackMap.Line MapLine(Slot s)
+        {
+            var t = s.Trace;
+            var line = new TrackMap.Line { Color = s.Color, Trace = t, X = new double[t.N], Y = new double[t.N] };
+            for (int i = 0; i < t.N; i++)
+            {
+                if (_model != null && t.HasLateral) _model.Position(t.DistAt(i), t.Lateral[i], out line.X[i], out line.Y[i]);
+                else { line.X[i] = t.X[i]; line.Y[i] = t.Y[i]; }
+            }
+            TrackMap.FindMarkers(t, out line.BrakeIdx, out line.GasIdx);
+            return line;
+        }
+
+        // ─── Corners ──────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Time gained or lost on the reference in each corner: the lap is split halfway between
+        /// corners, so the corner times add up to the lap gap.
+        /// </summary>
+        private void UpdateCorners()
+        {
+            _cornerPanel.Children.Clear();
+            _cornerRows.Clear();
+            var refSlot = _slots.Count > 0 && _slots[0].Trace != null ? _slots[0] : null;
+            if (_model == null || _model.Corners.Count == 0 || refSlot == null) return;
+
+            var others = _slots.FindAll(x => x != refSlot && x.Trace != null);
+            _cornerPanel.Children.Add(new TextBlock
+            {
+                Text = others.Count > 0 ? "Virages  ·  écart sur la référence" : "Virages  ·  temps de passage",
+                FontSize = 11, Foreground = new SolidColorBrush(Color.FromArgb(166, 255, 255, 255)), Margin = new Thickness(0, 0, 0, 4),
+            });
+
+            var sectors = _model.CornerSectors();
+            for (int i = 0; i < _model.Corners.Count; i++)
+            {
+                var c = _model.Corners[i];
+                double a = sectors[i].Key, b = Math.Min(sectors[i].Value, refSlot.Trace.DistAt(refSlot.Trace.N - 1));
+                foreach (var o in others) b = Math.Min(b, o.Trace.DistAt(o.Trace.N - 1));
+                var grid = new Grid();
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(92) });
+                foreach (var o in (others.Count > 0 ? others : new List<Slot> { refSlot }))
+                    grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+                grid.Children.Add(new TextBlock
+                {
+                    Text = string.Format(Inv, "{0}  {1}  {2:0}°", c.Name, c.Left ? "gauche" : "droite", c.Angle),
+                    FontSize = 11, Foreground = new SolidColorBrush(Color.FromArgb(220, 255, 200, 87)),
+                });
+                int col = 1;
+                double tr = refSlot.Trace.TimeAt(b) - refSlot.Trace.TimeAt(a);
+                foreach (var o in (others.Count > 0 ? others : new List<Slot> { refSlot }))
+                {
+                    var cell = new TextBlock { FontSize = 11, HorizontalAlignment = HorizontalAlignment.Right };
+                    if (o == refSlot)
+                    {
+                        cell.Text = double.IsNaN(tr) ? "—" : string.Format(Inv, "{0:0.00} s", tr);
+                        cell.Foreground = new SolidColorBrush(o.Color);
+                    }
+                    else
+                    {
+                        double to = o.Trace.TimeAt(b) - o.Trace.TimeAt(a);
+                        double gap = to - tr;
+                        cell.Text = double.IsNaN(gap) ? "—" : string.Format(Inv, "{0}{1:0.00}", gap >= 0 ? "+" : "−", Math.Abs(gap));
+                        cell.Foreground = new SolidColorBrush(double.IsNaN(gap) ? Color.FromArgb(120, 255, 255, 255)
+                                          : gap > 0.02 ? Color.FromRgb(0xEF, 0x9A, 0x9A)
+                                          : gap < -0.02 ? Color.FromRgb(0x66, 0xBB, 0x6A) : Color.FromArgb(200, 255, 255, 255));
+                        cell.ToolTip = o.Driver.Name + " · T" + o.Lap.LapNum;
+                    }
+                    Grid.SetColumn(cell, col++);
+                    grid.Children.Add(cell);
+                }
+
+                var row = new Border
+                {
+                    Child = grid, Padding = new Thickness(6, 2, 6, 2), CornerRadius = new CornerRadius(3), Cursor = Cursors.Hand,
+                    Background = Brushes.Transparent, Tag = c,
+                    ToolTip = string.Format(Inv, "{0} : de {1:0} à {2:0} m, rayon mini ≈ {3:0} m  ·  clic : zoom", c.Name, c.Start, c.End, c.MinRadius),
+                };
+                var corner = c;
+                row.MouseLeftButtonDown += (sender, e) => { _chart.SetView(corner.Start - 120, corner.End + 60); e.Handled = true; };
+                _cornerRows.Add(row);
+                _cornerPanel.Children.Add(row);
+            }
+        }
+
+        private void HighlightCorner(double dist)
+        {
+            var current = double.IsNaN(dist) || _model == null ? null : _model.CornerAt(dist);
+            foreach (var row in _cornerRows)
+                row.Background = row.Tag == current ? new SolidColorBrush(Color.FromArgb(36, 255, 200, 87)) : Brushes.Transparent;
         }
 
         /// <summary>Values under the cursor, or each lap's summary when the mouse is elsewhere.</summary>
@@ -496,6 +705,8 @@ namespace User.TeamPace
                     line = string.Format(Inv, "{0}{1:0} km/h   rapport {2}\naccél. {3:0} %   frein {4:0} %   volant {5:+0;-0;0} %   {6:0} tr/min",
                                          gap, t.Speed[i], t.Gear[i] < 0 ? "R" : t.Gear[i] == 0 ? "N" : t.Gear[i].ToString(Inv),
                                          t.Throttle[i], t.Brake[i], t.Steer[i], t.Rpm[i]);
+                    if (t.HasLateral)
+                        line += string.Format(Inv, "\nplacement {0:0.0} m à {1} du centre", Math.Abs(t.Lateral[i]), t.Lateral[i] > 0 ? "droite" : "gauche");
                 }
                 else if (cursor) line = "hors de ce tour";
                 else

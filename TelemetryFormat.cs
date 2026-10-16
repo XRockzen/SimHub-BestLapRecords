@@ -42,6 +42,7 @@ namespace User.TeamPace
         public long   SourceSize;
         public float  TrackLength;
         public float  Step;
+        public int    Version;   // format the file was written with
         public List<TeleLapInfo> Laps = new List<TeleLapInfo>();
 
         public string Path;   // where it was read from (not stored)
@@ -73,14 +74,19 @@ namespace User.TeamPace
         public float[] Steer;      // % of lock, signed
         public float[] Rpm;
         public sbyte[] Gear;       // -1 reverse, 0 neutral
-        public float[] X, Y;       // metres, relative to the first point
+        public float[] X, Y;       // metres: v2 in a frame shared by every lap of the track, v1 from the lap's first point
+        public float[] Lateral;    // v2: distance from the track centre line, metres, + = right (null in v1 files)
+        public float[] Edge;       // v2: track edge on the car's side, same convention
 
         public TeleTrace(int n)
         {
             N = n;
             Time = new float[n]; Speed = new float[n]; Throttle = new float[n]; Brake = new float[n];
             Steer = new float[n]; Rpm = new float[n]; Gear = new sbyte[n]; X = new float[n]; Y = new float[n];
+            Lateral = new float[n]; Edge = new float[n];
         }
+
+        public bool HasLateral { get { return Lateral != null; } }
 
         public float DistAt(int i) { return FirstDist + i * Step; }
 
@@ -106,7 +112,7 @@ namespace User.TeamPace
     public static class TeleFormat
     {
         public const int Magic   = 0x31545054;   // "TPT1"
-        public const int Version = 1;
+        public const int Version = 2;   // 2: shared X/Y frame, lateral position and track edge
 
         public static void Write(string path, TeleFileHeader h, List<TeleTrace> traces)
         {
@@ -155,9 +161,11 @@ namespace User.TeamPace
             {
                 var r = new BinaryReader(fs, Encoding.UTF8);
                 if (r.ReadInt32() != Magic) throw new InvalidDataException("not a TeamPace trace file");
-                if (r.ReadInt32() > Version) throw new InvalidDataException("trace file from a newer TeamPace");
+                int version = r.ReadInt32();
+                if (version > Version) throw new InvalidDataException("trace file from a newer TeamPace");
                 var h = new TeleFileHeader
                 {
+                    Version = version,
                     Driver = r.ReadString(), Track = r.ReadString(), Layout = r.ReadString(),
                     SessionType = r.ReadString(), Car = r.ReadString(), CarClass = r.ReadString(),
                     RecordingTime = r.ReadString(), Source = r.ReadString(),
@@ -178,8 +186,9 @@ namespace User.TeamPace
             }
         }
 
-        public static TeleTrace ReadTrace(string path, TeleLapInfo lap)
+        public static TeleTrace ReadTrace(TeleFileHeader h, TeleLapInfo lap)
         {
+            var path = h.Path;
             byte[] blob = new byte[lap.Length];
             using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
             {
@@ -192,7 +201,7 @@ namespace User.TeamPace
                     read += n;
                 }
             }
-            return Decode(blob);
+            return Decode(blob, h.Version);
         }
 
         // Quantised integer columns stored as differences from the previous point, then gzip:
@@ -212,15 +221,17 @@ namespace User.TeamPace
                     WriteDeltas(w, t.Steer, 100);
                     WriteDeltas(w, t.Rpm,   1);
                     for (int i = 0; i < t.N; i++) w.Write(t.Gear[i]);
-                    WriteDeltas(w, t.X, 4);           // 25 cm
-                    WriteDeltas(w, t.Y, 4);
+                    WriteDeltas(w, t.X, 20);          // 5 cm
+                    WriteDeltas(w, t.Y, 20);
+                    WriteDeltas(w, t.Lateral, 100);   // 1 cm
+                    WriteDeltas(w, t.Edge, 100);
                     w.Flush();
                 }
                 return ms.ToArray();
             }
         }
 
-        private static TeleTrace Decode(byte[] blob)
+        private static TeleTrace Decode(byte[] blob, int version)
         {
             using (var gz = new GZipStream(new MemoryStream(blob), CompressionMode.Decompress))
             {
@@ -234,8 +245,14 @@ namespace User.TeamPace
                 ReadDeltas(r, t.Steer, 100);
                 ReadDeltas(r, t.Rpm,   1);
                 for (int i = 0; i < t.N; i++) t.Gear[i] = r.ReadSByte();
-                ReadDeltas(r, t.X, 4);
-                ReadDeltas(r, t.Y, 4);
+                ReadDeltas(r, t.X, version >= 2 ? 20 : 4);
+                ReadDeltas(r, t.Y, version >= 2 ? 20 : 4);
+                if (version >= 2)
+                {
+                    ReadDeltas(r, t.Lateral, 100);
+                    ReadDeltas(r, t.Edge, 100);
+                }
+                else t.Lateral = t.Edge = null;
                 return t;
             }
         }

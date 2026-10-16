@@ -97,6 +97,8 @@
     <Compile Include="TelemetryService.cs" />
     <Compile Include="TelemetryChart.cs" />
     <Compile Include="TelemetryView.cs" />
+    <Compile Include="TrackModel.cs" />
+    <Compile Include="TrackMap.cs" />
     <Compile Include="CareerColumn.xaml.cs">
       <DependentUpon>CareerColumn.xaml</DependentUpon>
     </Compile>

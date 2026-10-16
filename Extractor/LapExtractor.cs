@@ -123,6 +123,8 @@ namespace TeamPace.Extractor
                 var dist  = channel("Lap Dist");
                 var lat   = channel("GPS Latitude");
                 var lon   = channel("GPS Longitude");
+                var side  = channel("Path Lateral");
+                var edge  = channel("Track Edge");
 
                 var laps  = new Events(db.QueryDoubles("select ts::DOUBLE, coalesce(value, 0)::DOUBLE from \"Lap\" order by ts", 2));
                 var gear  = events.Contains("Gear")
@@ -150,7 +152,7 @@ namespace TeamPace.Extractor
                         LapNum = (int)laps.V[k] + 1,   // LMU counts completed laps; results number from 1
                         StartEt = a, EndEt = b, LapSec = (float)(b - a),
                     };
-                    var trace = Resample(a, b, trackLen, dist, speed, steer, rpm, thr, brk, lat, lon, gear);
+                    var trace = Resample(a, b, trackLen, dist, speed, steer, rpm, thr, brk, lat, lon, side, edge, gear);
                     if (trace == null || trace.N < 50) continue;
 
                     bool outLap = pits.At(a + 0.05, 0) > 0.5;
@@ -189,7 +191,8 @@ namespace TeamPace.Extractor
         /// distance; grid points are placed by interpolating between frames.
         /// </summary>
         private static TeleTrace Resample(double a, double b, double len, Series dist, Series speed, Series steer,
-                                          Series rpm, Series thr, Series brk, Series lat, Series lon, Events gear)
+                                          Series rpm, Series thr, Series brk, Series lat, Series lon,
+                                          Series side, Series edge, Events gear)
         {
             // Unwrapped distance samples around the lap
             var ut = new List<double>();
@@ -224,6 +227,8 @@ namespace TeamPace.Extractor
             if (n < 2) return null;
             var tr = new TeleTrace(n) { Step = Step, FirstDist = (float)first };
 
+            // LMU's GPS is synthetic but fixed per track: an origin on the nearest whole degree
+            // puts every lap of the track in the same frame
             double lat0 = double.NaN, lon0 = 0, cosLat = 1;
             int j = 0;
             double grid = first;
@@ -246,9 +251,11 @@ namespace TeamPace.Extractor
                     tr.Gear[j]     = (sbyte)Math.Max(-1, Math.Min(12, gear.At(tg, 0)));
 
                     double la = lat.At(tg), lo = lon.At(tg);
-                    if (double.IsNaN(lat0)) { lat0 = la; lon0 = lo; cosLat = Math.Cos(la * Math.PI / 180); }
+                    if (double.IsNaN(lat0)) { lat0 = Math.Round(la); lon0 = Math.Round(lo); cosLat = Math.Cos(lat0 * Math.PI / 180); }
                     tr.X[j] = (float)((lo - lon0) * 111320 * cosLat);
                     tr.Y[j] = (float)((la - lat0) * 110574);
+                    tr.Lateral[j] = (float)side.At(tg);
+                    tr.Edge[j]    = (float)edge.At(tg);
 
                     j++;
                     grid = first + j * Step;
@@ -263,6 +270,7 @@ namespace TeamPace.Extractor
                 Array.Copy(tr.Throttle, cut.Throttle, j); Array.Copy(tr.Brake, cut.Brake, j);
                 Array.Copy(tr.Steer, cut.Steer, j); Array.Copy(tr.Rpm, cut.Rpm, j);
                 Array.Copy(tr.Gear, cut.Gear, j); Array.Copy(tr.X, cut.X, j); Array.Copy(tr.Y, cut.Y, j);
+                Array.Copy(tr.Lateral, cut.Lateral, j); Array.Copy(tr.Edge, cut.Edge, j);
                 return cut;
             }
             return tr;

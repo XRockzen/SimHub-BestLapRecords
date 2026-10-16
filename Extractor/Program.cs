@@ -56,7 +56,9 @@ namespace TeamPace.Extractor
                 if (!File.Exists(dest)) { todo.Add(f); continue; }
                 try
                 {
-                    if (TeleFormat.ReadHeader(dest).SourceSize != new FileInfo(f).Length) todo.Add(f);
+                    var h = TeleFormat.ReadHeader(dest);
+                    // Grown since, or written by an older extractor (missing channels)
+                    if (h.SourceSize != new FileInfo(f).Length || h.Version < TeleFormat.Version) todo.Add(f);
                 }
                 catch { todo.Add(f); }
             }

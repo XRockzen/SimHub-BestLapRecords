@@ -3,6 +3,20 @@
 Chaque version est publiée dans les [releases](../../releases) et proposée automatiquement dans
 TeamPace par le bandeau de mise à jour.
 
+## 2.7.0
+
+- **Trajectoires** : la carte suit le zoom des courbes et montre la piste avec ses bords, la ligne
+  de chaque tour, le début de freinage et la remise des gaz de chaque pilote. Précision au
+  centimètre grâce au placement latéral enregistré par LMU.
+- **Carte agrandie** : bouton « ⤢ Agrandir la carte » pour comparer les trajectoires en grand,
+  les courbes principales restant affichées dessous.
+- Nouvelle courbe **Trajectoire** : placement sur la largeur de la piste, mètre par mètre.
+- **Virages** détectés automatiquement, avec le temps gagné ou perdu sur la référence dans chacun ;
+  un clic zoome dessus (sur les courbes et la carte).
+- Clic et molette sur la carte pour zoomer, survol de la carte pour lire les valeurs.
+- La télémétrie déjà extraite est relue automatiquement au premier « ⟳ Tout mettre à jour » pour
+  y ajouter le placement sur la piste.
+
 ## 2.6.0
 
 - **Télémétrie** : superposez jusqu'à 4 tours (vous, vos coéquipiers, n'importe quelle séance sur le

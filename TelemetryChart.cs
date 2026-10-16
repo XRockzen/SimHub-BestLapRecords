@@ -8,7 +8,7 @@ using System.Windows.Media;
 
 namespace User.TeamPace
 {
-    public enum TeleChannel { Delta, Speed, Throttle, Brake, Gear, Steer, Rpm }
+    public enum TeleChannel { Delta, Speed, Line, Throttle, Brake, Gear, Steer, Rpm }
 
     /// <summary>
     /// Stacked telemetry panels sharing a lap-distance axis. Traces are drawn on one layer
@@ -25,7 +25,8 @@ namespace User.TeamPace
         }
 
         public static readonly TeleChannel[] Channels =
-            { TeleChannel.Delta, TeleChannel.Speed, TeleChannel.Throttle, TeleChannel.Brake, TeleChannel.Gear, TeleChannel.Steer, TeleChannel.Rpm };
+            { TeleChannel.Delta, TeleChannel.Speed, TeleChannel.Line, TeleChannel.Throttle, TeleChannel.Brake,
+              TeleChannel.Gear, TeleChannel.Steer, TeleChannel.Rpm };
 
         public static string Title(TeleChannel c)
         {
@@ -33,6 +34,7 @@ namespace User.TeamPace
             {
                 case TeleChannel.Delta:    return "Écart (s)";
                 case TeleChannel.Speed:    return "Vitesse (km/h)";
+                case TeleChannel.Line:     return "Trajectoire (m, + = gauche)";
                 case TeleChannel.Throttle: return "Accélérateur (%)";
                 case TeleChannel.Brake:    return "Frein (%)";
                 case TeleChannel.Gear:     return "Rapport";
@@ -51,12 +53,13 @@ namespace User.TeamPace
             }
         }
 
-        public const double ML = 58, MR = 10, MT = 2, MB = 22, Gap = 8;
+        public const double ML = 58, MR = 10, MT = 16, MB = 22, Gap = 8;   // MT: corner names strip
 
         public event Action<double> CursorMoved;   // lap distance, NaN when the mouse leaves
         public event Action ViewChanged;
 
         private List<Trace> _traces = new List<Trace>();
+        private TrackModel _track;
         private readonly List<TeleChannel> _visible = new List<TeleChannel>();
         private double _len, _x0, _x1;
         private double _cursor = double.NaN;
@@ -89,6 +92,13 @@ namespace User.TeamPace
             bool sameTrack = Math.Abs(len - _len) < 50;
             _len = len;
             if (!keepView || !sameTrack || _x1 <= _x0) { _x0 = 0; _x1 = len; }
+            Redraw();
+        }
+
+        /// <summary>Track edges for the trajectory panel and corner names above the panels.</summary>
+        public void SetTrack(TrackModel track)
+        {
+            _track = track;
             Redraw();
         }
 
@@ -140,6 +150,7 @@ namespace User.TeamPace
             {
                 case TeleChannel.Delta:    return t.Delta != null ? t.Delta[i] : 0;
                 case TeleChannel.Speed:    return d.Speed[i];
+                case TeleChannel.Line:     return d.Lateral != null ? -d.Lateral[i] : double.NaN;
                 case TeleChannel.Throttle: return d.Throttle[i];
                 case TeleChannel.Brake:    return d.Brake[i];
                 case TeleChannel.Gear:     return d.Gear[i];
@@ -155,6 +166,20 @@ namespace User.TeamPace
             {
                 case TeleChannel.Throttle:
                 case TeleChannel.Brake: lo = 0; hi = 100; return;
+                case TeleChannel.Line:
+                    if (_track != null)
+                    {
+                        // The whole track width over the visible part
+                        double l = 0, r = 0;
+                        for (double d = _x0; d <= _x1; d += TrackModel.Step)
+                        {
+                            int k = _track.Index(d);
+                            l = Math.Max(l, _track.EdgeLeft[k]); r = Math.Max(r, _track.EdgeRight[k]);
+                        }
+                        lo = -r - 1; hi = l + 1;
+                        return;
+                    }
+                    break;
             }
             double min = double.MaxValue, max = double.MinValue;
             foreach (var t in _traces)
@@ -180,6 +205,8 @@ namespace User.TeamPace
                 case TeleChannel.Steer:
                     double s = Math.Max(5, Math.Max(Math.Abs(min), Math.Abs(max)) * 1.1);
                     lo = -s; hi = s; return;
+                case TeleChannel.Line:
+                    lo = Math.Floor(min) - 1; hi = Math.Ceiling(max) + 1; return;
                 case TeleChannel.Gear:
                     lo = 0; hi = Math.Max(2, max) + 0.5; return;
                 case TeleChannel.Speed:
@@ -205,6 +232,10 @@ namespace User.TeamPace
         private static readonly Pen   ZeroPen   = FrozenPen(Color.FromArgb(70, 255, 255, 255), 1);
         private static readonly Pen   CursorPen = FrozenPen(Color.FromArgb(200, 255, 255, 255), 1);
         private static readonly Typeface Face   = new Typeface("Segoe UI");
+        private static readonly Brush CornerBg    = Frozen(Color.FromArgb(9, 255, 255, 255));
+        private static readonly Brush CornerBrush = Frozen(Color.FromArgb(170, 255, 200, 87));
+        private static readonly Brush TrackFill   = Frozen(Color.FromArgb(22, 255, 255, 255));
+        private static readonly Pen   EdgePen     = FrozenPen(Color.FromArgb(90, 255, 255, 255), 1);
 
         private void DrawTraces(DrawingContext dc)
         {
@@ -219,7 +250,9 @@ namespace User.TeamPace
                 Range(c, out lo, out hi);
 
                 // Y labels: bottom, middle, top (zero line for signed channels)
-                foreach (var v in new[] { lo, (lo + hi) / 2, hi })
+                // Small panels: bounds only, or no labels at all, so they never overlap
+                var ticks = r.Height >= 60 ? new[] { lo, (lo + hi) / 2, hi } : r.Height >= 34 ? new[] { lo, hi } : new double[0];
+                foreach (var v in ticks)
                 {
                     double y = Y(r, v, lo, hi);
                     dc.DrawLine(GridPen, new Point(r.Left, y), new Point(r.Right, y));
@@ -234,11 +267,27 @@ namespace User.TeamPace
                 }
 
                 dc.PushClip(new RectangleGeometry(r));
+                if (c == TeleChannel.Line && _track != null) DrawTrackBand(dc, r, lo, hi);
                 // Reference last, so it stays readable on top of the others
                 for (int k = _traces.Count - 1; k >= 0; k--) DrawSeries(dc, _traces[k], c, r, lo, hi);
                 dc.Pop();
 
                 Text(dc, Title(c), r.Left + 6, r.Top + 8, TextAlignment.Left, TitleBrush, 10.5);
+            }
+
+            // Corner names above the panels, corner spans shaded lightly
+            if (panels.Count > 0 && _track != null)
+            {
+                var last = panels[panels.Count - 1].Value;
+                foreach (var corner in _track.Corners)
+                {
+                    if (corner.End < _x0 || corner.Start > _x1) continue;
+                    double a = Math.Max(ML, X(corner.Start)), b = Math.Min(ML + PlotW, X(corner.End));
+                    dc.DrawRectangle(CornerBg, null, new Rect(a, MT, Math.Max(1, b - a), last.Bottom - MT));
+                    double xa = X(corner.Apex);
+                    if (xa >= ML && xa <= ML + PlotW)
+                        Text(dc, corner.Name, xa, MT / 2, TextAlignment.Center, CornerBrush, 10);
+                }
             }
 
             // Distance axis under the last panel
@@ -255,6 +304,25 @@ namespace User.TeamPace
                          x, last.Bottom + 10, TextAlignment.Center, TextBrush, 10);
                 }
             }
+        }
+
+        /// <summary>Track surface between both edges, as seen from the driver (left up).</summary>
+        private void DrawTrackBand(DrawingContext dc, Rect r, double lo, double hi)
+        {
+            var geo = new StreamGeometry();
+            using (var g = geo.Open())
+            {
+                bool first = true;
+                for (double d = _x0; d <= _x1 + TrackModel.Step; d += TrackModel.Step)
+                {
+                    var p = new Point(X(d), Y(r, _track.EdgeLeft[_track.Index(d)], lo, hi));
+                    if (first) { g.BeginFigure(p, true, true); first = false; } else g.LineTo(p, true, false);
+                }
+                for (double d = _x1 + TrackModel.Step; d >= _x0 - TrackModel.Step; d -= TrackModel.Step)
+                    g.LineTo(new Point(X(d), Y(r, -_track.EdgeRight[_track.Index(d)], lo, hi)), true, false);
+            }
+            geo.Freeze();
+            dc.DrawGeometry(TrackFill, EdgePen, geo);
         }
 
         private void DrawSeries(DrawingContext dc, Trace t, TeleChannel c, Rect r, double lo, double hi)
@@ -324,6 +392,7 @@ namespace User.TeamPace
             {
                 case TeleChannel.Delta: return (v > 0 ? "+" : "") + v.ToString("0.00", CultureInfo.InvariantCulture);
                 case TeleChannel.Gear:  return Math.Round(v).ToString(CultureInfo.InvariantCulture);
+                case TeleChannel.Line:  return v.ToString("0", CultureInfo.InvariantCulture) + " m";
                 case TeleChannel.Rpm:   return (v / 1000).ToString("0.#", CultureInfo.InvariantCulture) + "k";
                 default:                return Math.Round(v).ToString(CultureInfo.InvariantCulture);
             }
@@ -411,6 +480,14 @@ namespace User.TeamPace
             Redraw();
         }
 
+        /// <summary>Zooms in or out around a lap distance (used by the track map's wheel).</summary>
+        public void ZoomAt(double dist, double factor)
+        {
+            if (_len <= 0) return;
+            double xc = Clamp(dist, _x0, _x1);
+            SetView(xc - (xc - _x0) * factor, xc + (_x1 - xc) * factor);
+        }
+
         private static double Clamp(double v, double lo, double hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
         private static Brush Frozen(Color c) { var b = new SolidColorBrush(c); b.Freeze(); return b; }
@@ -427,95 +504,6 @@ namespace User.TeamPace
             private readonly Action<DrawingContext> _draw;
             public Layer(Action<DrawingContext> draw) { _draw = draw; }
             protected override void OnRender(DrawingContext dc) { _draw(dc); }
-        }
-    }
-
-    /// <summary>Track outline of the reference lap, the zoomed part and the cursor position.</summary>
-    internal class TrackMap : FrameworkElement
-    {
-        private TeleTrace _ref;
-        private Color _color = Colors.White;
-        private double _x0, _x1, _cursor = double.NaN;
-
-        public event Action<double> DistanceClicked;
-
-        public void SetTrace(TeleTrace reference, Color color)
-        {
-            _ref = reference; _color = color;
-            InvalidateVisual();
-        }
-
-        public void SetView(double x0, double x1) { _x0 = x0; _x1 = x1; InvalidateVisual(); }
-        public void SetCursor(double d) { _cursor = d; InvalidateVisual(); }
-
-        protected override void OnRender(DrawingContext dc)
-        {
-            dc.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, ActualWidth, ActualHeight));
-            if (_ref == null || _ref.N < 2) return;
-            Func<int, Point> map = Mapper();
-            var outline = new Pen(new SolidColorBrush(Color.FromArgb(70, 255, 255, 255)), 5) { LineJoin = PenLineJoin.Round, StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
-            var zoomed  = new Pen(new SolidColorBrush(_color), 3) { LineJoin = PenLineJoin.Round, StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
-            dc.DrawGeometry(null, outline, Path(map, 0, _ref.N - 1));
-            int a = _ref.IndexAt(_x0), b = _ref.IndexAt(_x1);
-            if (b - a < _ref.N - 2) dc.DrawGeometry(null, zoomed, Path(map, a, b));
-
-            // Start/finish line marker
-            var s = map(0);
-            dc.DrawEllipse(Brushes.White, null, s, 3, 3);
-            if (!double.IsNaN(_cursor))
-            {
-                var p = map(_ref.IndexAt(_cursor));
-                dc.DrawEllipse(new SolidColorBrush(_color), new Pen(Brushes.White, 2), p, 6, 6);
-            }
-        }
-
-        private Func<int, Point> Mapper()
-        {
-            double minX = double.MaxValue, maxX = double.MinValue, minY = double.MaxValue, maxY = double.MinValue;
-            for (int i = 0; i < _ref.N; i++)
-            {
-                minX = Math.Min(minX, _ref.X[i]); maxX = Math.Max(maxX, _ref.X[i]);
-                minY = Math.Min(minY, _ref.Y[i]); maxY = Math.Max(maxY, _ref.Y[i]);
-            }
-            const double pad = 12;
-            double w = Math.Max(1, ActualWidth - 2 * pad), h = Math.Max(1, ActualHeight - 2 * pad);
-            double scale = Math.Min(w / Math.Max(1, maxX - minX), h / Math.Max(1, maxY - minY));
-            double ox = pad + (w - (maxX - minX) * scale) / 2, oy = pad + (h - (maxY - minY) * scale) / 2;
-            var trace = _ref;
-            return i => new Point(ox + (trace.X[i] - minX) * scale, oy + (maxY - trace.Y[i]) * scale);
-        }
-
-        private static Geometry Path(Func<int, Point> map, int a, int b)
-        {
-            var geo = new StreamGeometry();
-            using (var g = geo.Open())
-            {
-                g.BeginFigure(map(a), false, false);
-                for (int i = a + 1; i <= b; i += 2) g.LineTo(map(i), true, true);
-                g.LineTo(map(b), true, true);
-            }
-            geo.Freeze();
-            return geo;
-        }
-
-        protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
-        {
-            base.OnMouseLeftButtonDown(e);
-            if (_ref == null) return;
-            var map = Mapper();
-            var p = e.GetPosition(this);
-            int best = 0; double bestD = double.MaxValue;
-            for (int i = 0; i < _ref.N; i++)
-            {
-                var q = map(i);
-                double d = (q.X - p.X) * (q.X - p.X) + (q.Y - p.Y) * (q.Y - p.Y);
-                if (d < bestD) { bestD = d; best = i; }
-            }
-            if (bestD < 400)
-            {
-                var h = DistanceClicked;
-                if (h != null) h(_ref.DistAt(best));
-            }
         }
     }
 }

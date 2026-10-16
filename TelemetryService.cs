@@ -404,7 +404,7 @@ namespace User.TeamPace
 
         public static TeleTrace LoadTrace(TeleLapRef r)
         {
-            return TeleFormat.ReadTrace(r.File.Path, r.Lap);
+            return TeleFormat.ReadTrace(r.File, r.Lap);
         }
 
         private static TeleFileHeader Header(string file)
