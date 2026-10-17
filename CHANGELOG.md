@@ -3,6 +3,14 @@
 Chaque version est publiée dans les [releases](../../releases) et proposée automatiquement dans
 TeamPace par le bandeau de mise à jour.
 
+## 3.3.0
+
+- **Stratégie** : le ravitaillement se règle en **énergie virtuelle**, comme dans LMU (auto, plein à
+  100 % ou un pourcentage) ; l'essence suit, avec les litres par % mesurés pour chaque pilote, et
+  le temps d'arrêt en découle. Les voitures sans énergie virtuelle restent en litres.
+- Correction : le temps de ravitaillement était surestimé sur les voitures à énergie virtuelle
+  (100 % d'énergie était compté comme un réservoir plein d'essence).
+
 ## 3.2.0
 
 - **Stratégie** : carburant au choix à chaque arrêt (auto, plein ou litres tapés à la main). Le temps

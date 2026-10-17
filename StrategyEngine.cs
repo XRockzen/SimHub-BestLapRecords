@@ -22,7 +22,7 @@ namespace User.TeamPace
         public List<string> Drivers     { get; set; }   // drivers taking part
         public List<string> StintDrivers { get; set; }  // driver of each stint, chosen by hand
         public List<int>    StopTyres   { get; set; }   // tyres changed at each stop, -1 = automatic
-        public List<double> StopFuel    { get; set; }   // litres added at each stop, -1 = automatic (Full = fill up)
+        public List<double> StopFuel    { get; set; }   // refuel at each stop: virtual energy % (litres without it), -1 = automatic, Full = fill up
         public List<StrategyOverride> Overrides { get; set; }
         public string   Author     { get; set; }   // last saved by
         public DateTime UpdatedUtc { get; set; }
@@ -87,7 +87,7 @@ namespace User.TeamPace
                 case Energy:      return "Énergie virtuelle";
                 case Wear:        return "Usure pneus (le plus usé)";
                 case LaneLoss:    return "Passage aux stands (sans arrêt)";
-                case FuelRate:    return "Débit d'essence";
+                case FuelRate:    return "Débit de ravitaillement";
                 case Tyres2:      return "Changement de 2 pneus";
                 case Tyres4:      return "Changement des 4 pneus";
                 default:          return "Durée d'un train de pneus";
@@ -287,6 +287,7 @@ namespace User.TeamPace
             public int Lap;
             public double At;           // race time when the car enters the pits
             public double FuelL;
+            public double EnergyPct;   // virtual energy put back, %
             public int Tyres;          // tyres changed
             public bool TyresChosen;   // set by hand
             public bool FuelChosen;
@@ -304,6 +305,7 @@ namespace User.TeamPace
             public double PitLoss;
             public int SetsUsed;
             public int TyresUsed;      // single tyres, the starting set included
+            public bool EnergyMode;    // every driver uses virtual energy: refuels are counted in %
             public Dictionary<string, double> Driving = new Dictionary<string, double>();
             public List<string> Warnings = new List<string>();
         }
@@ -341,6 +343,9 @@ namespace User.TeamPace
             }
             if (sim.Warnings.Count > 0) return sim;
 
+            // LMU counts the refuel in virtual energy on cars that have it; the fuel follows
+            // (litres per % measured for each driver)
+            sim.EnergyMode = keys.TrueForAll(k => m.Drivers.Find(d => d.Driver.Name == k).Values[Energy].Value > 0);
             double duration = plan.DurationMin * 60.0, tank = Math.Max(1, plan.TankL);
             double rate = m.Team[FuelRate].Value, lane = m.Team[LaneLoss].Value;
             double t2 = m.Team[Tyres2].Value, t4 = m.Team[Tyres4].Value;
@@ -383,11 +388,17 @@ namespace User.TeamPace
                 double add = Math.Max(0, Math.Min(tank - fuelInTank, next * nFuel + 0.5 * nFuel - fuelInTank));
                 double veAdd = nVe > 0 ? Math.Max(0, Math.Min(100 - energy, next * nVe + 0.5 * nVe - energy)) : 0;
                 bool fuelChosen = plan.StopFuel != null && stopIndex < plan.StopFuel.Count && plan.StopFuel[stopIndex] >= 0;
+                double ratio = sim.EnergyMode ? nFuel / nVe : 0;   // litres per % of virtual energy
+                if (sim.EnergyMode) add = Math.Min(tank - fuelInTank, veAdd * ratio);
                 if (fuelChosen)
                 {
-                    // Litres chosen by hand (or a full tank): virtual energy follows in proportion
-                    add = Math.Max(0, Math.Min(tank - fuelInTank, plan.StopFuel[stopIndex]));
-                    veAdd = nVe > 0 ? Math.Max(0, Math.Min(100 - energy, add / nFuel * nVe)) : 0;
+                    // Chosen by hand: % of virtual energy (litres on cars without it), or a full tank
+                    if (sim.EnergyMode)
+                    {
+                        veAdd = Math.Max(0, Math.Min(100 - energy, plan.StopFuel[stopIndex]));
+                        add = Math.Min(tank - fuelInTank, veAdd * ratio);
+                    }
+                    else add = Math.Max(0, Math.Min(tank - fuelInTank, plan.StopFuel[stopIndex]));
                     next = Math.Min(Limit(fuelInTank + add, energy + veAdd, nFuel, nVe, nPace, plan.MaxStintMin), Math.Max(1, toFlag));
                 }
                 bool chosen = !tyresEveryStop && plan.StopTyres != null && stopIndex < plan.StopTyres.Count && plan.StopTyres[stopIndex] >= 0;
@@ -398,13 +409,13 @@ namespace User.TeamPace
                     if (!chosen) tyres = Math.Max(0, plan.TyreSets * 4 - sim.TyresUsed);
                 }
                 if (tyres > 0) { sim.TyresUsed += tyres; tyreAge = tyreAge * (4 - tyres) / 4; }   // a partial change leaves part of the wear
-                // Virtual energy refills at the same pace as the fuel: the longer of the two counts
-                double refuel = Math.Max(add, nVe > 0 ? veAdd / 100 * tank : 0) / rate;
+                double refuel = add / rate;   // the fuel that goes in sets the time
                 double stopped = refuel + tyreTime(tyres);
                 double lost = lane + stopped;
                 sim.Stops.Add(new StopPlan
                 {
-                    Lap = lap, At = t, FuelL = add, FuelChosen = fuelChosen, Full = fuelInTank + add >= tank - 0.5,
+                    Lap = lap, At = t, FuelL = add, EnergyPct = veAdd, FuelChosen = fuelChosen,
+                    Full = sim.EnergyMode ? energy + veAdd >= 99.5 : fuelInTank + add >= tank - 0.5,
                     Tyres = tyres, TyresChosen = chosen, Stopped = stopped, Lost = lost, NextDriver = nextKey,
                 });
                 free = fuelChosen;

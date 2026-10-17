@@ -280,10 +280,11 @@ l'antipatinage. Les étiquettes rouges montrent ce qui coûte, les vertes ce qui
   au-dessus de chaque relais choisit qui le prend (Pascal, Pascal, Amaury, Amaury…) et le plan se
   recalcule. Sous le plan : chaque arrêt avec son tour, son heure, le carburant ajouté, les pneus,
   le temps arrêté et le temps perdu, et les alertes (pneus insuffisants, temps de conduite minimum).
-- **Carburant de chaque arrêt** : *auto* remet juste ce qu'il faut pour le relais suivant ; *plein*
-  remplit le réservoir pour pousser un relais complet ; ou tapez des litres (par exemple 60, puis
-  Entrée). Le temps d'arrêt et la longueur du relais suivant suivent (l'énergie virtuelle est
-  remise dans la même proportion).
+- **Énergie de chaque arrêt** : comme dans LMU, on remet de l'**énergie virtuelle** et l'essence suit
+  (litres par % mesurés pour chaque pilote). *auto* remet juste ce qu'il faut pour le relais
+  suivant ; *plein* remet 100 % pour pousser un relais complet ; ou tapez un pourcentage (par
+  exemple 80, puis Entrée). Le temps d'arrêt et la longueur du relais suivant suivent. Sur une
+  voiture sans énergie virtuelle, la même colonne se règle en litres.
 - **Pneus de chaque arrêt** : *auto* les change quand le train arrive en fin de vie ; choisissez
   aucun, 1, 2, 3 ou 4 pneus et le temps d'arrêt suit (2 et 4 pneus mesurés, 1 et 3 entre les deux).
   Un choix fait à la main apparaît en jaune.

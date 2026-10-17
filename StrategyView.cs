@@ -179,7 +179,7 @@ namespace User.TeamPace
             })));
             race.Children.Add(Field("Heure de départ", Box(_plan.StartClock ?? "", v => { _plan.StartClock = v.Trim(); return true; }, "ex. 20:00, pour afficher l'heure de chaque arrêt")));
             race.Children.Add(Field("Jeux de pneus", Box(_plan.TyreSets.ToString(), v => { int n; if (!int.TryParse(v, out n) || n < 1) return false; _plan.TyreSets = n; return true; })));
-            race.Children.Add(Field("Réservoir (L)", Box(_plan.TankL.ToString(Inv), v => { double n; if (!double.TryParse(v.Replace(',', '.'), NumberStyles.Float, Inv, out n) || n < 1) return false; _plan.TankL = n; return true; })));
+            race.Children.Add(Field("Réservoir d'essence (L)", Box(_plan.TankL.ToString(Inv), v => { double n; if (!double.TryParse(v.Replace(',', '.'), NumberStyles.Float, Inv, out n) || n < 1) return false; _plan.TankL = n; return true; })));
             race.Children.Add(Field("Relais maxi (min)", Box(_plan.MaxStintMin > 0 ? _plan.MaxStintMin.ToString() : "", v => { int n = 0; if (v.Trim().Length > 0 && !int.TryParse(v, out n)) return false; _plan.MaxStintMin = n; return true; }, "vide = selon le réservoir")));
             race.Children.Add(Field("Conduite mini / pilote (min)", Box(_plan.MinDriveMin > 0 ? _plan.MinDriveMin.ToString() : "", v => { int n = 0; if (v.Trim().Length > 0 && !int.TryParse(v, out n)) return false; _plan.MinDriveMin = n; return true; }, "vide = pas de règle")));
             _left.Children.Add(Card(race));
@@ -339,7 +339,16 @@ namespace User.TeamPace
                 Grid.SetColumn(cell, 1);
                 Grid.SetColumnSpan(cell, Math.Max(1, drivers.Count));
                 g.Children.Add(cell);
-                var s = Ui.T(v.Overridden ? "modifié à la main" : "équipe · " + v.Source, 11.5, Ui.Faint);
+                var source = v.Overridden ? "modifié à la main" : "équipe · " + v.Source;
+                if (p == StrategyEngine.FuelRate && drivers.Count > 0)
+                {
+                    // Seen from LMU: how fast the virtual energy comes back
+                    var dv = drivers[0].Values;
+                    double ve = dv[StrategyEngine.Energy].Value, fuel = dv[StrategyEngine.Fuel].Value;
+                    if (ve > 0 && fuel > 0)
+                        source = string.Format(Inv, "≈ {0:0.0} % d'énergie par seconde ({1} : {2:0.00} L par %)  ·  ", v.Value / (fuel / ve), drivers[0].Driver.Name, fuel / ve) + source;
+                }
+                var s = Ui.T(source, 11.5, Ui.Faint);
                 Grid.SetColumn(s, drivers.Count + 1);
                 g.Children.Add(s);
                 panel.Children.Add(new Border { Child = g, BorderBrush = Ui.Line, BorderThickness = new Thickness(0, 0, 0, 1) });
@@ -475,7 +484,10 @@ namespace User.TeamPace
             };
             Func<Grid, bool, UIElement> wrap = (g, head) =>
                 new Border { Child = g, BorderBrush = Ui.Line, BorderThickness = new Thickness(0, 0, 0, 1), Background = head ? Ui.HeaderBg : Brushes.Transparent };
-            var header = row(new[] { "Arrêt", "Tour", "Heure", "Carburant", "Pneus", "Arrêté", "Perdu", "Repart" }, Ui.Text, true);
+            var header = row(new[] { "Arrêt", "Tour", "Heure", sim.EnergyMode ? "Énergie virtuelle remise" : "Carburant", "Pneus", "Arrêté", "Perdu", "Repart" }, Ui.Text, true);
+            ((TextBlock)header.Children[3]).ToolTip = sim.EnergyMode
+                ? "Comme dans LMU : on remet de l'énergie virtuelle, l'essence suit (litres par % mesurés pour chaque pilote)"
+                : "Litres remis à l'arrêt";
             ((TextBlock)header.Children[4]).ToolTip = "Nombre de pneus changés à cet arrêt : « auto » les change quand le train arrive en fin de vie";
             panel.Children.Add(wrap(header, true));
             for (int i = 0; i < sim.Stops.Count; i++)
@@ -491,7 +503,7 @@ namespace User.TeamPace
                     string.Format(Inv, "{0:0} s", s.Stopped), string.Format(Inv, "+{0:0} s", s.Lost),
                     d != null ? d.Name : "",
                 }, d != null ? Ui.Light(d.Brush) : Ui.Text, false);
-                g.Children.Add(FuelChoice(i, s, last));
+                g.Children.Add(FuelChoice(i, s, last, sim.EnergyMode));
                 g.Children.Add(TyreChoice(i, s));
                 panel.Children.Add(wrap(g, false));
             }
@@ -503,21 +515,26 @@ namespace User.TeamPace
         /// Fuel put in at a stop: automatic (what the next stint needs), a full tank, or litres
         /// typed by hand. The stop time and the next stint's length follow.
         /// </summary>
-        private ComboBox FuelChoice(int stop, StrategyEngine.StopPlan s, bool last)
+        private ComboBox FuelChoice(int stop, StrategyEngine.StopPlan s, bool last, bool energy)
         {
+            string unit = energy ? "%" : "L";
+            double amount = energy ? s.EnergyPct : s.FuelL;
             var cb = new ComboBox
             {
                 Height = 24, FontSize = 12.5, Margin = new Thickness(4, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center,
                 IsEditable = true,
-                ToolTip = "auto : juste ce qu'il faut pour le relais suivant · plein : remplir le réservoir · ou tapez des litres (ex. 60) puis Entrée",
+                ToolTip = energy
+                    ? string.Format(Inv, "auto : juste ce qu'il faut pour le relais suivant · plein : 100 % d'énergie · ou tapez un pourcentage (ex. 80) puis Entrée\nCet arrêt : +{0:0} % d'énergie, soit environ {1:0} L d'essence", s.EnergyPct, s.FuelL)
+                    : "auto : juste ce qu'il faut pour le relais suivant · plein : remplir le réservoir · ou tapez des litres (ex. 60) puis Entrée",
             };
-            string auto = string.Format(Inv, "auto · +{0:0} L{1}", s.FuelL, last ? " (jusqu'à l'arrivée)" : "");
-            string full = "plein";
+            string auto = string.Format(Inv, "auto · +{0:0} {1}{2}", amount, unit, last ? " (jusqu'à l'arrivée)" : "");
+            string full = energy ? "plein (100 %)" : "plein";
             cb.Items.Add(auto);
             cb.Items.Add(full);
             if (s.FuelChosen)
             {
-                cb.Text = s.Full && Math.Abs(ValueAt(stop) - StrategyPlan.Full) < 1 ? string.Format(Inv, "plein · +{0:0} L", s.FuelL) : string.Format(Inv, "{0:0} L", s.FuelL);
+                cb.Text = s.Full && Math.Abs(ValueAt(stop) - StrategyPlan.Full) < 1
+                    ? string.Format(Inv, "plein · +{0:0} {1}", amount, unit) : string.Format(Inv, "+{0:0} {1}", amount, unit);
                 cb.Foreground = Ui.Amber;
             }
             else cb.SelectedIndex = 0;
@@ -536,7 +553,7 @@ namespace User.TeamPace
             Action typed = () =>
             {
                 if (_building || cb.SelectedIndex >= 0) return;
-                var text = (cb.Text ?? "").Replace("L", "").Replace("l", "").Replace("+", "").Replace(',', '.').Trim();
+                var text = (cb.Text ?? "").Replace("L", "").Replace("l", "").Replace("%", "").Replace("+", "").Replace(',', '.').Trim();
                 double litres;
                 if (double.TryParse(text, NumberStyles.Float, Inv, out litres) && litres >= 0) apply(litres);
             };
