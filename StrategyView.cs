@@ -211,16 +211,6 @@ namespace User.TeamPace
             _body.Children.Add(Timeline(sim));
             foreach (var x in sim.Warnings) _body.Children.Add(Warning(x));
             _body.Children.Add(StopCards(sim));
-
-            var bottom = new Grid { Margin = new Thickness(0, 10, 0, 0) };
-            bottom.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(2, GridUnitType.Star) });
-            bottom.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
-            bottom.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            bottom.Children.Add(Variants(sim));
-            var races = RacesWithPlan();
-            Grid.SetColumn(races, 2);
-            bottom.Children.Add(races);
-            _body.Children.Add(bottom);
         }
 
         private UIElement RaceInputs()
@@ -250,7 +240,7 @@ namespace User.TeamPace
                 return _plan.DurationMin > 0;
             }, null, 70)));
             wrap.Children.Add(Field("Départ", Box(_plan.StartClock ?? "", v => { _plan.StartClock = v.Trim(); return true; }, "ex. 20:00, pour afficher l'heure de chaque arrêt", 70)));
-            wrap.Children.Add(Field("Jeux de pneus", Box(_plan.TyreSets.ToString(), v => { int n; if (!int.TryParse(v, out n) || n < 1) return false; _plan.TyreSets = n; return true; }, null, 60)));
+            wrap.Children.Add(Field("Pneus pour la course", Box(_plan.TyresAvailable.ToString(), v => { int n; if (!int.TryParse(v, out n) || n < 4) return false; _plan.TyresAvailable = n; return true; }, "Nombre de pneus, ceux du départ compris (20 = 5 trains)", 60)));
             wrap.Children.Add(Field("Réservoir (L)", Box(_plan.TankL.ToString(Inv), v => { double n; if (!double.TryParse(v.Replace(',', '.'), NumberStyles.Float, Inv, out n) || n < 1) return false; _plan.TankL = n; return true; }, null, 60)));
             wrap.Children.Add(Field("Relais maxi (min)", Box(_plan.MaxStintMin > 0 ? _plan.MaxStintMin.ToString() : "", v => { int n = 0; if (v.Trim().Length > 0 && !int.TryParse(v, out n)) return false; _plan.MaxStintMin = n; return true; }, "vide = selon le réservoir et l'énergie", 60)));
             wrap.Children.Add(Field("Conduite mini / pilote (min)", Box(_plan.MinDriveMin > 0 ? _plan.MinDriveMin.ToString() : "", v => { int n = 0; if (v.Trim().Length > 0 && !int.TryParse(v, out n)) return false; _plan.MinDriveMin = n; return true; }, "vide = pas de règle", 60)));
@@ -277,7 +267,7 @@ namespace User.TeamPace
             kpis.Children.Add(Kpi("TOURS PRÉVUS", sim.Laps.ToString()));
             kpis.Children.Add(Kpi("ARRÊTS", sim.Stops.Count.ToString()));
             kpis.Children.Add(Kpi("TEMPS AUX STANDS", Duration(sim.PitLoss)));
-            kpis.Children.Add(Kpi("PNEUS", string.Format("{0} jeux / {1}", sim.SetsUsed, _plan.TyreSets)));
+            kpis.Children.Add(Kpi("PNEUS UTILISÉS", string.Format("{0} / {1}", sim.TyresUsed, _plan.TyresAvailable)));
             var driving = new StackPanel { Orientation = Orientation.Horizontal };
             foreach (var k in _plan.Drivers)
             {
@@ -324,7 +314,7 @@ namespace User.TeamPace
             }
             DockPanel.SetDock(chips, Dock.Right);
             head.Children.Add(chips);
-            head.Children.Add(Title("Déroulé de la course", "glisser un arrêt pour le déplacer · clic sur un arrêt pour le régler"));
+            head.Children.Add(Title("Déroulé de la course", null));
             panel.Children.Add(head);
 
             // Hour ticks
@@ -499,7 +489,7 @@ namespace User.TeamPace
             head.Children.Add(Ui.T(string.Format("Arrêt {0} · T{1}", i + 1, s.Lap), 15, Ui.Text, FontWeights.Bold));
             p.Children.Add(head);
 
-            p.Children.Add(Line(sim.EnergyMode ? "Énergie" : "Carburant", FuelChoice(i, s, last, sim.EnergyMode)));
+            p.Children.Add(Line(sim.EnergyMode ? "Énergie" : "Essence", LevelBox(i, s, last, sim.EnergyMode)));
             p.Children.Add(Line("Pneus", TyreButtons(i, s)));
             var prev = i < sim.Stints.Count ? sim.Stints[i].Driver : "";
             var next = _drivers.Find(x => x.Name == s.NextDriver);
@@ -580,101 +570,54 @@ namespace User.TeamPace
         }
 
         /// <summary>
-        /// Refuel at a stop: automatic (what the next stint needs), full, or an amount typed by
-        /// hand (virtual energy %, litres on cars without it). The stop time follows.
+        /// The level asked for when leaving the pits (virtual energy %, litres without it), as in
+        /// LMU's pit menu. Empty = automatic: full, or just what the last stint needs.
         /// </summary>
-        private ComboBox FuelChoice(int stop, StrategyEngine.StopPlan s, bool last, bool energy)
+        private FrameworkElement LevelBox(int stop, StrategyEngine.StopPlan s, bool last, bool energy)
         {
             string unit = energy ? "%" : "L";
-            double amount = energy ? s.EnergyPct : s.FuelL;
-            var cb = new ComboBox
+            var row = new StackPanel { Orientation = Orientation.Horizontal };
+            var added = Ui.T(string.Format(Inv, "+{0:0} {1}  ", energy ? s.EnergyPct : s.FuelL, unit), 12, Ui.Faint);
+            added.ToolTip = energy ? string.Format(Inv, "Remis à l'arrêt : +{0:0} % d'énergie, environ {1:0} L d'essence", s.EnergyPct, s.FuelL) : "Remis à l'arrêt";
+            row.Children.Add(added);
+            var box = new TextBox
             {
-                Height = 24, FontSize = 12.5, MinWidth = 150, IsEditable = true,
-                ToolTip = energy
-                    ? string.Format(Inv, "auto : juste ce qu'il faut pour le relais suivant · plein : 100 % d'énergie · ou tapez un pourcentage (ex. 80) puis Entrée\nCet arrêt : +{0:0} % d'énergie, soit environ {1:0} L d'essence", s.EnergyPct, s.FuelL)
-                    : "auto : juste ce qu'il faut pour le relais suivant · plein : remplir le réservoir · ou tapez des litres (ex. 60) puis Entrée",
+                Width = 52, Height = 24, FontSize = 13, VerticalContentAlignment = VerticalAlignment.Center, HorizontalContentAlignment = HorizontalAlignment.Right,
+                Text = string.Format(Inv, "{0:0}", s.Level), FontWeight = s.FuelChosen ? FontWeights.Bold : FontWeights.Normal,
+                BorderBrush = s.FuelChosen ? Ui.Amber : Ui.Frozen(Color.FromArgb(70, 255, 255, 255)), BorderThickness = new Thickness(s.FuelChosen ? 2 : 1),
+                ToolTip = string.Format("Niveau à la sortie des stands, comme dans le menu des stands de LMU.\nVide = automatique : {0}.", last ? "juste ce qu'il faut jusqu'au drapeau" : "le plein"),
             };
-            cb.Items.Add(string.Format(Inv, "auto · +{0:0} {1}{2}", amount, unit, last ? " (drapeau)" : ""));
-            cb.Items.Add(energy ? "plein (100 %)" : "plein");
-            if (s.FuelChosen)
+            Action apply = () =>
             {
-                cb.Text = s.Full && Math.Abs(ValueAt(stop) - StrategyPlan.Full) < 1
-                    ? string.Format(Inv, "plein · +{0:0} {1}", amount, unit) : string.Format(Inv, "+{0:0} {1}", amount, unit);
-                cb.Foreground = Ui.Amber;
-            }
-            else cb.SelectedIndex = 0;
-
-            Action<double> apply = v =>
-            {
-                while (_plan.StopFuel.Count <= stop) _plan.StopFuel.Add(-1);
-                _plan.StopFuel[stop] = v;
+                if (_building) return;
+                var text = (box.Text ?? "").Replace("%", "").Replace("L", "").Replace(',', '.').Trim();
+                double v = -1;
+                if (text.Length > 0 && (!double.TryParse(text, NumberStyles.Float, Inv, out v) || v < 0)) { box.BorderBrush = Ui.Red; return; }
+                if (text.Length > 0 && !s.FuelChosen && Math.Abs(v - s.Level) < 0.5) return;   // the automatic value, untouched
+                while (_plan.StopLevel.Count <= stop) _plan.StopLevel.Add(-1);
+                _plan.StopLevel[stop] = v;
                 Dispatcher.BeginInvoke(new Action(Rebuild));
             };
-            cb.SelectionChanged += (snd, e) =>
+            box.LostFocus += (snd, e) => apply();
+            box.KeyDown += (snd, e) => { if (e.Key == Key.Enter) { apply(); Keyboard.ClearFocus(); } };
+            row.Children.Add(box);
+            row.Children.Add(Ui.T(" " + unit, 13, Ui.Muted));
+            if (s.FuelChosen)
             {
-                if (_building || cb.SelectedIndex < 0) return;
-                apply(cb.SelectedIndex == 0 ? -1 : StrategyPlan.Full);
-            };
-            Action typed = () =>
-            {
-                if (_building || cb.SelectedIndex >= 0) return;
-                var text = (cb.Text ?? "").Replace("L", "").Replace("l", "").Replace("%", "").Replace("+", "").Replace(',', '.').Trim();
-                double v;
-                if (double.TryParse(text, NumberStyles.Float, Inv, out v) && v >= 0) apply(v);
-            };
-            cb.LostFocus += (snd, e) => typed();
-            cb.KeyDown += (snd, e) => { if (e.Key == Key.Enter) typed(); };
-            return cb;
-        }
-
-        private double ValueAt(int stop) { return stop < _plan.StopFuel.Count ? _plan.StopFuel[stop] : -1; }
-
-        // ─── Variants and races run with the plan ─────────────────────────────
-
-        private UIElement Variants(StrategyEngine.Simulation sim)
-        {
-            var p = new StackPanel();
-            p.Children.Add(Title("Variantes calculées", "même plan, une seule chose change"));
-            Action<string, StrategyEngine.Simulation, string> add = (label, alt, tip) =>
-            {
-                var d = new DockPanel { Margin = new Thickness(0, 3, 0, 3) };
-                string value;
-                Brush color = Ui.Text;
-                if (alt == null) value = string.Format("{0} tours", sim.Laps);
-                else if (alt.Stints.Count == 0) { value = "impossible"; color = Ui.Muted; }
-                else
+                var reset = Ui.T("  auto", 12, Ui.Link);
+                reset.Cursor = Cursors.Hand;
+                reset.ToolTip = "Revenir au niveau automatique";
+                reset.MouseLeftButtonDown += (snd, e) =>
                 {
-                    // Seconds won over the race: laps count first, then the finish time
-                    double pace = sim.Laps > 0 ? sim.Finish / sim.Laps : 100;
-                    double gain = (alt.Laps - sim.Laps) * pace - (alt.Finish - sim.Finish);
-                    value = string.Format(Inv, "{0}{1:0} s  ·  {2} tours", gain >= 0 ? "+" : "−", Math.Abs(gain), alt.Laps);
-                    color = gain > 3 ? Ui.Green : gain < -3 ? Ui.Red : Ui.Muted;
-                }
-                var v = Ui.T(value, 13, color, FontWeights.SemiBold);
-                DockPanel.SetDock(v, Dock.Right);
-                d.Children.Add(v);
-                var l = Ui.T(label, 13);
-                l.ToolTip = tip;
-                d.Children.Add(l);
-                p.Children.Add(new Border { Child = d, BorderBrush = Ui.Line, BorderThickness = new Thickness(0, 0, 0, 1) });
-            };
-            add(string.Format("Plan actuel · {0} arrêts · {1} jeux de pneus", sim.Stops.Count, sim.SetsUsed), null, null);
-            add("4 pneus à chaque arrêt", StrategyEngine.Simulate(_plan, _measures, true), "Temps gagné (+) ou perdu (−) sur la course en changeant les 4 pneus à chaque arrêt");
-            var noTyres = Clone(_plan);
-            noTyres.StopTyres = Enumerable.Repeat(0, Math.Max(1, sim.Stops.Count)).ToList();
-            add("Aucun changement de pneus", StrategyEngine.Simulate(noTyres, _measures, false), "Sans changer de pneus : plus rapide aux stands, mais l'usure ralentit");
-            var full = Clone(_plan);
-            full.StopFuel = Enumerable.Repeat(StrategyPlan.Full, Math.Max(1, sim.Stops.Count)).ToList();
-            add("Le plein à chaque arrêt", StrategyEngine.Simulate(full, _measures, false), "Des relais complets : moins d'arrêts possibles, mais des arrêts plus longs");
-            return Card(p);
+                    if (stop < _plan.StopLevel.Count) _plan.StopLevel[stop] = -1;
+                    Dispatcher.BeginInvoke(new Action(Rebuild));
+                    e.Handled = true;
+                };
+                row.Children.Add(reset);
+            }
+            return row;
         }
 
-        private static StrategyPlan Clone(StrategyPlan p)
-        {
-            var c = Newtonsoft.Json.JsonConvert.DeserializeObject<StrategyPlan>(Newtonsoft.Json.JsonConvert.SerializeObject(p));
-            c.Normalize();
-            return c;
-        }
 
         /// <summary>Races run on this circuit and category by the displayed drivers, one per race.</summary>
         private List<LmuSessionRecord> Races()
@@ -690,28 +633,6 @@ namespace User.TeamPace
                 }
             list.Sort((a, b) => b.SessionDate.CompareTo(a.SessionDate));
             return list;
-        }
-
-        private UIElement RacesWithPlan()
-        {
-            var p = new StackPanel();
-            p.Children.Add(Title("Courses sur ce circuit", "à comparer au plan"));
-            var races = Races();
-            if (races.Count == 0) p.Children.Add(Ui.T("Aucune course ici pour l'instant.", 12.5, Ui.Muted));
-            foreach (var r in races.Take(4))
-            {
-                var race = r;
-                var d = new DockPanel { Margin = new Thickness(0, 3, 0, 3) };
-                var go = Ui.T("Comparer →", 13, Ui.Link);
-                go.Cursor = Cursors.Hand;
-                go.MouseLeftButtonDown += (s, e) => { _tab = "race"; _raceId = race.FileId; Rebuild(); };
-                DockPanel.SetDock(go, Dock.Right);
-                d.Children.Add(go);
-                bool after = _plan.UpdatedUtc != DateTime.MinValue && race.SessionDate.ToUniversalTime() > _plan.UpdatedUtc;
-                d.Children.Add(Ui.T(RaceLabel(race) + (after ? "  · après le plan" : ""), 13, after ? Ui.Text : Ui.Muted));
-                p.Children.Add(d);
-            }
-            return Card(p);
         }
 
         private static string RaceLabel(LmuSessionRecord r)
@@ -850,7 +771,7 @@ namespace User.TeamPace
         private UIElement PlannedVsReal(StrategyEngine.Simulation sim, StrategyReview r)
         {
             var p = new StackPanel();
-            p.Children.Add(Title(sim != null ? "Prévu / réel" : "Déroulé réel", "même échelle de temps · la largeur d'un arrêt réel est le temps qu'il a coûté"));
+            p.Children.Add(Title(sim != null ? "Prévu / réel" : "Déroulé réel", null));
             double total = Math.Max(r.Finish, sim != null ? sim.Finish : 0);
 
             Func<string, Grid, UIElement> row = (label, bar) =>
@@ -990,7 +911,7 @@ namespace User.TeamPace
         private UIElement Verdict(StrategyEngine.Simulation sim, StrategyReview r)
         {
             var p = new StackPanel();
-            p.Children.Add(Title("Bilan", sim != null ? "face au plan" : "pas de plan pour ce circuit"));
+            p.Children.Add(Title("Bilan", null));
             Action<string> say = text => p.Children.Add(new TextBlock { Text = text, FontSize = 13.5, Foreground = Ui.Text, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 4) });
             if (sim == null)
             {

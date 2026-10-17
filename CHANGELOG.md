@@ -3,6 +3,19 @@
 Chaque version est publiée dans les [releases](../../releases) et proposée automatiquement dans
 TeamPace par le bandeau de mise à jour.
 
+## 3.7.1
+
+- **Stratégie, l'énergie d'abord** : chaque relais dure ce que permet l'énergie (ou le réservoir),
+  le plein est remis à chaque arrêt et seulement le complément au dernier ; les pneus tiennent le
+  plus longtemps possible. Les relais ne sont plus raccourcis pour être « équilibrés ».
+- **Énergie de chaque arrêt** : on saisit le niveau voulu à la sortie des stands (100 %, 40 %…),
+  comme dans le menu des stands de LMU, et non plus une quantité ajoutée. La saisie à la main
+  fonctionne (elle ne faisait rien avant) ; « auto » revient au calcul.
+- **Pneus pour la course** : un nombre de pneus (20 = 5 trains) au lieu d'un nombre de jeux.
+- Retrait des « Variantes calculées » et de la liste des courses dans la préparation, des textes
+  d'aide sous les titres, et du bouton « Page du circuit » de l'analyse d'une course.
+- **Nouvelle icône** dans le menu de SimHub : un chronomètre aux aiguilles bleue et orange.
+
 ## 3.7.0
 
 - **Stratégie refaite**, en trois onglets :

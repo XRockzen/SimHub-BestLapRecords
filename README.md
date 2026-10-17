@@ -294,26 +294,27 @@ La stratégie a trois onglets : **Préparation**, **Analyse de course** et **Don
 
 ### Préparation
 
-- **La course** : circuit et catégorie, durée, heure de départ, jeux de pneus, réservoir, relais
-  maximum, temps de conduite minimum par pilote, et les pilotes de la course.
+- **La course** : circuit et catégorie, durée, heure de départ, nombre de pneus pour la course
+  (ceux du départ compris : 20 = 5 trains), réservoir, relais maximum, temps de conduite minimum
+  par pilote, et les pilotes de la course.
 - **Déroulé de la course** : les relais sur une frise à l'échelle du temps, une couleur par pilote,
-  avec les tours, la durée et l'état des pneus de chacun. Les relais durent ce que permettent le
-  réservoir et l'énergie virtuelle ; les pneus sont changés quand le train arrive en fin de vie.
+  avec les tours, la durée et l'état des pneus de chacun. L'énergie passe d'abord : chaque relais
+  dure ce que permettent le réservoir et l'énergie virtuelle, on remet le plein à chaque arrêt et
+  seulement le complément au dernier ; les pneus tiennent le plus longtemps possible et ne sont
+  changés que quand le train arrive en fin de vie.
   - **Glisser un arrêt** (le carré jaune numéroté) vers la gauche ou la droite le déplace à un
     autre tour ; la suite du plan se recalcule. Un relais qui dépasse l'autonomie est signalé.
     « Remettre en automatique » sur la carte de l'arrêt annule le déplacement.
   - **Glisser un pilote** (en haut à droite) sur un relais pour qu'il le prenne, ou cliquer sur
     le relais pour choisir dans la liste.
 - **Une carte par arrêt** (clic sur un arrêt pour la mettre en évidence) :
-  - **Énergie** : comme dans LMU, on remet de l'**énergie virtuelle** et l'essence suit (litres
-    par % mesurés pour chaque pilote). *auto* remet juste ce qu'il faut pour le relais suivant ;
-    *plein* remet 100 % pour pousser un relais complet ; ou tapez un pourcentage (par exemple 80,
-    puis Entrée). Sur une voiture sans énergie virtuelle, la même case se règle en litres.
+  - **Énergie** : le **niveau à la sortie des stands**, comme dans le menu des stands de LMU
+    (par exemple 100 %, ou 40 % au dernier arrêt), et à côté ce qui est remis. L'essence suit
+    (litres par % mesurés pour chaque pilote). Un niveau tapé à la main est encadré ; « auto » le
+    remet au plein (ou au complément au dernier arrêt). Sur une voiture sans énergie virtuelle, la
+    même case se règle en litres.
   - **Pneus** : *auto*, 0, 2 ou 4 ; le temps d'arrêt suit (2 et 4 pneus mesurés).
   - **Relais** : qui rend la voiture et qui la prend ; le temps arrêté et le temps perdu.
-- **Variantes calculées** : le même plan avec 4 pneus à chaque arrêt, sans changer de pneus, ou
-  le plein à chaque arrêt, et le temps gagné ou perdu sur la course.
-- **Courses sur ce circuit** : les courses courues dans cette catégorie, à comparer au plan.
 - **Enregistrer** écrit le plan dans le dossier d'équipe (sous-dossier `strategy`) : chaque
   coéquipier le retrouve dans **Plans de l'équipe**, avec qui l'a enregistré et quand. Un plan
   modifié puis enregistré par un coéquipier passe à son nom ; **Supprimer** le retire pour toute

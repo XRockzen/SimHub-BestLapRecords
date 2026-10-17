@@ -24,6 +24,8 @@ namespace User.TeamPace
         public List<int>    StopTyres   { get; set; }   // tyres changed at each stop, -1 = automatic
         public List<double> StopFuel    { get; set; }   // refuel at each stop: virtual energy % (litres without it), -1 = automatic, Full = fill up
         public List<int>    StopLaps    { get; set; }   // lap of each stop moved by hand, -1 = where the tank says
+        public List<double> StopLevel   { get; set; }   // level asked for when leaving each stop: virtual energy % (litres without it), -1 = automatic
+        public int          TyresAvailable { get; set; } // single tyres for the race, the starting set included
         public List<StrategyOverride> Overrides { get; set; }
         public string   Author     { get; set; }   // last saved by
         public DateTime UpdatedUtc { get; set; }
@@ -35,7 +37,7 @@ namespace User.TeamPace
             return new StrategyPlan
             {
                 DurationMin = 360, StartClock = "", TyreSets = 6, TankL = 100, MaxStintMin = 0, MinDriveMin = 0,
-                Drivers = new List<string>(), StintDrivers = new List<string>(), StopTyres = new List<int>(), StopFuel = new List<double>(), StopLaps = new List<int>(),
+                Drivers = new List<string>(), StintDrivers = new List<string>(), StopTyres = new List<int>(), StopFuel = new List<double>(), StopLaps = new List<int>(), StopLevel = new List<double>(), TyresAvailable = 24,
                 Overrides = new List<StrategyOverride>(),
             };
         }
@@ -48,6 +50,13 @@ namespace User.TeamPace
             if (StopTyres == null) StopTyres = new List<int>();
             if (StopFuel == null) StopFuel = new List<double>();
             if (StopLaps == null) StopLaps = new List<int>();
+            if (StopLevel == null)
+            {
+                // Older plans asked for an amount put in; only "full" keeps its meaning
+                StopLevel = new List<double>();
+                foreach (var f in StopFuel) StopLevel.Add(f >= Full - 1 ? 100 : -1);
+            }
+            if (TyresAvailable <= 0) TyresAvailable = TyreSets >= 10 ? TyreSets : Math.Max(1, TyreSets) * 4;   // a count typed in the old "sets" box
             if (Overrides == null) Overrides = new List<StrategyOverride>();
         }
     }
@@ -293,7 +302,8 @@ namespace User.TeamPace
             public double EnergyPct;   // virtual energy put back, %
             public int Tyres;          // tyres changed
             public bool TyresChosen;   // set by hand
-            public bool FuelChosen;
+            public bool FuelChosen;    // level asked for by hand
+            public double Level;       // level when leaving the pits: % of virtual energy, or litres
             public bool Full;          // filled up
             public double Stopped, Lost;
             public string NextDriver;
@@ -320,17 +330,10 @@ namespace User.TeamPace
         /// </summary>
         public static Simulation Simulate(StrategyPlan plan, Measures m, bool tyresEveryStop)
         {
-            // First pass: stints as long as the tank allows. When that leaves a short last stint
-            // (a splash), the same number of stints is spread evenly instead.
-            var first = Run(plan, m, tyresEveryStop, 0);
-            if (first.Stints.Count < 2 || plan.StopLaps.Exists(x => x > 0)) return first;   // stops placed by hand stay put
-            int longest = 0;
-            foreach (var st in first.Stints) longest = Math.Max(longest, st.Laps);
-            var last = first.Stints[first.Stints.Count - 1];
-            if (last.Laps >= longest * 0.6) return first;
-            int even = (int)Math.Ceiling((double)first.Laps / first.Stints.Count);
-            var balanced = Run(plan, m, tyresEveryStop, even);
-            return balanced.Stints.Count <= first.Stints.Count ? balanced : first;
+            // Energy first: every stint as long as the tank allows, a full refill at each stop
+            // and only what the last stint needs at the last one; tyres last as long as they can.
+            plan.Normalize();
+            return Run(plan, m, tyresEveryStop, 0);
         }
 
         private static Simulation Run(StrategyPlan plan, Measures m, bool tyresEveryStop, int capLaps)
@@ -358,7 +361,6 @@ namespace User.TeamPace
             double t = 0, fuelInTank = tank, energy = 100;
             double tyreAge = 0;
             int lap = 0, stint = 0;
-            bool free = false;   // the stint after a refuel chosen by hand is not shortened
             sim.TyresUsed = 4;
 
             while (t < duration && stint < 200)
@@ -375,7 +377,7 @@ namespace User.TeamPace
                         sim.Warnings.Add(string.Format("Relais {0} : {1} tours, plus que l'autonomie ({2} tours).", stint + 1, forced - lap, n));
                     n = forced - lap;
                 }
-                else if (capLaps > 0 && !free) n = Math.Min(n, capLaps);
+                else if (capLaps > 0) n = Math.Min(n, capLaps);
                 var s = new StintPlan { Driver = key, Start = t };
                 for (int k = 0; k < n && t < duration; k++)
                 {
@@ -398,28 +400,30 @@ namespace User.TeamPace
                 int nextForced = ForcedStop(plan, stint + 1, lap);
                 if (nextForced > 0) next = Math.Min(nextForced - lap, Math.Max(1, toFlag));
                 int stopIndex = sim.Stops.Count;
-                double add = Math.Max(0, Math.Min(tank - fuelInTank, next * nFuel + 0.5 * nFuel - fuelInTank));
-                double veAdd = nVe > 0 ? Math.Max(0, Math.Min(100 - energy, next * nVe + 0.5 * nVe - energy)) : 0;
-                bool fuelChosen = plan.StopFuel != null && stopIndex < plan.StopFuel.Count && plan.StopFuel[stopIndex] >= 0;
                 double ratio = sim.EnergyMode ? nFuel / nVe : 0;   // litres per % of virtual energy
-                if (sim.EnergyMode) add = Math.Min(tank - fuelInTank, veAdd * ratio);
-                if (fuelChosen)
+                int fullStint = Limit(tank, 100, nFuel, nVe, nPace, plan.MaxStintMin);
+                double asked = stopIndex < plan.StopLevel.Count ? plan.StopLevel[stopIndex] : -1;
+                bool fuelChosen = asked >= 0;
+                double targetVe, targetFuel;
+                if (fuelChosen) { targetVe = Math.Min(100, asked); targetFuel = Math.Min(tank, asked); }
+                else if (nextForced > 0 || toFlag <= fullStint)
                 {
-                    // Chosen by hand: % of virtual energy (litres on cars without it), or a full tank
-                    if (sim.EnergyMode)
-                    {
-                        veAdd = Math.Max(0, Math.Min(100 - energy, plan.StopFuel[stopIndex]));
-                        add = Math.Min(tank - fuelInTank, veAdd * ratio);
-                    }
-                    else add = Math.Max(0, Math.Min(tank - fuelInTank, plan.StopFuel[stopIndex]));
-                    next = Math.Min(Limit(fuelInTank + add, energy + veAdd, nFuel, nVe, nPace, plan.MaxStintMin), Math.Max(1, toFlag));
+                    // The last stint (or one cut short by hand): what it needs, with a lap spare
+                    int need = nextForced > 0 ? Math.Min(nextForced - lap, Math.Max(1, toFlag)) : Math.Max(1, toFlag);
+                    targetVe = Math.Min(100, need * nVe + 0.5 * nVe);
+                    targetFuel = Math.Min(tank, need * nFuel + 0.5 * nFuel);
                 }
+                else { targetVe = 100; targetFuel = tank; }
+                double veAdd = sim.EnergyMode ? Math.Max(0, targetVe - energy) : 0;
+                double add = sim.EnergyMode ? Math.Max(0, Math.Min(tank - fuelInTank, veAdd * ratio)) : Math.Max(0, targetFuel - fuelInTank);
+                next = Math.Min(Limit(fuelInTank + add, energy + veAdd, nFuel, nVe, nPace, plan.MaxStintMin), Math.Max(1, toFlag));
+                if (nextForced > 0) next = Math.Min(nextForced - lap, Math.Max(1, toFlag));
                 bool chosen = !tyresEveryStop && plan.StopTyres != null && stopIndex < plan.StopTyres.Count && plan.StopTyres[stopIndex] >= 0;
                 int tyres = chosen ? Math.Min(4, plan.StopTyres[stopIndex]) : (tyresEveryStop || tyreAge + next > life ? 4 : 0);
-                if (tyres > 0 && sim.TyresUsed + tyres > plan.TyreSets * 4)
+                if (tyres > 0 && sim.TyresUsed + tyres > plan.TyresAvailable)
                 {
-                    sim.Warnings.Add(string.Format("Arrêt {0} : {1} pneu(s) demandé(s) mais plus assez de pneus neufs ({2} jeux).", stopIndex + 1, tyres, plan.TyreSets));
-                    if (!chosen) tyres = Math.Max(0, plan.TyreSets * 4 - sim.TyresUsed);
+                    sim.Warnings.Add(string.Format("Arrêt {0} : {1} pneu(s) demandé(s) mais plus assez de pneus neufs ({2} pour la course).", stopIndex + 1, tyres, plan.TyresAvailable));
+                    if (!chosen) tyres = Math.Max(0, plan.TyresAvailable - sim.TyresUsed);
                 }
                 if (tyres > 0) { sim.TyresUsed += tyres; tyreAge = tyreAge * (4 - tyres) / 4; }   // a partial change leaves part of the wear
                 double refuel = add / rate;   // the fuel that goes in sets the time
@@ -428,10 +432,10 @@ namespace User.TeamPace
                 sim.Stops.Add(new StopPlan
                 {
                     Lap = lap, LapChosen = forced > 0, At = t, FuelL = add, EnergyPct = veAdd, FuelChosen = fuelChosen,
+                    Level = sim.EnergyMode ? energy + veAdd : fuelInTank + add,
                     Full = sim.EnergyMode ? energy + veAdd >= 99.5 : fuelInTank + add >= tank - 0.5,
                     Tyres = tyres, TyresChosen = chosen, Stopped = stopped, Lost = lost, NextDriver = nextKey,
                 });
-                free = fuelChosen;
                 sim.PitLoss += lost;
                 t += lost;
                 fuelInTank += add; energy += veAdd;

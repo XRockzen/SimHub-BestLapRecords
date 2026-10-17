@@ -762,10 +762,6 @@ namespace User.TeamPace
             var tele = Ui.Button("Télémétrie des tours →", "Superpose les tours de la séance : vitesse, freinage, accélérateur, trajectoires");
             tele.Click += (s, e) => OpenTelemetryFromAnalysis(null, 0);
             HeaderActions.Children.Add(tele);
-            var circuit = Ui.Button("Page du circuit", "Progression, télémétrie et plan de travail sur ce circuit");
-            circuit.Margin = new Thickness(8, 0, 0, 0);
-            circuit.Click += (s, e) => OpenCircuit(_state.Circuit, _state.ClassLabel, _state.BadgeClass, CircuitTab.Progress, true);
-            HeaderActions.Children.Add(circuit);
 
             var field = FieldOf(_state.Sessions);
             if (field != null)

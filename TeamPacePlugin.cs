@@ -40,7 +40,7 @@ namespace User.TeamPace
 
         public PluginManager PluginManager { get; set; }
 
-        public ImageSource PictureIcon  { get { return null; } }
+        public ImageSource PictureIcon  { get { return PluginIcon.Image; } }
         public string      LeftMenuTitle{ get { return "TeamPace"; } }
 
         public void Init(PluginManager pluginManager)

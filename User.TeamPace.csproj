@@ -110,6 +110,7 @@
     <Compile Include="StrategyReview.cs" />
     <Compile Include="RaceField.cs" />
     <Compile Include="TeamRaceStore.cs" />
+    <Compile Include="PluginIcon.cs" />
     <Compile Include="RaceFieldView.cs" />
     <Compile Include="CareerColumn.xaml.cs">
       <DependentUpon>CareerColumn.xaml</DependentUpon>
