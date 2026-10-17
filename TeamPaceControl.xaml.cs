@@ -109,6 +109,7 @@ namespace User.TeamPace
                 RefreshUpdateBanner();
                 RefreshBell();
                 ShowPendingToasts();
+                CheckTeamFolder();
             };
             Unloaded += (s, e) =>
             {
@@ -314,6 +315,7 @@ namespace User.TeamPace
         private void SetTopStatus(string text)
         {
             TxtTopStatus.Text = text ?? "";
+            TxtTopStatus.Foreground = TxtTopStatus.Text.StartsWith("⚠") ? Ui.Amber : Ui.Frozen(Color.FromArgb(0x99, 255, 255, 255));
         }
 
         private void OpenAnalysis(DriverView driver, LmuSessionRecord session)
@@ -1220,6 +1222,7 @@ namespace User.TeamPace
                                 updated > 0 ? string.Format(", {0} mis à jour", updated) : "",
                                 traces > 0 ? string.Format(", {0} relais de télémétrie reçus", traces) : "");
                     }
+                    else if (LmuTeamSync.Problem != null) teamText = "⚠ " + LmuTeamSync.Problem;
                     TelemetryService.Invalidate();
                     NotificationService.Check();
                 }
@@ -1239,6 +1242,8 @@ namespace User.TeamPace
                                 : tele.Laps > 0 ? string.Format("{0} tour(s) de télémétrie extrait(s)", tele.Laps)
                                 : "télémétrie à jour");
                     if (LmuTeamSync.IsConfigured) parts.Add("équipe synchronisée");
+                    else if (LmuTeamSync.Problem != null) parts.Add("⚠ équipe non synchronisée : dossier introuvable");
+                    TxtTeamFolder.Text = LmuSessionStore.TeamFolder;
                     SetTopStatus("À jour : " + string.Join("  ·  ", parts));
                     BtnUpdateAll.IsEnabled = true;
                     ReloadData();
@@ -1247,6 +1252,17 @@ namespace User.TeamPace
         }
 
         // ═══ Équipe (synchro dossier partagé) ═════════════════════════════════
+
+        /// <summary>Says so when the team folder cannot be reached instead of silently not sharing.</summary>
+        private void CheckTeamFolder()
+        {
+            bool ok = LmuTeamSync.IsConfigured;   // also follows a drive letter change
+            TxtTeamFolder.Text = LmuSessionStore.TeamFolder;
+            if (ok || LmuTeamSync.Problem == null) return;
+            TxtTeamStatus.Text = "⚠ " + LmuTeamSync.Problem;
+            TxtTeamStatus.Foreground = Ui.Amber;
+            SetTopStatus("⚠ " + LmuTeamSync.Problem);
+        }
 
         private void BtnTeamBrowse_Click(object sender, RoutedEventArgs e)
         {

@@ -30,7 +30,7 @@ namespace User.TeamPace
             if (_plan == null) _plan = StrategyPlan.Default();
             if (circuit != null) { _plan.Circuit = circuit; _plan.ClassLabel = classLabel; }
             if (_plan.Circuit == null) PickDefaultCircuit();
-            if (_plan.Drivers.Count == 0) foreach (var d in drivers) _plan.Drivers.Add(d.Key);
+            if (_plan.Drivers.Count == 0) foreach (var d in drivers) _plan.Drivers.Add(d.Name);
 
             var root = new DockPanel();
             DockPanel.SetDock(_header, Dock.Top);
@@ -79,40 +79,49 @@ namespace User.TeamPace
         {
             _header.Children.Clear();
             var plans = StrategyEngine.SavedPlans();
-            var cb = new ComboBox { Width = 240, Height = 26, FontSize = 12.5, Margin = new Thickness(0, 0, 8, 0), ToolTip = "Plans enregistrés" };
-            cb.Items.Add("Mes plans…");
-            foreach (var p in plans) cb.Items.Add(p.Id);
+            var cb = new ComboBox { Width = 340, Height = 26, FontSize = 12.5, Margin = new Thickness(0, 0, 8, 0), MaxDropDownHeight = 420,
+                                    ToolTip = "Plans de l'équipe, enregistrés dans le dossier d'équipe" };
+            cb.Items.Add(plans.Count > 0 ? string.Format("Plans de l'équipe ({0})…", plans.Count) : "Aucun plan enregistré");
+            foreach (var p in plans)
+                cb.Items.Add(new ComboBoxItem
+                {
+                    Tag = p,
+                    Content = string.Format("{0}   ·   {1} le {2:dd/MM HH:mm}", p.Id,
+                        string.IsNullOrEmpty(p.Author) ? "?" : p.Author, p.UpdatedUtc == DateTime.MinValue ? DateTime.Now : p.UpdatedUtc.ToLocalTime()),
+                });
             cb.SelectedIndex = 0;
             cb.SelectionChanged += (s, e) =>
             {
-                if (cb.SelectedIndex <= 0) return;
-                var p = plans.Find(x => x.Id == (string)cb.SelectedItem);
-                if (p == null) return;
-                _plan = p;
-                if (_plan.Overrides == null) _plan.Overrides = new List<StrategyOverride>();
-                if (_plan.StintDrivers == null) _plan.StintDrivers = new List<string>();
-                if (_plan.Drivers == null) _plan.Drivers = new List<string>();
+                var item = cb.SelectedItem as ComboBoxItem;
+                if (item == null) return;
+                _plan = (StrategyPlan)item.Tag;
+                _plan.Normalize();
                 BuildHeader();
                 Remeasure();
             };
             _header.Children.Add(cb);
 
-            var name = new TextBox { Width = 220, Height = 26, FontSize = 12.5, VerticalContentAlignment = VerticalAlignment.Center, Text = _plan.Id ?? "", ToolTip = "Nom du plan" };
+            var name = new TextBox { Width = 240, Height = 26, FontSize = 12.5, VerticalContentAlignment = VerticalAlignment.Center, Text = _plan.Id ?? "", ToolTip = "Nom du plan" };
             _header.Children.Add(name);
-            var save = Ui.Button("Enregistrer le plan");
+            var save = Ui.Button("Enregistrer le plan", "Enregistre le plan dans le dossier d'équipe : chaque coéquipier le retrouve dans la liste");
             save.Margin = new Thickness(8, 0, 0, 0);
+            var status = Ui.T("", 12, Ui.Muted);
+            status.Margin = new Thickness(10, 0, 0, 0);
             save.Click += (s, e) =>
             {
                 var id = name.Text.Trim();
                 if (id.Length == 0) id = string.Format("{0} · {1} h", _plan.Circuit, _plan.DurationMin / 60.0);
                 _plan.Id = id;
-                StrategyEngine.Save(_plan);
+                bool shared = StrategyEngine.Save(_plan);
                 BuildHeader();
+                var t = Ui.T(shared ? "✔ enregistré et partagé avec l'équipe" : "⚠ enregistré sur ce PC seulement : dossier d'équipe introuvable", 12, shared ? Ui.Green : Ui.Amber);
+                t.Margin = new Thickness(10, 0, 0, 0);
+                _header.Children.Add(t);
             };
             _header.Children.Add(save);
             if (!string.IsNullOrEmpty(_plan.Id) && plans.Exists(p => p.Id == _plan.Id))
             {
-                var del = Ui.Button("Supprimer");
+                var del = Ui.Button("Supprimer", "Supprime ce plan pour toute l'équipe");
                 del.Margin = new Thickness(6, 0, 0, 0);
                 del.Click += (s, e) => { StrategyEngine.Delete(_plan.Id); _plan.Id = null; BuildHeader(); };
                 _header.Children.Add(del);
@@ -124,11 +133,17 @@ namespace User.TeamPace
                 var c = _plan.Circuit; var k = _plan.ClassLabel;
                 _plan = StrategyPlan.Default();
                 _plan.Circuit = c; _plan.ClassLabel = k;
-                foreach (var d in _drivers) _plan.Drivers.Add(d.Key);
+                foreach (var d in _drivers) _plan.Drivers.Add(d.Name);
                 BuildHeader();
                 Remeasure();
             };
             _header.Children.Add(fresh);
+            if (!string.IsNullOrEmpty(_plan.Author) && _plan.Author != LmuSessionStore.PlayerName)
+            {
+                var by = Ui.T(string.Format("plan de {0} : vos changements l'enregistrent à votre nom pour toute l'équipe", _plan.Author), 12, Ui.Muted);
+                by.Margin = new Thickness(12, 0, 0, 0);
+                _header.Children.Add(by);
+            }
         }
 
         // ─── Left: the race and the team ──────────────────────────────────────
@@ -173,7 +188,7 @@ namespace User.TeamPace
             team.Children.Add(Title("L'équipe", "pilotes de la course"));
             foreach (var d in _drivers)
             {
-                var key = d.Key;
+                var key = d.Name;
                 var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
                 var check = new CheckBox { IsChecked = _plan.Drivers.Contains(key), VerticalAlignment = VerticalAlignment.Center };
                 check.Checked += (s, e) => { if (!_plan.Drivers.Contains(key)) _plan.Drivers.Add(key); Rebuild(); };
@@ -205,6 +220,13 @@ namespace User.TeamPace
                 return;
             }
             StrategyEngine.ApplyOverrides(_measures, _plan);
+            foreach (var name in _plan.Drivers)
+                if (!_drivers.Exists(d => d.Name == name))
+                    _right.Children.Add(new TextBlock
+                    {
+                        Text = string.Format("⚠ {0} fait partie de ce plan mais n'est pas affiché : ajoutez-le avec « + Ajouter un pilote… » pour l'inclure.", name),
+                        Foreground = Ui.Amber, FontSize = 12.5, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8),
+                    });
             _right.Children.Add(Card(MeasuresTable()));
 
             var sim = StrategyEngine.Simulate(_plan, _measures, false);
@@ -226,7 +248,7 @@ namespace User.TeamPace
             var driving = new StackPanel { Orientation = Orientation.Horizontal };
             foreach (var k in _plan.Drivers)
             {
-                var d = _drivers.Find(x => x.Key == k);
+                var d = _drivers.Find(x => x.Name == k);
                 double t; sim.Driving.TryGetValue(k, out t);
                 if (d == null) continue;
                 driving.Children.Add(Ui.T(Fmt.TotalTime(TimeSpan.FromSeconds(t)) + "  ", 15, Ui.Light(d.Brush), FontWeights.SemiBold));
@@ -258,7 +280,7 @@ namespace User.TeamPace
 
         private double Pace(string key)
         {
-            var dd = _measures.Drivers.Find(d => d.Driver.Key == key);
+            var dd = _measures.Drivers.Find(d => d.Driver.Name == key);
             return dd != null ? dd.Values[StrategyEngine.Pace].Value : 100;
         }
 
@@ -266,7 +288,7 @@ namespace User.TeamPace
         {
             var panel = new StackPanel();
             panel.Children.Add(Title("Données de l'équipe", "mesurées sur vos sessions · cliquez une valeur pour la remplacer"));
-            var drivers = _measures.Drivers.FindAll(d => _plan.Drivers.Contains(d.Driver.Key));
+            var drivers = _measures.Drivers.FindAll(d => _plan.Drivers.Contains(d.Driver.Name));
 
             Func<Grid> newRow = () =>
             {
@@ -297,7 +319,7 @@ namespace User.TeamPace
                 for (int i = 0; i < drivers.Count; i++)
                 {
                     var v = drivers[i].Values[p];
-                    var cell = ValueBox(p, drivers[i].Driver.Key, v);
+                    var cell = ValueBox(p, drivers[i].Driver.Name, v);
                     Grid.SetColumn(cell, i + 1);
                     g.Children.Add(cell);
                     if (source == null) source = v.Overridden ? "modifié à la main" : v.Source;
@@ -339,14 +361,14 @@ namespace User.TeamPace
             box.LostFocus += (s, e) =>
             {
                 var text = box.Text.Trim();
-                _plan.Overrides.RemoveAll(o => o.Param == param && o.DriverKey == driverKey);
+                _plan.Overrides.RemoveAll(o => o.Param == param && o.DriverName == driverKey);
                 if (text.Length > 0 && text != Editable(param, v.Value))
                 {
                     double value;
-                    if (TryParse(param, text, out value)) _plan.Overrides.Add(new StrategyOverride { Param = param, DriverKey = driverKey, Value = value });
+                    if (TryParse(param, text, out value)) _plan.Overrides.Add(new StrategyOverride { Param = param, DriverName = driverKey, Value = value });
                 }
                 else if (text.Length > 0 && v.Overridden)
-                    _plan.Overrides.Add(new StrategyOverride { Param = param, DriverKey = driverKey, Value = v.Value });
+                    _plan.Overrides.Add(new StrategyOverride { Param = param, DriverName = driverKey, Value = v.Value });
                 Remeasure();
             };
             box.KeyDown += (s, e) => { if (e.Key == System.Windows.Input.Key.Enter) System.Windows.Input.Keyboard.ClearFocus(); };
@@ -386,22 +408,22 @@ namespace User.TeamPace
             {
                 var s = sim.Stints[i];
                 grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(0.5, s.End - s.Start), GridUnitType.Star) });
-                var d = _drivers.Find(x => x.Key == s.DriverKey);
+                var d = _drivers.Find(x => x.Name == s.Driver);
                 var cell = new StackPanel { Margin = new Thickness(0, 0, 2, 0) };
                 var pick = new ComboBox { Height = 26, FontSize = 12, ToolTip = "Pilote de ce relais", Background = d != null ? d.Brush : Brushes.Gray };
                 foreach (var k in keys)
                 {
-                    var dv = _drivers.Find(x => x.Key == k);
-                    if (dv != null) pick.Items.Add(new ComboBoxItem { Content = dv.Name, Tag = k });
+                    var dv = _drivers.Find(x => x.Name == k);
+                    if (dv != null) pick.Items.Add(new ComboBoxItem { Content = dv.Name, Tag = dv.Name });
                 }
-                foreach (ComboBoxItem it in pick.Items) if ((string)it.Tag == s.DriverKey) pick.SelectedItem = it;
+                foreach (ComboBoxItem it in pick.Items) if ((string)it.Tag == s.Driver) pick.SelectedItem = it;
                 int stint = i;
                 pick.SelectionChanged += (snd, e) =>
                 {
                     if (_building || pick.SelectedItem == null) return;
                     // Freeze the drivers up to this stint, then this one changes
                     var list = new List<string>();
-                    for (int k = 0; k < sim.Stints.Count; k++) list.Add(sim.Stints[k].DriverKey);
+                    for (int k = 0; k < sim.Stints.Count; k++) list.Add(sim.Stints[k].Driver);
                     list[stint] = (string)((ComboBoxItem)pick.SelectedItem).Tag;
                     _plan.StintDrivers = list;
                     Dispatcher.BeginInvoke(new Action(Rebuild));
@@ -436,37 +458,66 @@ namespace User.TeamPace
         private UIElement StopsTable(StrategyEngine.Simulation sim)
         {
             var panel = new StackPanel { Margin = new Thickness(0, 10, 0, 0) };
-            var widths = new[] { 60.0, 64, 96, 210, 90, 90, 90, 160 };
-            Func<string[], Brush, bool, UIElement> row = (cells, nextColor, head) =>
+            var widths = new[] { 60.0, 64, 96, 210, 170, 90, 90, 160 };
+            Func<string[], Brush, bool, Grid> row = (cells, nextColor, head) =>
             {
-                var g = new Grid { MinHeight = 27 };
+                var g = new Grid { MinHeight = 29 };
                 foreach (var w in widths) g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(w) });
                 for (int i = 0; i < cells.Length; i++)
                 {
+                    if (cells[i] == null) continue;
                     var t = Ui.T(cells[i], head ? 12 : 13, head ? Ui.Faint : (i == cells.Length - 1 ? nextColor : Ui.Text), i == cells.Length - 1 && !head ? FontWeights.SemiBold : FontWeights.Normal);
                     t.Margin = new Thickness(6, 0, 6, 0);
                     Grid.SetColumn(t, i);
                     g.Children.Add(t);
                 }
-                return new Border { Child = g, BorderBrush = Ui.Line, BorderThickness = new Thickness(0, 0, 0, 1), Background = head ? Ui.HeaderBg : Brushes.Transparent };
+                return g;
             };
-            panel.Children.Add(row(new[] { "Arrêt", "Tour", "Heure", "Carburant", "Pneus", "Arrêté", "Perdu", "Repart" }, Ui.Text, true));
+            Func<Grid, bool, UIElement> wrap = (g, head) =>
+                new Border { Child = g, BorderBrush = Ui.Line, BorderThickness = new Thickness(0, 0, 0, 1), Background = head ? Ui.HeaderBg : Brushes.Transparent };
+            var header = row(new[] { "Arrêt", "Tour", "Heure", "Carburant", "Pneus", "Arrêté", "Perdu", "Repart" }, Ui.Text, true);
+            ((TextBlock)header.Children[4]).ToolTip = "Nombre de pneus changés à cet arrêt : « auto » les change quand le train arrive en fin de vie";
+            panel.Children.Add(wrap(header, true));
             for (int i = 0; i < sim.Stops.Count; i++)
             {
                 var s = sim.Stops[i];
-                var d = _drivers.Find(x => x.Key == s.NextDriver);
+                var d = _drivers.Find(x => x.Name == s.NextDriver);
                 bool last = i == sim.Stops.Count - 1;
-                panel.Children.Add(row(new[]
+                var g = row(new[]
                 {
                     (i + 1).ToString(), s.Lap.ToString(), Clock(s.At),
                     string.Format(Inv, "+{0:0} L{1}", s.FuelL, last ? " (jusqu'à l'arrivée)" : ""),
-                    s.Tyres ? "4 neufs" : "aucun",
+                    null,
                     string.Format(Inv, "{0:0} s", s.Stopped), string.Format(Inv, "+{0:0} s", s.Lost),
                     d != null ? d.Name : "",
-                }, d != null ? Ui.Light(d.Brush) : Ui.Text, false));
+                }, d != null ? Ui.Light(d.Brush) : Ui.Text, false);
+                g.Children.Add(TyreChoice(i, s));
+                panel.Children.Add(wrap(g, false));
             }
             if (sim.Stops.Count == 0) panel.Children.Add(Ui.T("Aucun arrêt nécessaire.", 13, Ui.Muted));
             return panel;
+        }
+
+        /// <summary>How many tyres to change at a stop: automatic, or 0 to 4 chosen by hand.</summary>
+        private ComboBox TyreChoice(int stop, StrategyEngine.StopPlan s)
+        {
+            var cb = new ComboBox { Height = 24, FontSize = 12.5, Margin = new Thickness(4, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center };
+            string auto = s.TyresChosen ? "auto" : (s.Tyres == 0 ? "auto · aucun" : string.Format("auto · {0} neufs", s.Tyres));
+            cb.Items.Add(auto);
+            cb.Items.Add("aucun");
+            for (int n = 1; n <= 4; n++) cb.Items.Add(n == 1 ? "1 pneu" : n + " pneus");
+            cb.SelectedIndex = s.TyresChosen ? s.Tyres + 1 : 0;
+            if (s.TyresChosen) cb.Foreground = Ui.Amber;
+            cb.ToolTip = "Changé à la main : le temps d'arrêt suit (2 pneus et 4 pneus mesurés, 1 et 3 entre les deux)";
+            Grid.SetColumn(cb, 4);
+            cb.SelectionChanged += (snd, e) =>
+            {
+                if (_building) return;
+                while (_plan.StopTyres.Count <= stop) _plan.StopTyres.Add(-1);
+                _plan.StopTyres[stop] = cb.SelectedIndex <= 0 ? -1 : cb.SelectedIndex - 1;
+                Dispatcher.BeginInvoke(new Action(Rebuild));
+            };
+            return cb;
         }
 
         /// <summary>Race time, or the clock time when a start time is given.</summary>

@@ -280,7 +280,13 @@ l'antipatinage. Les étiquettes rouges montrent ce qui coûte, les vertes ce qui
   au-dessus de chaque relais choisit qui le prend (Pascal, Pascal, Amaury, Amaury…) et le plan se
   recalcule. Sous le plan : chaque arrêt avec son tour, son heure, le carburant ajouté, les pneus,
   le temps arrêté et le temps perdu, et les alertes (pneus insuffisants, temps de conduite minimum).
-- **Enregistrer le plan** le garde ; **Mes plans** le recharge.
+- **Pneus de chaque arrêt** : *auto* les change quand le train arrive en fin de vie ; choisissez
+  aucun, 1, 2, 3 ou 4 pneus et le temps d'arrêt suit (2 et 4 pneus mesurés, 1 et 3 entre les deux).
+  Un choix fait à la main apparaît en jaune.
+- **Enregistrer le plan** l'écrit dans le dossier d'équipe (sous-dossier `strategy`) : chaque
+  coéquipier le retrouve dans **Plans de l'équipe**, avec qui l'a enregistré et quand. Un plan
+  modifié puis enregistré par un coéquipier passe à son nom ; **Supprimer** le retire pour toute
+  l'équipe.
 
 ## 6. Notifications
 
@@ -321,6 +327,7 @@ administrateur. Le lien **Vérifier les mises à jour**, en bas à droite du plu
 | Un coéquipier n'apparaît pas dans « + Ajouter un pilote… » | Il doit avoir choisi le même dossier d'équipe et lancé SimHub au moins une fois. Cliquez ensuite sur **⟳ Tout mettre à jour**. |
 | Le dossier d'équipe est introuvable dans « Choisir… » | Le coéquipier doit d'abord l'**ajouter à son Drive** (étape 3.3). |
 | Pas de télémétrie pour un pilote | Il doit avoir TeamPace 2.6 ou plus et cliquer une fois sur **⟳ Tout mettre à jour**. La télémétrie de LMU doit être active (dossier `UserData\Telemetry` non vide). |
+| Rien n'arrive chez les coéquipiers (base, télémétrie, plans) | Google Drive a peut-être changé de lettre de lecteur (par exemple J: → I:) : TeamPace retrouve le dossier tout seul s'il existe sur une autre lettre. S'il reste introuvable, un ⚠ s'affiche en haut et dans les réglages : lancez Google Drive, ou choisissez de nouveau le dossier avec **📁 Choisir…**. |
 | Colonnes carburant / pneus vides | Ces valeurs sont capturées en direct : roulez avec SimHub ouvert. En ligne, LMU ne les écrit pas dans ses fichiers de résultats. |
 
 ## Pour le développeur

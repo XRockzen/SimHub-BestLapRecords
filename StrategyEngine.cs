@@ -18,24 +18,38 @@ namespace User.TeamPace
         public double TankL        { get; set; }
         public int    MaxStintMin  { get; set; }   // 0 = no limit
         public int    MinDriveMin  { get; set; }   // per driver, 0 = no rule
-        public List<string> Drivers     { get; set; }   // driver keys taking part
-        public List<string> StintDrivers { get; set; }  // driver key per stint, chosen by hand
+        // Drivers by name: the same on every teammate's computer, so a plan can be shared
+        public List<string> Drivers     { get; set; }   // drivers taking part
+        public List<string> StintDrivers { get; set; }  // driver of each stint, chosen by hand
+        public List<int>    StopTyres   { get; set; }   // tyres changed at each stop, -1 = automatic
         public List<StrategyOverride> Overrides { get; set; }
+        public string   Author     { get; set; }   // last saved by
+        public DateTime UpdatedUtc { get; set; }
 
         public static StrategyPlan Default()
         {
             return new StrategyPlan
             {
                 DurationMin = 360, StartClock = "", TyreSets = 6, TankL = 100, MaxStintMin = 0, MinDriveMin = 0,
-                Drivers = new List<string>(), StintDrivers = new List<string>(), Overrides = new List<StrategyOverride>(),
+                Drivers = new List<string>(), StintDrivers = new List<string>(), StopTyres = new List<int>(),
+                Overrides = new List<StrategyOverride>(),
             };
+        }
+
+        /// <summary>Lists missing from a plan saved by an older version.</summary>
+        public void Normalize()
+        {
+            if (Drivers == null) Drivers = new List<string>();
+            if (StintDrivers == null) StintDrivers = new List<string>();
+            if (StopTyres == null) StopTyres = new List<int>();
+            if (Overrides == null) Overrides = new List<StrategyOverride>();
         }
     }
 
     public class StrategyOverride
     {
         public string Param     { get; set; }
-        public string DriverKey { get; set; }   // "" for team-wide values
+        public string DriverName { get; set; }   // "" for team-wide values
         public double Value     { get; set; }
     }
 
@@ -55,9 +69,9 @@ namespace User.TeamPace
     internal static class StrategyEngine
     {
         public const string Pace = "pace", Degradation = "deg", Fuel = "fuel", Energy = "ve", Wear = "wear";
-        public const string LaneLoss = "lane", FuelRate = "rate", Tyres4 = "tyres4", TyreLife = "life";
+        public const string LaneLoss = "lane", FuelRate = "rate", Tyres2 = "tyres2", Tyres4 = "tyres4", TyreLife = "life";
         public static readonly string[] DriverParams = { Pace, Degradation, Fuel, Energy, Wear };
-        public static readonly string[] TeamParams = { LaneLoss, FuelRate, Tyres4, TyreLife };
+        public static readonly string[] TeamParams = { LaneLoss, FuelRate, Tyres2, Tyres4, TyreLife };
 
         public static string Label(string p)
         {
@@ -70,6 +84,7 @@ namespace User.TeamPace
                 case Wear:        return "Usure pneus (le plus usé)";
                 case LaneLoss:    return "Passage aux stands (sans arrêt)";
                 case FuelRate:    return "Débit d'essence";
+                case Tyres2:      return "Changement de 2 pneus";
                 case Tyres4:      return "Changement des 4 pneus";
                 default:          return "Durée d'un train de pneus";
             }
@@ -87,6 +102,7 @@ namespace User.TeamPace
                 case Wear:        return string.Format(inv, "{0:0.00} %/tour", v);
                 case LaneLoss:    return string.Format(inv, "{0:0} s perdues", v);
                 case FuelRate:    return string.Format(inv, "{0:0.0} L/s", v);
+                case Tyres2:
                 case Tyres4:      return string.Format(inv, "+{0:0} s", v);
                 default:          return string.Format(inv, "{0:0} tours", v);
             }
@@ -184,15 +200,20 @@ namespace User.TeamPace
             }
 
             // Team-wide pit values
-            var rates = new List<double>(); var tyres4 = new List<double>(); var lanes = new List<double>();
+            var rates = new List<double>(); var tyres4 = new List<double>(); var tyres2 = new List<double>(); var lanes = new List<double>();
             foreach (var s in stops) if (s.Fuel >= 20 && s.Tyres == 0 && s.Stopped > 3) rates.Add(s.Fuel / s.Stopped);
             double rate = rates.Count > 0 ? Median(rates) : double.NaN;
             foreach (var s in stops)
             {
-                if (s.Tyres == 4 && !double.IsNaN(rate)) { double t = s.Stopped - s.Fuel / rate; if (t > 0) tyres4.Add(t); }
+                if ((s.Tyres == 4 || s.Tyres == 2) && !double.IsNaN(rate))
+                {
+                    double t = s.Stopped - s.Fuel / rate;
+                    if (t > 0) (s.Tyres == 4 ? tyres4 : tyres2).Add(t);
+                }
                 if (!double.IsNaN(s.Loss)) lanes.Add(s.Loss - s.Stopped);
             }
             m.Team[FuelRate] = Value(rate, 2.1, rates.Count > 0 ? string.Format("{0} ravitaillement(s) mesuré(s)", rates.Count) : "valeur par défaut");
+            m.Team[Tyres2] = Value(Median(tyres2), 5, tyres2.Count > 0 ? string.Format("{0} changement(s) mesuré(s)", tyres2.Count) : "valeur par défaut");
             m.Team[Tyres4] = Value(Median(tyres4), 12, tyres4.Count > 0 ? string.Format("{0} changement(s) mesuré(s)", tyres4.Count) : "valeur par défaut");
             m.Team[LaneLoss] = Value(Median(lanes), 25, lanes.Count > 0 ? string.Format("{0} passage(s) mesuré(s)", lanes.Count) : "valeur par défaut");
             double maxWear = 0;
@@ -214,10 +235,10 @@ namespace User.TeamPace
             foreach (var o in plan.Overrides)
             {
                 StrategyValue v = null;
-                if (string.IsNullOrEmpty(o.DriverKey)) m.Team.TryGetValue(o.Param, out v);
+                if (string.IsNullOrEmpty(o.DriverName)) m.Team.TryGetValue(o.Param, out v);
                 else
                 {
-                    var dd = m.Drivers.Find(x => x.Driver.Key == o.DriverKey);
+                    var dd = m.Drivers.Find(x => x.Driver.Name == o.DriverName);
                     if (dd != null) dd.Values.TryGetValue(o.Param, out v);
                 }
                 if (v != null) { v.Value = o.Value; v.Overridden = true; }
@@ -252,7 +273,7 @@ namespace User.TeamPace
 
         public class StintPlan
         {
-            public string DriverKey;
+            public string Driver;   // name
             public int Laps;
             public double Start, End;   // race time, s
         }
@@ -262,7 +283,8 @@ namespace User.TeamPace
             public int Lap;
             public double At;           // race time when the car enters the pits
             public double FuelL;
-            public bool Tyres;
+            public int Tyres;          // tyres changed
+            public bool TyresChosen;   // set by hand
             public double Stopped, Lost;
             public string NextDriver;
         }
@@ -275,6 +297,7 @@ namespace User.TeamPace
             public double Finish;         // race time when the last lap is completed
             public double PitLoss;
             public int SetsUsed;
+            public int TyresUsed;      // single tyres, the starting set included
             public Dictionary<string, double> Driving = new Dictionary<string, double>();
             public List<string> Warnings = new List<string>();
         }
@@ -302,31 +325,35 @@ namespace User.TeamPace
         private static Simulation Run(StrategyPlan plan, Measures m, bool tyresEveryStop, int capLaps)
         {
             var sim = new Simulation();
-            var keys = plan.Drivers.FindAll(k => m.Drivers.Exists(d => d.Driver.Key == k));
+            var keys = plan.Drivers.FindAll(k => m.Drivers.Exists(d => d.Driver.Name == k));
             if (keys.Count == 0) { sim.Warnings.Add("Choisissez au moins un pilote."); return sim; }
             foreach (var k in keys)
             {
-                var dd = m.Drivers.Find(d => d.Driver.Key == k);
+                var dd = m.Drivers.Find(d => d.Driver.Name == k);
                 if (!dd.Values[Pace].Measured && !dd.Values[Pace].Overridden) sim.Warnings.Add(dd.Driver.Name + " : pas de rythme mesuré ici, saisissez-le.");
                 if (!(dd.Values[Fuel].Value > 0)) sim.Warnings.Add(dd.Driver.Name + " : pas de consommation mesurée ici, saisissez-la.");
             }
             if (sim.Warnings.Count > 0) return sim;
 
             double duration = plan.DurationMin * 60.0, tank = Math.Max(1, plan.TankL);
-            double rate = m.Team[FuelRate].Value, tyreTime = m.Team[Tyres4].Value, lane = m.Team[LaneLoss].Value;
+            double rate = m.Team[FuelRate].Value, lane = m.Team[LaneLoss].Value;
+            double t2 = m.Team[Tyres2].Value, t4 = m.Team[Tyres4].Value;
+            // 0 → 0, 2 → t2, 4 → t4, in between on a straight line
+            Func<int, double> tyreTime = n => n <= 0 ? 0 : n <= 2 ? t2 * n / 2 : t2 + (t4 - t2) * (n - 2) / 2;
             int life = (int)Math.Max(1, m.Team[TyreLife].Value);
             double t = 0, fuelInTank = tank, energy = 100;
-            int tyreAge = 0, lap = 0, stint = 0;
-            sim.SetsUsed = 1;
+            double tyreAge = 0;
+            int lap = 0, stint = 0;
+            sim.TyresUsed = 4;
 
             while (t < duration && stint < 200)
             {
                 var key = DriverOf(plan, keys, stint);
-                var p = m.Drivers.Find(d => d.Driver.Key == key).Values;
+                var p = m.Drivers.Find(d => d.Driver.Name == key).Values;
                 double pace = p[Pace].Value, fuel = p[Fuel].Value, ve = p[Energy].Value, deg = p[Degradation].Value;
                 int n = Limit(fuelInTank, energy, fuel, ve, pace, plan.MaxStintMin);
                 if (capLaps > 0) n = Math.Min(n, capLaps);
-                var s = new StintPlan { DriverKey = key, Start = t };
+                var s = new StintPlan { Driver = key, Start = t };
                 for (int k = 0; k < n && t < duration; k++)
                 {
                     t += pace + deg * tyreAge;
@@ -340,25 +367,27 @@ namespace User.TeamPace
 
                 // Stop: fuel for the next stint (or to the flag), tyres when the set is worn out
                 var nextKey = DriverOf(plan, keys, stint + 1);
-                var np = m.Drivers.Find(d => d.Driver.Key == nextKey).Values;
+                var np = m.Drivers.Find(d => d.Driver.Name == nextKey).Values;
                 double nPace = np[Pace].Value, nFuel = np[Fuel].Value, nVe = np[Energy].Value;
                 int toFlag = (int)Math.Ceiling((duration - t - lane) / nPace) + 1;
                 int next = Math.Min(Limit(tank, 100, nFuel, nVe, nPace, plan.MaxStintMin), Math.Max(1, toFlag));
                 if (capLaps > 0) next = Math.Min(next, capLaps + 1);   // fuel for the balanced stint, one lap spare
                 double add = Math.Max(0, Math.Min(tank - fuelInTank, next * nFuel + 0.5 * nFuel - fuelInTank));
                 double veAdd = nVe > 0 ? Math.Max(0, Math.Min(100 - energy, next * nVe + 0.5 * nVe - energy)) : 0;
-                bool tyres = tyresEveryStop || tyreAge + next > life;
-                if (tyres && sim.SetsUsed >= plan.TyreSets)
+                int stopIndex = sim.Stops.Count;
+                bool chosen = !tyresEveryStop && plan.StopTyres != null && stopIndex < plan.StopTyres.Count && plan.StopTyres[stopIndex] >= 0;
+                int tyres = chosen ? Math.Min(4, plan.StopTyres[stopIndex]) : (tyresEveryStop || tyreAge + next > life ? 4 : 0);
+                if (tyres > 0 && sim.TyresUsed + tyres > plan.TyreSets * 4)
                 {
-                    tyres = false;
-                    if (!tyresEveryStop) sim.Warnings.Add(string.Format("Plus de jeu de pneus neuf à l'arrêt {0} : relais sur des pneus usés.", sim.Stops.Count + 1));
+                    sim.Warnings.Add(string.Format("Arrêt {0} : {1} pneu(s) demandé(s) mais plus assez de pneus neufs ({2} jeux).", stopIndex + 1, tyres, plan.TyreSets));
+                    if (!chosen) tyres = Math.Max(0, plan.TyreSets * 4 - sim.TyresUsed);
                 }
-                if (tyres) { sim.SetsUsed++; tyreAge = 0; }
+                if (tyres > 0) { sim.TyresUsed += tyres; tyreAge = tyreAge * (4 - tyres) / 4; }   // a partial change leaves part of the wear
                 // Virtual energy refills at the same pace as the fuel: the longer of the two counts
                 double refuel = Math.Max(add, nVe > 0 ? veAdd / 100 * tank : 0) / rate;
-                double stopped = refuel + (tyres ? tyreTime : 0);
+                double stopped = refuel + tyreTime(tyres);
                 double lost = lane + stopped;
-                sim.Stops.Add(new StopPlan { Lap = lap, At = t, FuelL = add, Tyres = tyres, Stopped = stopped, Lost = lost, NextDriver = nextKey });
+                sim.Stops.Add(new StopPlan { Lap = lap, At = t, FuelL = add, Tyres = tyres, TyresChosen = chosen, Stopped = stopped, Lost = lost, NextDriver = nextKey });
                 sim.PitLoss += lost;
                 t += lost;
                 fuelInTank += add; energy += veAdd;
@@ -366,6 +395,7 @@ namespace User.TeamPace
             }
             sim.Laps = lap;
             sim.Finish = t;
+            sim.SetsUsed = (int)Math.Ceiling(sim.TyresUsed / 4.0);
 
             if (plan.MinDriveMin > 0)
                 foreach (var k in keys)
@@ -373,7 +403,7 @@ namespace User.TeamPace
                     double dr; sim.Driving.TryGetValue(k, out dr);
                     if (dr < plan.MinDriveMin * 60)
                         sim.Warnings.Add(string.Format("{0} ne roule que {1} : moins que le minimum de {2}.",
-                            m.Drivers.Find(d => d.Driver.Key == k).Driver.Name, Fmt.TotalTime(TimeSpan.FromSeconds(dr)), Fmt.TotalTime(TimeSpan.FromMinutes(plan.MinDriveMin))));
+                            m.Drivers.Find(d => d.Driver.Name == k).Driver.Name, Fmt.TotalTime(TimeSpan.FromSeconds(dr)), Fmt.TotalTime(TimeSpan.FromMinutes(plan.MinDriveMin))));
                 }
             return sim;
         }
@@ -395,43 +425,104 @@ namespace User.TeamPace
         }
 
         // ─── Saved plans ──────────────────────────────────────────────────────
+        //
+        // Plans live in the team folder ("strategy\<name>.json"), so every teammate sees and edits
+        // the same plans; a local copy keeps them when the team folder is unreachable.
 
         private static string _path;
         private static readonly object Lock = new object();
 
         public static void Init(string dataDir) { _path = Path.Combine(dataDir, "local.db"); }
 
+        private static string SharedDir
+        {
+            get { return LmuTeamSync.IsConfigured ? Path.Combine(LmuSessionStore.TeamFolder, "strategy") : null; }
+        }
+
+        private static string FileName(string id)
+        {
+            var s = id.Trim();
+            foreach (var c in Path.GetInvalidFileNameChars()) s = s.Replace(c, '_');
+            return s + ".json";
+        }
+
+        /// <summary>The team's plans (shared folder) and the local ones, newest version of each.</summary>
         public static List<StrategyPlan> SavedPlans()
         {
-            var list = new List<StrategyPlan>();
-            if (_path == null) return list;
-            lock (Lock)
+            var byId = new Dictionary<string, StrategyPlan>(StringComparer.OrdinalIgnoreCase);
+            Action<StrategyPlan> keep = p =>
             {
-                try { using (var db = new LiteDatabase(string.Format("Filename={0}", _path))) list.AddRange(db.GetCollection<StrategyPlan>("strategy_plans").FindAll()); }
-                catch (Exception ex) { SimHub.Logging.Current.Warn("[TeamPace] Plans: " + ex.Message); }
-            }
-            list.Sort((a, b) => string.Compare(a.Id, b.Id, StringComparison.OrdinalIgnoreCase));
+                if (p == null || string.IsNullOrWhiteSpace(p.Id)) return;
+                p.Normalize();
+                StrategyPlan cur;
+                if (!byId.TryGetValue(p.Id, out cur) || p.UpdatedUtc > cur.UpdatedUtc) byId[p.Id] = p;
+            };
+            if (_path != null)
+                lock (Lock)
+                {
+                    try { using (var db = new LiteDatabase(string.Format("Filename={0}", _path))) foreach (var p in db.GetCollection<StrategyPlan>("strategy_plans").FindAll()) keep(p); }
+                    catch (Exception ex) { SimHub.Logging.Current.Warn("[TeamPace] Plans: " + ex.Message); }
+                }
+            var dir = SharedDir;
+            if (dir != null && Directory.Exists(dir))
+                foreach (var file in Directory.GetFiles(dir, "*.json"))
+                {
+                    try { keep(Newtonsoft.Json.JsonConvert.DeserializeObject<StrategyPlan>(File.ReadAllText(file))); }
+                    catch (Exception ex) { SimHub.Logging.Current.Warn("[TeamPace] Plan " + Path.GetFileName(file) + ": " + ex.Message); }
+                }
+            var list = new List<StrategyPlan>(byId.Values);
+            list.Sort((a, b) => b.UpdatedUtc.CompareTo(a.UpdatedUtc));
             return list;
         }
 
-        public static void Save(StrategyPlan plan)
+        /// <summary>Saves locally and to the team folder. Returns false when only the local copy was written.</summary>
+        public static bool Save(StrategyPlan plan)
         {
-            if (_path == null || string.IsNullOrWhiteSpace(plan.Id)) return;
-            lock (Lock)
+            if (string.IsNullOrWhiteSpace(plan.Id)) return false;
+            plan.Author = LmuSessionStore.PlayerName;
+            plan.UpdatedUtc = DateTime.UtcNow;
+            if (_path != null)
+                lock (Lock)
+                {
+                    try { using (var db = new LiteDatabase(string.Format("Filename={0}", _path))) db.GetCollection<StrategyPlan>("strategy_plans").Upsert(plan); }
+                    catch (Exception ex) { SimHub.Logging.Current.Warn("[TeamPace] Plan save: " + ex.Message); }
+                }
+            var dir = SharedDir;
+            if (dir == null) return false;
+            try
             {
-                try { using (var db = new LiteDatabase(string.Format("Filename={0}", _path))) db.GetCollection<StrategyPlan>("strategy_plans").Upsert(plan); }
-                catch (Exception ex) { SimHub.Logging.Current.Warn("[TeamPace] Plan save: " + ex.Message); }
+                Directory.CreateDirectory(dir);
+                var target = Path.Combine(dir, FileName(plan.Id));
+                var tmp = target + ".tmp";
+                File.WriteAllText(tmp, Newtonsoft.Json.JsonConvert.SerializeObject(plan, Newtonsoft.Json.Formatting.Indented));
+                if (File.Exists(target)) File.Delete(target);
+                File.Move(tmp, target);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                SimHub.Logging.Current.Warn("[TeamPace] Plan share: " + ex.Message);
+                return false;
             }
         }
 
+        /// <summary>Deletes the plan for the whole team.</summary>
         public static void Delete(string id)
         {
-            if (_path == null) return;
-            lock (Lock)
+            if (_path != null)
+                lock (Lock)
+                {
+                    try { using (var db = new LiteDatabase(string.Format("Filename={0}", _path))) db.GetCollection<StrategyPlan>("strategy_plans").Delete(id); }
+                    catch (Exception ex) { SimHub.Logging.Current.Warn("[TeamPace] Plan delete: " + ex.Message); }
+                }
+            var dir = SharedDir;
+            if (dir == null) return;
+            try
             {
-                try { using (var db = new LiteDatabase(string.Format("Filename={0}", _path))) db.GetCollection<StrategyPlan>("strategy_plans").Delete(id); }
-                catch (Exception ex) { SimHub.Logging.Current.Warn("[TeamPace] Plan delete: " + ex.Message); }
+                var file = Path.Combine(dir, FileName(id));
+                if (File.Exists(file)) File.Delete(file);
             }
+            catch (Exception ex) { SimHub.Logging.Current.Warn("[TeamPace] Plan delete: " + ex.Message); }
         }
     }
 }

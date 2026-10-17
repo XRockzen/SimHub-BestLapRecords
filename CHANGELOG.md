@@ -3,6 +3,18 @@
 Chaque version est publiée dans les [releases](../../releases) et proposée automatiquement dans
 TeamPace par le bandeau de mise à jour.
 
+## 3.1.0
+
+- **Correction importante** : quand Google Drive change de lettre de lecteur (J: → I: après un
+  redémarrage), TeamPace ne partageait plus rien sans prévenir (base, télémétrie). Il retrouve
+  maintenant le dossier d'équipe sur sa nouvelle lettre, et affiche un ⚠ s'il reste introuvable.
+- **Stratégie** : nombre de pneus changés au choix à chaque arrêt (auto, aucun, 1 à 4), avec le temps
+  d'arrêt qui suit ; temps de changement de 2 pneus mesuré ou réglable.
+- **Stratégie** : les plans enregistrés sont partagés avec l'équipe par le dossier d'équipe
+  (« Plans de l'équipe », avec l'auteur et la date) ; les pilotes d'un plan sont repérés par leur nom,
+  pour qu'un plan s'ouvre chez chacun.
+- Les pop-ups de notification ne cachent plus les boutons de l'en-tête.
+
 ## 3.0.0
 
 - **Nouvelle navigation** : trois onglets (Carrière, Historique, Stratégie) et une **page circuit**

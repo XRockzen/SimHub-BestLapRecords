@@ -46,14 +46,51 @@ namespace User.TeamPace
             get { return Sanitize(LmuSessionStore.PlayerName) + Extension; }
         }
 
+        /// <summary>Why the team folder cannot be used, or null.</summary>
+        public static string Problem { get; private set; }
+
         public static bool IsConfigured
         {
             get
             {
-                return !string.IsNullOrEmpty(LmuSessionStore.TeamFolder) &&
-                       Directory.Exists(LmuSessionStore.TeamFolder) &&
-                       !string.IsNullOrWhiteSpace(LmuSessionStore.PlayerName);
+                var folder = LmuSessionStore.TeamFolder;
+                if (string.IsNullOrEmpty(folder) || string.IsNullOrWhiteSpace(LmuSessionStore.PlayerName)) { Problem = null; return false; }
+                if (Directory.Exists(folder)) { Problem = null; return true; }
+
+                // Google Drive for desktop may mount on another letter after a restart (J: → I:)
+                var moved = Relocate(folder);
+                if (moved != null)
+                {
+                    SimHub.Logging.Current.Info(string.Format("[LmuTeamSync] Team folder moved: {0} → {1}", folder, moved));
+                    LmuSessionStore.SaveTeamFolder(moved);
+                    Problem = null;
+                    return true;
+                }
+                Problem = string.Format("Dossier d'équipe introuvable ({0}) : Google Drive est-il lancé ?", folder);
+                return false;
             }
+        }
+
+        /// <summary>The same folder on another drive letter, or null.</summary>
+        private static string Relocate(string folder)
+        {
+            try
+            {
+                var root = Path.GetPathRoot(folder);
+                if (string.IsNullOrEmpty(root)) return null;
+                var rest = folder.Substring(root.Length);
+                foreach (var drive in DriveInfo.GetDrives())
+                {
+                    if (!drive.IsReady || string.Equals(drive.RootDirectory.FullName, root, StringComparison.OrdinalIgnoreCase)) continue;
+                    var candidate = Path.Combine(drive.RootDirectory.FullName, rest);
+                    if (Directory.Exists(candidate)) return candidate;
+                }
+            }
+            catch (Exception ex)
+            {
+                SimHub.Logging.Current.Warn("[LmuTeamSync] Relocate: " + ex.Message);
+            }
+            return null;
         }
 
         // ─── Export ───────────────────────────────────────────────────────────
