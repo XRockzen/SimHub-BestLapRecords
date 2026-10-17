@@ -61,6 +61,24 @@ namespace TeamPace.Extractor
                 return V[lo];
             }
 
+            /// <summary>Share of [a, b] during which the value was non-zero (on/off events), 0–1.</summary>
+            public double ActiveShare(double a, double b)
+            {
+                if (b <= a || T.Length == 0) return 0;
+                double on = 0, t = a;
+                bool state = At(a, 0) != 0;
+                int i = 0;
+                while (i < T.Length && T[i] <= a) i++;
+                for (; i < T.Length && T[i] < b; i++)
+                {
+                    if (state) on += T[i] - t;
+                    t = T[i];
+                    state = V[i] != 0;
+                }
+                if (state) on += b - t;
+                return on / (b - a);
+            }
+
             public bool AnyBetween(double a, double b, double value)
             {
                 for (int i = 0; i < T.Length; i++) if (T[i] > a && T[i] <= b && V[i] == value) return true;
@@ -125,6 +143,11 @@ namespace TeamPace.Extractor
                 var lon   = channel("GPS Longitude");
                 var side  = channel("Path Lateral");
                 var edge  = channel("Track Edge");
+                var gLat  = channel("G Force Lat");
+                var gLong = channel("G Force Long");
+                var none  = new Events(new[] { new double[0], new double[0] });
+                var abs   = events.Contains("ABS") ? new Events(db.QueryDoubles("select ts::DOUBLE, coalesce(value, 0)::DOUBLE from \"ABS\" order by ts", 2)) : none;
+                var tc    = events.Contains("TC")  ? new Events(db.QueryDoubles("select ts::DOUBLE, coalesce(value, 0)::DOUBLE from \"TC\" order by ts", 2))  : none;
 
                 var laps  = new Events(db.QueryDoubles("select ts::DOUBLE, coalesce(value, 0)::DOUBLE from \"Lap\" order by ts", 2));
                 var gear  = events.Contains("Gear")
@@ -152,7 +175,7 @@ namespace TeamPace.Extractor
                         LapNum = (int)laps.V[k] + 1,   // LMU counts completed laps; results number from 1
                         StartEt = a, EndEt = b, LapSec = (float)(b - a),
                     };
-                    var trace = Resample(a, b, trackLen, dist, speed, steer, rpm, thr, brk, lat, lon, side, edge, gear);
+                    var trace = Resample(a, b, trackLen, dist, speed, steer, rpm, thr, brk, lat, lon, side, edge, gLat, gLong, abs, tc, gear);
                     if (trace == null || trace.N < 50) continue;
 
                     bool outLap = pits.At(a + 0.05, 0) > 0.5;
@@ -192,7 +215,8 @@ namespace TeamPace.Extractor
         /// </summary>
         private static TeleTrace Resample(double a, double b, double len, Series dist, Series speed, Series steer,
                                           Series rpm, Series thr, Series brk, Series lat, Series lon,
-                                          Series side, Series edge, Events gear)
+                                          Series side, Series edge, Series gLat, Series gLong,
+                                          Events abs, Events tc, Events gear)
         {
             // Unwrapped distance samples around the lap
             var ut = new List<double>();
@@ -256,6 +280,13 @@ namespace TeamPace.Extractor
                     tr.Y[j] = (float)((la - lat0) * 110574);
                     tr.Lateral[j] = (float)side.At(tg);
                     tr.Edge[j]    = (float)edge.At(tg);
+                    tr.GLat[j]    = (float)gLat.At(tg);
+                    tr.GLong[j]   = (float)gLong.At(tg);
+                    // ABS / TC flicker on and off many times a second: keep the active share
+                    // since the previous point
+                    double from = j > 0 ? a + tr.Time[j - 1] : tg - 0.02;
+                    tr.Abs[j] = (byte)Math.Round(100 * abs.ActiveShare(from, tg));
+                    tr.Tc[j]  = (byte)Math.Round(100 * tc.ActiveShare(from, tg));
 
                     j++;
                     grid = first + j * Step;
@@ -271,6 +302,8 @@ namespace TeamPace.Extractor
                 Array.Copy(tr.Steer, cut.Steer, j); Array.Copy(tr.Rpm, cut.Rpm, j);
                 Array.Copy(tr.Gear, cut.Gear, j); Array.Copy(tr.X, cut.X, j); Array.Copy(tr.Y, cut.Y, j);
                 Array.Copy(tr.Lateral, cut.Lateral, j); Array.Copy(tr.Edge, cut.Edge, j);
+                Array.Copy(tr.GLat, cut.GLat, j); Array.Copy(tr.GLong, cut.GLong, j);
+                Array.Copy(tr.Abs, cut.Abs, j); Array.Copy(tr.Tc, cut.Tc, j);
                 return cut;
             }
             return tr;

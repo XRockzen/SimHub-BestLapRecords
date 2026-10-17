@@ -319,6 +319,7 @@ namespace User.TeamPace
                     if (string.Equals(name, OwnFolderName, StringComparison.OrdinalIgnoreCase)) continue;
                     var local = Path.Combine(TeamLocalRoot, name);
                     Directory.CreateDirectory(local);
+                    int received = 0;
                     foreach (var file in Directory.GetFiles(driverDir, "*" + Ext))
                     {
                         var target = Path.Combine(local, Path.GetFileName(file));
@@ -328,12 +329,14 @@ namespace User.TeamPace
                             CopyAtomic(file, target);
                             if (!HasLaps(target)) { File.Delete(target); continue; }   // partial download
                             count++;
+                            received++;
                         }
                         catch (Exception ex)
                         {
                             SimHub.Logging.Current.Warn("[TeamPace] Telemetry pull " + name + ": " + ex.Message);
                         }
                     }
+                    NotificationService.AddTelemetry(name.Replace('_', ' '), received);
                 }
             }
             catch (Exception ex)
@@ -477,6 +480,61 @@ namespace User.TeamPace
                      circuit.EndsWith(" – " + name, StringComparison.OrdinalIgnoreCase)))
                     return true;
             return false;
+        }
+
+        // ─── Track model ──────────────────────────────────────────────────────
+
+        private static readonly Dictionary<string, TrackModel> Models = new Dictionary<string, TrackModel>();
+
+        /// <summary>
+        /// Centre line, edges and corners of a circuit, rebuilt from the fastest clean laps of the
+        /// whole team (displayed or not, up to 40), cached until the laps change.
+        /// </summary>
+        public static TrackModel TrackModelFor(string circuit, IEnumerable<TeleLapRef> known)
+        {
+            var laps = new List<TeleLapRef>();
+            var seen = new HashSet<string>();
+            Action<TeleLapRef> add = l =>
+            {
+                if (l.IsClean && l.File.Version >= 2 && seen.Add(l.File.Path + "#" + l.LapNum + "#" + l.Lap.StartEt)) laps.Add(l);
+            };
+            var shown = new HashSet<string>();
+            foreach (var l in known) { add(l); shown.Add(l.Driver.Key); }
+            foreach (var mate in LmuTeamSync.GetDrivers())
+            {
+                if (shown.Contains(mate.DbPath ?? "")) continue;
+                foreach (var l in GetLaps(new DriverView(mate, DriverView.Palette[0]), circuit)) add(l);
+            }
+            if (laps.Count == 0) return null;
+            laps.Sort((a, b) => a.LapSec.CompareTo(b.LapSec));
+            if (laps.Count > 40) laps.RemoveRange(40, laps.Count - 40);
+
+            var key = circuit + "|" + laps.Count + "|" + laps[0].File.Path + "|" + laps[laps.Count - 1].File.Path;
+            TrackModel model;
+            lock (Models) if (Models.TryGetValue(key, out model)) return model;
+
+            var traces = new List<TeleTrace>();
+            double length = 0;
+            foreach (var l in laps)
+            {
+                try
+                {
+                    var t = LoadTrace(l);
+                    // A recording whose lap distance jumped would bend the track
+                    if (t.FirstDist > 10 || Math.Abs(t.Time[t.N - 1] - l.LapSec) > 0.6) continue;
+                    traces.Add(t);
+                    length = Math.Max(length, l.File.TrackLength);
+                }
+                catch (Exception ex) { SimHub.Logging.Current.Warn("[TeamPace] Track model: " + ex.Message); }
+            }
+            try { model = TrackModel.Build(traces, length); }
+            catch (Exception ex)
+            {
+                SimHub.Logging.Current.Warn("[TeamPace] Track model failed: " + ex);
+                model = null;
+            }
+            lock (Models) Models[key] = model;
+            return model;
         }
 
         /// <summary>Forget cached session laps (after an import or a team sync).</summary>

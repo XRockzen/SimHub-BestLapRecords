@@ -27,24 +27,28 @@ namespace User.TeamPace
     }
 
     /// <summary>
-    /// Main screen: every view is rendered as one column per displayed driver,
-    /// with shared filters and a back stack (career → circuit → session analysis).
+    /// Main screen: three tabs (career face to face, history, strategy), a circuit page with
+    /// progression, telemetry and work plan, and the session analysis, with a back stack, the
+    /// team notifications bell and a folding help per screen.
     /// </summary>
     public partial class TeamPaceControl : UserControl
     {
-        private enum Screen { Career, History, Progress, Analysis, Telemetry }
+        private enum Screen { Career, History, Strategy, Circuit, Analysis }
+        private enum CircuitTab { Progress, Telemetry, Work }
 
         private class NavState
         {
             public Screen Screen;
+            public CircuitTab Tab;
             public string Circuit;
             public string ClassLabel;
-            public Dictionary<string, LmuSessionRecord> Sessions;   // driver key → session
+            public Dictionary<string, LmuSessionRecord> Sessions;   // analysis: driver key → session
             public string Title;      // analysis: circuit name
             public string Subtitle;   // analysis: "Course du 20/09/26 · 18:50"
             public string Crumb;      // short label in the breadcrumb
             public string BadgeClass; // raw car class for the title badge
             public List<TelemetryView.Preset> Presets;   // telemetry: laps shown, kept up to date by the view
+            public double ZoomFrom = double.NaN, ZoomTo = double.NaN;
         }
 
         private ProgressionChart _progressChart;
@@ -53,22 +57,20 @@ namespace User.TeamPace
         private static readonly List<string> SelectedKeys = new List<string> { "" };
 
         private readonly TeamPacePlugin _plugin;
-        private readonly DispatcherTimer      _loadTimer;
+        private readonly DispatcherTimer _loadTimer;
         private bool _lmuSettingsDirty;
+        private bool _helpOpen;
 
         private List<DriverView> _drivers = new List<DriverView>();
         private NavState _state;
         private readonly Stack<NavState> _back = new Stack<NavState>();
 
-        // Shared filters
-        private string _typeFilter = "ALL";
-        private bool   _simOnly, _commonOnly;
         private readonly HashSet<string> _activeClasses = new HashSet<string>();
 
-        // Columns currently shown
-        private readonly List<CareerColumn>      _careerCols   = new List<CareerColumn>();
+        // Content currently shown
         private readonly List<SessionListColumn> _listCols     = new List<SessionListColumn>();
         private readonly List<AnalysisColumn>    _analysisCols = new List<AnalysisColumn>();
+        private CareerFaceView _career;
         private bool _populatingDrivers;
 
         public TeamPaceControl(TeamPacePlugin plugin)
@@ -98,16 +100,22 @@ namespace User.TeamPace
             Navigate(new NavState { Screen = Screen.Career, Crumb = "Carrière" }, false);
 
             TxtVersion.Text = "TeamPace " + PluginUpdater.Format(PluginUpdater.CurrentVersion);
-            Loaded   += (s, e) =>
+            Loaded += (s, e) =>
             {
                 PluginUpdater.Changed += OnUpdateChanged;
                 TelemetryService.StatusChanged += OnTelemetryStatus;
+                NotificationService.Arrived += OnNotificationsArrived;
+                NotificationService.Changed += OnNotificationsChanged;
                 RefreshUpdateBanner();
+                RefreshBell();
+                ShowPendingToasts();
             };
             Unloaded += (s, e) =>
             {
                 PluginUpdater.Changed -= OnUpdateChanged;
                 TelemetryService.StatusChanged -= OnTelemetryStatus;
+                NotificationService.Arrived -= OnNotificationsArrived;
+                NotificationService.Changed -= OnNotificationsChanged;
             };
 
             _loadTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
@@ -163,10 +171,10 @@ namespace User.TeamPace
             panel.Children.Add(new Ellipse { Width = 9, Height = 9, Fill = d.Brush, Margin = new Thickness(0, 0, 5, 0),
                                              VerticalAlignment = VerticalAlignment.Center });
             panel.Children.Add(new TextBlock { Text = d.DbPath == null ? d.Name + " (moi)" : d.Name,
-                                               FontSize = 11, VerticalAlignment = VerticalAlignment.Center });
+                                               FontSize = 12, VerticalAlignment = VerticalAlignment.Center });
             if (_drivers.Count > 1)
             {
-                var close = new TextBlock { Text = "  ✕", FontSize = 10, Opacity = 0.6, Cursor = Cursors.Hand,
+                var close = new TextBlock { Text = "  ✕", FontSize = 11, Opacity = 0.6, Cursor = Cursors.Hand,
                                             VerticalAlignment = VerticalAlignment.Center, ToolTip = "Retirer ce pilote" };
                 close.MouseLeftButtonDown += (s, e) =>
                 {
@@ -211,7 +219,7 @@ namespace User.TeamPace
                             if (m != null) _state.Sessions[d.Key] = m;
                         }
             }
-            else if (_state != null && _state.Screen == Screen.Telemetry)
+            else if (_state != null && _state.Presets != null)
             {
                 // Removed drivers lose their laps, added ones get their best lap on the circuit
                 _state.Presets.RemoveAll(p => !_drivers.Exists(d => d.Key == p.DriverKey));
@@ -252,17 +260,15 @@ namespace User.TeamPace
             Render();
         }
 
-        private void BtnTabCareer_Click(object sender, RoutedEventArgs e)
+        private void OpenTab(Screen screen, string crumb)
         {
             _back.Clear();
-            Navigate(new NavState { Screen = Screen.Career, Crumb = "Carrière" }, false);
+            Navigate(new NavState { Screen = screen, Crumb = crumb }, false);
         }
 
-        private void BtnTabHistory_Click(object sender, RoutedEventArgs e)
-        {
-            _back.Clear();
-            Navigate(new NavState { Screen = Screen.History, Crumb = "Historique" }, false);
-        }
+        private void BtnTabCareer_Click(object sender, RoutedEventArgs e)   { OpenTab(Screen.Career, "Carrière"); }
+        private void BtnTabHistory_Click(object sender, RoutedEventArgs e)  { OpenTab(Screen.History, "Historique"); }
+        private void BtnTabStrategy_Click(object sender, RoutedEventArgs e) { OpenTab(Screen.Strategy, "Stratégie"); }
 
         private void BtnSettings_Click(object sender, RoutedEventArgs e)
         {
@@ -299,9 +305,9 @@ namespace User.TeamPace
                 var link = new TextBlock { Text = path[i].Crumb ?? "…", Style = (Style)FindResource("CrumbLink") };
                 link.MouseLeftButtonDown += (s, e) => { GoToCrumb(index); e.Handled = true; };
                 BreadcrumbPanel.Children.Add(link);
-                BreadcrumbPanel.Children.Add(new TextBlock { Text = "  ›  ", FontSize = 12, Foreground = new SolidColorBrush(Color.FromArgb(110, 255, 255, 255)) });
+                BreadcrumbPanel.Children.Add(new TextBlock { Text = "  ›  ", FontSize = 13, Foreground = new SolidColorBrush(Color.FromArgb(110, 255, 255, 255)) });
             }
-            BreadcrumbPanel.Children.Add(new TextBlock { Text = _state.Crumb ?? title, FontSize = 12,
+            BreadcrumbPanel.Children.Add(new TextBlock { Text = _state.Crumb ?? title, FontSize = 13,
                                                          Foreground = new SolidColorBrush(Color.FromArgb(170, 255, 255, 255)) });
         }
 
@@ -325,6 +331,8 @@ namespace User.TeamPace
             {
                 Screen     = Screen.Analysis,
                 Sessions   = map,
+                Circuit    = session.TrackDisplayName,
+                ClassLabel = LmuCategoryStyle.GetShortName(session.CarClass),
                 Title      = session.TrackDisplayName,
                 Subtitle   = string.Format("{0} du {1}{2}", session.SessionTypeLong, when,
                                            map.Count > 1 ? string.Format("  ·  session commune à {0} pilotes", map.Count) : ""),
@@ -334,6 +342,15 @@ namespace User.TeamPace
             }, true);
         }
 
+        private void OpenCircuit(string circuit, string classLabel, string rawClass, CircuitTab tab, bool push)
+        {
+            Navigate(new NavState
+            {
+                Screen = Screen.Circuit, Tab = tab, Circuit = circuit, ClassLabel = classLabel, BadgeClass = rawClass,
+                Crumb = ShortCircuit(circuit) + " · " + classLabel,
+            }, push);
+        }
+
         // ═══ Rendering ════════════════════════════════════════════════════════
 
         private void Render()
@@ -341,32 +358,36 @@ namespace User.TeamPace
             if (_state == null) return;
             foreach (var d in _drivers) d.Invalidate();
 
-            ClearColumns();
+            ColumnsHost.Children.Clear();
+            ColumnsHost.ColumnDefinitions.Clear();
+            _listCols.Clear();
+            _analysisCols.Clear();
+            _career = null;
+            HeaderActions.Children.Clear();
+            if (_progressChart != null) { _progressChart.Detach(); _progressChart = null; }
+
             BtnBack.Visibility = _back.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
             // The tab the current path started from stays highlighted
             var rootScreen = _back.Count > 0 ? new List<NavState>(_back)[_back.Count - 1].Screen : _state.Screen;
-            SetTabActive(BtnTabCareer,  rootScreen == Screen.Career);
-            SetTabActive(BtnTabHistory, rootScreen == Screen.History);
+            SetTabActive(BtnTabCareer,   rootScreen == Screen.Career || rootScreen == Screen.Circuit);
+            SetTabActive(BtnTabHistory,  rootScreen == Screen.History || rootScreen == Screen.Analysis);
+            SetTabActive(BtnTabStrategy, rootScreen == Screen.Strategy);
 
-            ProgressChartPanel.Visibility = _state.Screen == Screen.Progress ? Visibility.Visible : Visibility.Collapsed;
-            if (_progressChart != null) { _progressChart.Detach(); _progressChart = null; }
-            ClassFilterBar.Visibility = _state.Screen == Screen.Career   ? Visibility.Visible : Visibility.Collapsed;
-            TypeFilterBar.Visibility  = _state.Screen == Screen.History  ? Visibility.Visible : Visibility.Collapsed;
-            CommonLegend.Visibility   = (_state.Screen == Screen.History || _state.Screen == Screen.Progress) && _drivers.Count > 1
-                                        ? Visibility.Visible : Visibility.Collapsed;
-            AnalysisLegend.Visibility = _state.Screen == Screen.Analysis ? Visibility.Visible : Visibility.Collapsed;
-            BtnTelemetry.Visibility   = _state.Screen == Screen.Analysis || _state.Screen == Screen.Progress
-                                        ? Visibility.Visible : Visibility.Collapsed;
-            TxtLegendTeam.Visibility  = _drivers.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
+            ClassFilterBar.Visibility     = _state.Screen == Screen.Career ? Visibility.Visible : Visibility.Collapsed;
+            CircuitTabs.Visibility        = _state.Screen == Screen.Circuit ? Visibility.Visible : Visibility.Collapsed;
+            ProgressChartPanel.Visibility = _state.Screen == Screen.Circuit && _state.Tab == CircuitTab.Progress ? Visibility.Visible : Visibility.Collapsed;
+            TxtLegendTeam.Visibility      = _drivers.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
+            TxtStatus.Text = "";
 
             switch (_state.Screen)
             {
                 case Screen.Career:   RenderCareer();   break;
                 case Screen.History:  RenderHistory();  break;
-                case Screen.Progress: RenderProgress(); break;
+                case Screen.Strategy: RenderStrategy(); break;
+                case Screen.Circuit:  RenderCircuit();  break;
                 case Screen.Analysis: RenderAnalysis(); break;
-                case Screen.Telemetry: RenderTelemetry(); break;
             }
+            UpdateHelp();
         }
 
         private static void SetTabActive(Button b, bool active)
@@ -378,13 +399,10 @@ namespace User.TeamPace
             b.FontWeight = active ? FontWeights.SemiBold : FontWeights.Normal;
         }
 
-        private void ClearColumns()
+        private void Fill(UIElement content)
         {
-            ColumnsHost.Children.Clear();
-            ColumnsHost.ColumnDefinitions.Clear();
-            _careerCols.Clear();
-            _listCols.Clear();
-            _analysisCols.Clear();
+            ColumnsHost.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            ColumnsHost.Children.Add(content);
         }
 
         /// <summary>Adds an equal-width column with the driver's colour bar and name above the content.</summary>
@@ -397,9 +415,9 @@ namespace User.TeamPace
 
             var header = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 6) };
             header.Children.Add(new TextBlock { Text = d.DbPath == null ? d.Name + "  (moi)" : d.Name,
-                                                FontSize = 17, FontWeight = FontWeights.Bold, Foreground = d.Brush });
+                                                FontSize = 18, FontWeight = FontWeights.Bold, Foreground = d.Brush });
             if (!string.IsNullOrEmpty(subtitle))
-                header.Children.Add(new TextBlock { Text = "   " + subtitle, FontSize = 12, Opacity = 0.6,
+                header.Children.Add(new TextBlock { Text = "   " + subtitle, FontSize = 13, Opacity = 0.6,
                                                     VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 0, 2) });
 
             var dock = new DockPanel();
@@ -419,83 +437,39 @@ namespace User.TeamPace
         private void RenderCareer()
         {
             SetHeader("Carrière",
-                _drivers.Count > 1 ? string.Format("Comparaison de {0} pilotes", _drivers.Count)
-                                   : "Vos statistiques sur Le Mans Ultimate",
+                _drivers.Count > 1 ? string.Join(" face à ", _drivers.ConvertAll(d => d.Name)) + ", circuit par circuit"
+                                   : "Vos records, circuit par circuit",
                 null);
-
-            // Shared activity scale so the charts compare at a glance
-            DateTime? scaleMin = null;
-            double scaleMax = 0;
-            foreach (var d in _drivers)
-            {
-                var act = CareerColumn.BuildActivity(d.Sessions);
-                foreach (var a in act) if (!scaleMin.HasValue || a.Date < scaleMin.Value) scaleMin = a.Date;
-                scaleMax = Math.Max(scaleMax, GlobalActivityChartRenderer.MaxWeeklyValue(act, true));
-            }
-
-            foreach (var d in _drivers)
-            {
-                var col = new CareerColumn(d);
-                col.Load(scaleMin, scaleMax > 0 ? (double?)scaleMax : null);
-                col.CircuitSelected += key => { foreach (var c in _careerCols) if (c != col) c.SelectCircuit(key); };
-                col.CircuitOpened   += row => Navigate(new NavState
-                {
-                    Screen = Screen.Progress, Circuit = row.Circuit, ClassLabel = row.CarClassLabel,
-                    Crumb = ShortCircuit(row.Circuit) + " · " + row.CarClassLabel,
-                }, true);
-                _careerCols.Add(col);
-                AddColumn(d, col, string.Format("{0} sessions", d.Sessions.Count));
-            }
-
-            // Gaps between drivers on each circuit × class
-            if (_drivers.Count > 1)
-            {
-                var best  = new Dictionary<string, long>();
-                var count = new Dictionary<string, int>();
-                foreach (var c in _careerCols)
-                    foreach (var r in c.AllRows)
-                    {
-                        long b;
-                        if (!best.TryGetValue(r.Key, out b) || r.BestTicks < b) best[r.Key] = r.BestTicks;
-                        int n; count.TryGetValue(r.Key, out n); count[r.Key] = n + 1;
-                    }
-                foreach (var c in _careerCols) c.SetGaps(best, count);
-            }
-            else foreach (var c in _careerCols) c.SetGaps(null, null);
-
-            PopulateClassFilter();
-            foreach (var c in _careerCols) c.ApplyClassFilter(_activeClasses);
-            TxtStatus.Text = "Double-clic sur un circuit : progression de chaque pilote sur ce circuit";
+            _career = new CareerFaceView(_drivers, _activeClasses);
+            _career.CircuitOpened += (circuit, label, raw) => OpenCircuit(circuit, label, raw, CircuitTab.Progress, true);
+            Fill(_career);
+            PopulateClassFilter(_career.ClassSamples());
         }
 
-        private void PopulateClassFilter()
+        private void PopulateClassFilter(List<LmuCircuitBestRow> seen)
         {
             ClassFilterBar.Children.Clear();
-            var seen = new List<LmuCircuitBestRow>();
             var labels = new HashSet<string>();
-            foreach (var c in _careerCols)
-                foreach (var r in c.AllRows)
-                    if (labels.Add(r.CarClassLabel)) seen.Add(r);
-            seen.Sort((a, b) => string.Compare(a.CarClassLabel, b.CarClassLabel, StringComparison.OrdinalIgnoreCase));
+            foreach (var r in seen) labels.Add(r.CarClassLabel);
             _activeClasses.IntersectWith(labels);
 
             if (seen.Count <= 1) return;
-            ClassFilterBar.Children.Add(new TextBlock { Text = "Catégories :", FontSize = 10, Opacity = 0.5,
+            ClassFilterBar.Children.Add(new TextBlock { Text = "Catégories :", FontSize = 11.5, Opacity = 0.6,
                                                         VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 4) });
             foreach (var r in seen)
             {
                 var label = r.CarClassLabel;
                 var tag = new Border
                 {
-                    CornerRadius = new CornerRadius(3), Padding = new Thickness(8, 3, 8, 3), Margin = new Thickness(0, 0, 5, 4),
+                    CornerRadius = new CornerRadius(3), Padding = new Thickness(9, 3, 9, 3), Margin = new Thickness(0, 0, 5, 4),
                     Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(r.CarClassBg)),
                     BorderBrush = r.CarClassThick == "1"
                         ? (Brush)new SolidColorBrush((Color)ColorConverter.ConvertFromString(r.CarClassBorder))
                         : Brushes.Transparent,
                     BorderThickness = r.CarClassThick == "1" ? new Thickness(1) : new Thickness(0),
-                    Cursor = Cursors.Hand,
+                    Cursor = Cursors.Hand, ToolTip = "Afficher ou masquer cette catégorie",
                     Opacity = _activeClasses.Count == 0 || _activeClasses.Contains(label) ? 1.0 : 0.28,
-                    Child = new TextBlock { Text = label, FontSize = 9, FontWeight = FontWeights.Bold, Foreground = Brushes.White },
+                    Child = new TextBlock { Text = label, FontSize = 11, FontWeight = FontWeights.Bold, Foreground = Brushes.White },
                 };
                 tag.MouseLeftButtonDown += (s, e) =>
                 {
@@ -507,7 +481,7 @@ namespace User.TeamPace
                         var l = ((TextBlock)b.Child).Text;
                         b.Opacity = _activeClasses.Count == 0 || _activeClasses.Contains(l) ? 1.0 : 0.28;
                     }
-                    foreach (var c in _careerCols) c.ApplyClassFilter(_activeClasses);
+                    if (_career != null) _career.ApplyClassFilter();
                 };
                 ClassFilterBar.Children.Add(tag);
             }
@@ -517,56 +491,96 @@ namespace User.TeamPace
 
         private void RenderHistory()
         {
-            SetHeader("Historique", "Toutes les sessions, de la plus récente à la plus ancienne", null);
-            UpdateTypeFilterButtons();
-            int total = 0;
-            foreach (var d in _drivers)
-            {
-                var rows = new List<LmuSessionRow>();
-                foreach (var s in d.Sessions)
-                {
-                    if (_typeFilter != "ALL" && !(s.SessionType ?? "").StartsWith(_typeFilter, StringComparison.OrdinalIgnoreCase)) continue;
-                    if (_simOnly && !s.IsFullSim) continue;
-                    var row = new LmuSessionRow { Record = s, CommonColors = CommonColorsFor(d, s) };
-                    if (_commonOnly && !row.IsCommon) continue;
-                    rows.Add(row);
-                }
-                total += rows.Count;
-                AddListColumn(d, rows, false, null);
-            }
-            TxtStatus.Text = total == 0 && string.IsNullOrEmpty(LmuSessionStore.PlayerName)
-                ? "Configurez votre nom de joueur et cliquez sur ⟳ Importer"
-                : "Double-clic sur une session : analyse (côte à côte si elle est commune)";
+            SetHeader("Historique", "Une ligne par session, le résultat de chaque pilote sur la même ligne", null);
+            var view = new HistoryView(_drivers);
+            view.SessionOpened += OpenAnalysis;
+            Fill(view);
+            if (string.IsNullOrEmpty(LmuSessionStore.PlayerName))
+                TxtStatus.Text = "Renseignez votre nom de joueur dans les réglages, puis cliquez sur ⟳ Tout mettre à jour";
         }
 
-        private void UpdateTypeFilterButtons()
+        // ─── Strategy ─────────────────────────────────────────────────────────
+
+        private void RenderStrategy()
         {
-            var on  = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FF2196F3"));
-            var off = new SolidColorBrush(Color.FromArgb(68, 255, 255, 255));
-            BtnFAll.BorderBrush    = _typeFilter == "ALL" ? on : off;
-            BtnFRace.BorderBrush   = _typeFilter == "R"   ? on : off;
-            BtnFQuali.BorderBrush  = _typeFilter == "Q"   ? on : off;
-            BtnFPrac.BorderBrush   = _typeFilter == "P"   ? on : off;
-            BtnFSim.BorderBrush    = _simOnly    ? on : off;
-            BtnFCommon.BorderBrush = _commonOnly ? on : off;
-            BtnFCommon.Visibility  = _drivers.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
+            SetHeader("Stratégie", _state.Circuit != null ? _state.Circuit + "  ·  " + _state.ClassLabel : "Planificateur d'endurance", _state.BadgeClass);
+            Fill(new StrategyView(_drivers, _state.Circuit, _state.ClassLabel));
         }
 
-        private void TypeFilter_Click(object sender, RoutedEventArgs e)
+        // ─── Circuit page ─────────────────────────────────────────────────────
+
+        private void CircuitTab_Click(object sender, RoutedEventArgs e)
         {
-            _typeFilter = (string)((Button)sender).Tag;
+            var tab = (CircuitTab)Enum.Parse(typeof(CircuitTab), (string)((Button)sender).Tag);
+            if (tab == _state.Tab) return;
+            _state.Tab = tab;
             Render();
         }
 
-        private void SimFilter_Click(object sender, RoutedEventArgs e)    { _simOnly = !_simOnly; Render(); }
-        private void CommonFilter_Click(object sender, RoutedEventArgs e) { _commonOnly = !_commonOnly; Render(); }
-
-        private List<Brush> CommonColorsFor(DriverView owner, LmuSessionRecord s)
+        private void RenderCircuit()
         {
-            var list = new List<Brush>();
-            foreach (var other in _drivers)
-                if (other != owner && other.FindMatch(s) != null) list.Add(other.Brush);
-            return list;
+            if (_state.BadgeClass == null)
+                foreach (var d in _drivers)
+                    foreach (var s in d.Sessions)
+                        if (s.TrackDisplayName == _state.Circuit && LmuCategoryStyle.GetShortName(s.CarClass) == _state.ClassLabel) { _state.BadgeClass = s.CarClass; break; }
+            SetHeader(_state.Circuit, null, _state.BadgeClass);
+            SetTabActive(BtnCtProgress,  _state.Tab == CircuitTab.Progress);
+            SetTabActive(BtnCtTelemetry, _state.Tab == CircuitTab.Telemetry);
+            SetTabActive(BtnCtWork,      _state.Tab == CircuitTab.Work);
+
+            // Header: switch circuit in place, or plan a race here
+            var circuits = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var d in _drivers) foreach (var s in d.Sessions) circuits.Add(s.TrackDisplayName + "  ·  " + LmuCategoryStyle.GetShortName(s.CarClass));
+            var pick = new ComboBox { Width = 320, Height = 26, FontSize = 12, MaxDropDownHeight = 460, ToolTip = "Changer de circuit sans revenir en arrière" };
+            foreach (var c in circuits) pick.Items.Add(c);
+            pick.SelectedItem = _state.Circuit + "  ·  " + _state.ClassLabel;
+            pick.SelectionChanged += (s, e) =>
+            {
+                if (pick.SelectedItem == null) return;
+                var parts = ((string)pick.SelectedItem).Split(new[] { "  ·  " }, StringSplitOptions.None);
+                _state.Circuit = parts[0]; _state.ClassLabel = parts[1]; _state.BadgeClass = null; _state.Presets = null;
+                _state.ZoomFrom = _state.ZoomTo = double.NaN;
+                _state.Crumb = ShortCircuit(parts[0]) + " · " + parts[1];
+                Dispatcher.BeginInvoke(new Action(Render));
+            };
+            HeaderActions.Children.Add(pick);
+            var race = Ui.Button("Préparer une course ici →", "Ouvre la stratégie d'endurance pour ce circuit et cette catégorie");
+            race.Margin = new Thickness(8, 0, 0, 0);
+            race.Click += (s, e) => Navigate(new NavState
+            {
+                Screen = Screen.Strategy, Circuit = _state.Circuit, ClassLabel = _state.ClassLabel, BadgeClass = _state.BadgeClass, Crumb = "Stratégie",
+            }, true);
+            HeaderActions.Children.Add(race);
+
+            switch (_state.Tab)
+            {
+                case CircuitTab.Progress:  RenderProgress(); break;
+                case CircuitTab.Telemetry: RenderTelemetry(); break;
+                case CircuitTab.Work:      RenderWork(); break;
+            }
+        }
+
+        private void RenderTelemetry()
+        {
+            if (_state.Presets == null)
+            {
+                _state.Presets = new List<TelemetryView.Preset>();
+                foreach (var d in _drivers) _state.Presets.Add(new TelemetryView.Preset { DriverKey = d.Key });
+            }
+            var view = new TelemetryView(_drivers, _state.Circuit, _state.Presets, _state.ZoomFrom, _state.ZoomTo);
+            _state.ZoomFrom = _state.ZoomTo = double.NaN;   // only on arrival
+            Fill(view);
+        }
+
+        private void RenderWork()
+        {
+            var view = new CoachingView(_drivers, _state.Circuit, _state.ClassLabel);
+            view.TelemetryRequested += (presets, from, to) => Navigate(new NavState
+            {
+                Screen = Screen.Circuit, Tab = CircuitTab.Telemetry, Circuit = _state.Circuit, ClassLabel = _state.ClassLabel,
+                BadgeClass = _state.BadgeClass, Presets = presets, ZoomFrom = from, ZoomTo = to, Crumb = "Télémétrie",
+            }, true);
+            Fill(view);
         }
 
         private void AddListColumn(DriverView d, List<LmuSessionRow> rows, bool progressMode, string subtitle)
@@ -584,13 +598,18 @@ namespace User.TeamPace
             AddColumn(d, col, subtitle);
         }
 
-        // ─── Circuit progression ──────────────────────────────────────────────
+        private List<Brush> CommonColorsFor(DriverView owner, LmuSessionRecord s)
+        {
+            var list = new List<Brush>();
+            foreach (var other in _drivers)
+                if (other != owner && other.FindMatch(s) != null) list.Add(other.Brush);
+            return list;
+        }
 
         private void RenderProgress()
         {
             // Sessions of each driver on this circuit × class, oldest first
             var perDriver = new List<List<LmuSessionRecord>>();
-            string rawClass = null;
             foreach (var d in _drivers)
             {
                 var matching = new List<LmuSessionRecord>();
@@ -600,13 +619,10 @@ namespace User.TeamPace
                     if (!string.Equals(s.TrackDisplayName, _state.Circuit, StringComparison.OrdinalIgnoreCase)) continue;
                     if (!string.Equals(LmuCategoryStyle.GetShortName(s.CarClass), _state.ClassLabel, StringComparison.OrdinalIgnoreCase)) continue;
                     matching.Add(s);
-                    if (rawClass == null) rawClass = s.CarClass;
                 }
                 matching.Sort((a, b) => a.SessionDate.CompareTo(b.SessionDate));
                 perDriver.Add(matching);
             }
-            _state.BadgeClass = rawClass;
-            SetHeader(_state.Circuit, "Progression du meilleur tour, session après session", rawClass);
 
             long teamBest = long.MaxValue;
             foreach (var list in perDriver)
@@ -661,8 +677,6 @@ namespace User.TeamPace
             };
             _progressChart.PointOpened += OpenAnalysis;
             _progressChart.Attach(ProgressCanvas, series);
-
-            TxtStatus.Text = "Δ précédente : écart avec la session précédente du même pilote";
         }
 
         private List<SessionListColumn.SummaryItem> BuildProgressSummary(List<LmuSessionRecord> sessions, long best, long teamBest)
@@ -728,6 +742,14 @@ namespace User.TeamPace
         private void RenderAnalysis()
         {
             SetHeader(_state.Title, _state.Subtitle, _state.BadgeClass);
+            var tele = Ui.Button("Télémétrie des tours →", "Superpose les tours de la séance : vitesse, freinage, accélérateur, trajectoires");
+            tele.Click += (s, e) => OpenTelemetryFromAnalysis(null, 0);
+            HeaderActions.Children.Add(tele);
+            var circuit = Ui.Button("Page du circuit", "Progression, télémétrie et plan de travail sur ce circuit");
+            circuit.Margin = new Thickness(8, 0, 0, 0);
+            circuit.Click += (s, e) => OpenCircuit(_state.Circuit, _state.ClassLabel, _state.BadgeClass, CircuitTab.Progress, true);
+            HeaderActions.Children.Add(circuit);
+
             foreach (var d in _drivers)
             {
                 LmuSessionRecord s;
@@ -744,7 +766,7 @@ namespace User.TeamPace
                     AddColumn(d, new TextBlock
                     {
                         Text = "Ce pilote n'a pas participé à cette session.",
-                        Opacity = 0.4, FontStyle = FontStyles.Italic, Margin = new Thickness(0, 30, 0, 0),
+                        Opacity = 0.5, FontStyle = FontStyles.Italic, FontSize = 13, Margin = new Thickness(0, 30, 0, 0),
                         HorizontalAlignment = HorizontalAlignment.Center,
                     }, null);
                 }
@@ -775,7 +797,6 @@ namespace User.TeamPace
             else foreach (var c in _analysisCols) c.SetTeamDeltas(null);
 
             UpdateAverageReferences();
-            TxtStatus.Text = "Cochez / décochez des tours : les stats et les couleurs se recalculent par pilote  ·  double-clic sur un tour : sa télémétrie";
         }
 
         private void UpdateAverageReferences()
@@ -788,56 +809,283 @@ namespace User.TeamPace
                 c.SetAverageReference(best != null ? best.AverageTicks : 0, best != null ? best.Driver.Name : null);
         }
 
-        // ─── Telemetry ────────────────────────────────────────────────────────
-
-        private void BtnTelemetry_Click(object sender, RoutedEventArgs e)
-        {
-            if (_state.Screen == Screen.Analysis) OpenTelemetryFromAnalysis(null, 0);
-            else if (_state.Screen == Screen.Progress)
-            {
-                var presets = new List<TelemetryView.Preset>();
-                foreach (var d in _drivers) presets.Add(new TelemetryView.Preset { DriverKey = d.Key });
-                OpenTelemetry(_state.Circuit, _state.BadgeClass, presets);
-            }
-        }
-
         /// <summary>From a session: each driver's best lap of that session, or the given lap for one driver.</summary>
         private void OpenTelemetryFromAnalysis(string driverKey, int lapNum)
         {
             var presets = new List<TelemetryView.Preset>();
-            string circuit = _state.Title, carClass = _state.BadgeClass;
             foreach (var d in _drivers)
             {
                 LmuSessionRecord s;
                 if (!_state.Sessions.TryGetValue(d.Key, out s)) { presets.Add(new TelemetryView.Preset { DriverKey = d.Key }); continue; }
-                circuit = s.TrackDisplayName;
                 var p = new TelemetryView.Preset { DriverKey = d.Key, SessionFileId = s.FileId, LapNum = d.Key == driverKey ? lapNum : 0 };
                 if (d.Key == driverKey) presets.Insert(0, p);   // the double-clicked lap is the reference
                 else presets.Add(p);
             }
-            OpenTelemetry(circuit, carClass, presets);
-        }
-
-        private void OpenTelemetry(string circuit, string carClass, List<TelemetryView.Preset> presets)
-        {
             Navigate(new NavState
             {
-                Screen = Screen.Telemetry, Circuit = circuit, BadgeClass = carClass, Presets = presets,
-                Crumb = "Télémétrie",
+                Screen = Screen.Circuit, Tab = CircuitTab.Telemetry, Circuit = _state.Circuit, ClassLabel = _state.ClassLabel,
+                BadgeClass = _state.BadgeClass, Presets = presets, Crumb = "Télémétrie",
             }, true);
-        }
-
-        private void RenderTelemetry()
-        {
-            SetHeader(_state.Circuit, "Télémétrie  ·  tours superposés sur la distance parcourue", _state.BadgeClass);
-            ColumnsHost.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            ColumnsHost.Children.Add(new TelemetryView(_drivers, _state.Circuit, _state.Presets));
-            TxtStatus.Text = "Le premier tour sert de référence pour l'écart  ·  clic sur le tracé : zoom sur le virage";
         }
 
         private void OnTelemetryStatus()
         {
             Dispatcher.BeginInvoke(new Action(() => SetTopStatus(TelemetryService.Status)));
+        }
+
+        // ═══ Aide ═════════════════════════════════════════════════════════════
+
+        private void BtnHelp_Click(object sender, RoutedEventArgs e)
+        {
+            _helpOpen = !_helpOpen;
+            UpdateHelp();
+        }
+
+        private void UpdateHelp()
+        {
+            Ui.SetOn(BtnHelp, _helpOpen);
+            HelpPanel.Visibility = _helpOpen ? Visibility.Visible : Visibility.Collapsed;
+            AnalysisLegend.Visibility = _helpOpen && _state.Screen == Screen.Analysis ? Visibility.Visible : Visibility.Collapsed;
+            TxtHelp.Text = HelpText();
+        }
+
+        private string HelpText()
+        {
+            switch (_state.Screen)
+            {
+                case Screen.Career:
+                    return "Une ligne par circuit et catégorie : le record de chaque pilote, le plus rapide en vert (★), l'écart des autres en rouge.\n" +
+                           "Clic sur une ligne : le circuit ressort dans l'activité de chacun. Clic sur une barre de l'activité : sa ligne est sélectionnée.\n" +
+                           "Double-clic sur une ligne : la page du circuit (progression, télémétrie, plan de travail). Les étiquettes de catégorie filtrent le tableau.";
+                case Screen.History:
+                    return "Une ligne par session, groupées par jour. Une session courue par plusieurs pilotes affichés n'occupe qu'une ligne (fond doré), avec le résultat de chacun.\n" +
+                           "Double-clic : l'analyse de la session, côte à côte si elle est commune. Les sessions sans aucun tour chronométré sont masquées.";
+                case Screen.Strategy:
+                    return "Saisissez la course à gauche. Les données de l'équipe sont mesurées sur vos sessions sur ce circuit et dans cette catégorie ; une valeur saisie à la main passe en jaune (effacez-la pour revenir à la mesure).\n" +
+                           "Le plan est recalculé à chaque changement. Le menu au-dessus de chaque relais choisit qui le prend. « Enregistrer le plan » le garde pour plus tard.";
+                case Screen.Analysis:
+                    return "Cochez ou décochez des tours : les statistiques et les couleurs se recalculent pour chaque pilote. « Rythme » coche les tours représentatifs.\n" +
+                           "Double-clic sur un tour : sa télémétrie. Au survol du temps théorique et des invalides : le détail. Repères et couleurs ci-dessous.";
+                default:
+                    if (_state.Tab == CircuitTab.Progress)
+                        return "Meilleur tour de chaque séance, plus bas = plus rapide ; l'étoile marque le record, l'anneau doré une session commune.\n" +
+                               "Clic sur un point : sélectionné chez tous les pilotes. Double-clic : l'analyse de la session. Δ précédente : écart avec la séance précédente du même pilote.";
+                    if (_state.Tab == CircuitTab.Telemetry)
+                        return "Jusqu'à 4 tours superposés ; le premier sert de référence pour l'écart (une courbe qui monte = du temps perdu).\n" +
+                               "Courbes : molette pour zoomer, glisser pour se déplacer, double-clic pour revoir le tour. Carte : clic sur un virage pour zoomer, ⤢ pour l'agrandir. Anneau rouge : début de freinage, anneau vert : remise des gaz.";
+                    return "Les trois virages où travailler, classés par temps à gagner. Chaque virage est découpé en freinage, corde et sortie ; la phase qui coûte le plus est expliquée par la mesure qui diffère le plus.\n" +
+                           "« Comparer à » : ton meilleur passage, un coéquipier ou le meilleur de l'équipe. Seuls les écarts qui se répètent sur plusieurs tours comptent.";
+            }
+        }
+
+        // ═══ Notifications ════════════════════════════════════════════════════
+
+        private void OnNotificationsChanged()
+        {
+            Dispatcher.BeginInvoke(new Action(RefreshBell));
+        }
+
+        private void OnNotificationsArrived(List<TeamNotification> items)
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                ShowToasts(items);
+                var ids = new HashSet<int>();
+                foreach (var x in items) ids.Add(x.Id);
+                Task.Run(() => NotificationService.MarkToasted(ids));
+                RefreshBell();
+            }));
+        }
+
+        /// <summary>News that arrived while the plugin page was closed pop up once on opening.</summary>
+        private void ShowPendingToasts()
+        {
+            var pending = NotificationService.All().FindAll(x => !x.Read && !x.Toasted);
+            if (pending.Count == 0) return;
+            ShowToasts(pending);
+            var ids = new HashSet<int>();
+            foreach (var x in pending) ids.Add(x.Id);
+            Task.Run(() => NotificationService.MarkToasted(ids));
+        }
+
+        private void RefreshBell()
+        {
+            int n = NotificationService.UnreadCount();
+            BellBadge.Visibility = n > 0 ? Visibility.Visible : Visibility.Collapsed;
+            TxtBellCount.Text = n > 99 ? "99+" : n.ToString();
+            BtnBell.ToolTip = n > 0 ? string.Format("{0} nouveauté(s) de l'équipe", n) : "Nouveautés de l'équipe";
+        }
+
+        private void BtnBell_Click(object sender, RoutedEventArgs e)
+        {
+            BuildBellList();
+            BellPopup.IsOpen = true;
+        }
+
+        private void BellPopup_Closed(object sender, EventArgs e)
+        {
+            Task.Run(() => NotificationService.MarkAllRead());
+        }
+
+        private void LnkReadAll_Click(object sender, MouseButtonEventArgs e)
+        {
+            NotificationService.MarkAllRead();
+            BuildBellList();
+        }
+
+        private void BuildBellList()
+        {
+            BellList.Children.Clear();
+            var all = NotificationService.All();
+            int unread = all.FindAll(x => !x.Read).Count;
+            TxtBellTitle.Text = unread > 0 ? string.Format("Nouveautés  ·  {0} non lue(s)", unread) : "Nouveautés";
+            if (all.Count == 0)
+            {
+                BellList.Children.Add(new TextBlock { Text = "Rien de neuf pour l'instant.", Margin = new Thickness(14, 4, 14, 14), Foreground = Ui.Muted, FontSize = 13 });
+                return;
+            }
+            foreach (var n in all) BellList.Children.Add(NotificationRow(n, true));
+        }
+
+        private static string Icon(string kind)
+        {
+            switch (kind)
+            {
+                case "record":    return "★";
+                case "retaken":   return "★";
+                case "improved":  return "↗";
+                case "win":       return "1";
+                case "podium":    return "3";
+                case "common":    return "⇄";
+                default:          return "∿";
+            }
+        }
+
+        private static Color IconColor(string kind)
+        {
+            switch (kind)
+            {
+                case "record":   return Color.FromRgb(0xEF, 0x8A, 0x63);
+                case "retaken":  return Color.FromRgb(0x5A, 0xA6, 0xEE);
+                case "win":
+                case "podium":   return Color.FromRgb(0x66, 0xBB, 0x6A);
+                case "common":   return Color.FromRgb(0xFF, 0xC8, 0x57);
+                default:         return Color.FromRgb(0x9F, 0x8F, 0xEF);
+            }
+        }
+
+        private UIElement NotificationRow(TeamNotification n, bool inList)
+        {
+            var g = new Grid();
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(34) });
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(22) });
+            var icon = new Border
+            {
+                Width = 26, Height = 26, CornerRadius = new CornerRadius(13), Background = Ui.Frozen(IconColor(n.Kind)), VerticalAlignment = VerticalAlignment.Top,
+                Child = new TextBlock { Text = Icon(n.Kind), FontWeight = FontWeights.Bold, FontSize = 13, Foreground = Ui.Frozen(Color.FromRgb(0x22, 0x23, 0x28)),
+                                        HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
+            };
+            g.Children.Add(icon);
+            var text = new StackPanel();
+            text.Children.Add(new TextBlock { Text = n.Title, FontSize = 13, Foreground = Ui.Text, TextWrapping = TextWrapping.Wrap });
+            text.Children.Add(new TextBlock
+            {
+                Text = (n.Detail ?? "") + "  ·  " + Ago(n.CreatedUtc), FontSize = 11.5, Foreground = Ui.Faint, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 0),
+            });
+            Grid.SetColumn(text, 1);
+            g.Children.Add(text);
+            var close = new TextBlock { Text = "✕", FontSize = 12, Foreground = Ui.Faint, Cursor = Cursors.Hand, HorizontalAlignment = HorizontalAlignment.Right,
+                                        ToolTip = inList ? "Supprimer" : "Fermer" };
+            Grid.SetColumn(close, 2);
+            g.Children.Add(close);
+
+            var row = new Border
+            {
+                Child = g, Padding = new Thickness(14, 9, 12, 9), Cursor = Cursors.Hand,
+                Background = inList && !n.Read ? Ui.Frozen(Color.FromArgb(18, 0x21, 0x96, 0xF3)) : Brushes.Transparent,
+                BorderBrush = Ui.Line, BorderThickness = new Thickness(0, 0, 0, 1),
+            };
+            close.MouseLeftButtonDown += (s, e) =>
+            {
+                e.Handled = true;
+                if (inList) { NotificationService.Delete(n.Id); BuildBellList(); }
+                else ToastHost.Children.Remove(ToastFor(row));
+            };
+            row.MouseLeftButtonDown += (s, e) =>
+            {
+                if (e.Handled) return;
+                BellPopup.IsOpen = false;
+                OpenNotification(n);
+            };
+            return row;
+        }
+
+        private static FrameworkElement ToastFor(FrameworkElement row)
+        {
+            FrameworkElement e = row;
+            while (e.Parent is FrameworkElement && !(e.Parent is StackPanel && ((StackPanel)e.Parent).Name == "ToastHost")) e = (FrameworkElement)e.Parent;
+            return e;
+        }
+
+        /// <summary>A notification opens what it is about: the session, or the circuit.</summary>
+        private void OpenNotification(TeamNotification n)
+        {
+            if (!string.IsNullOrEmpty(n.SessionFileId))
+            {
+                var key = n.DriverKey ?? "";
+                if (!SelectedKeys.Contains(key) && SelectedKeys.Count < DriverView.MaxDrivers) { SelectedKeys.Add(key); RebuildDrivers(); }
+                var d = _drivers.Find(x => x.Key == key);
+                var s = d != null ? d.Sessions.Find(x => x.FileId == n.SessionFileId) : null;
+                if (s != null) { OpenAnalysis(d, s); return; }
+            }
+            if (!string.IsNullOrEmpty(n.Circuit))
+                OpenCircuit(n.Circuit, n.ClassLabel, null, CircuitTab.Progress, true);
+        }
+
+        /// <summary>Pops the news up at the top right: three at most, the last one sums up the rest.</summary>
+        private void ShowToasts(List<TeamNotification> items)
+        {
+            if (items.Count == 0) return;
+            int shown = 0;
+            foreach (var n in items)
+            {
+                if (ToastHost.Children.Count >= 3 || shown == 2 && items.Count > 3) break;
+                AddToast(NotificationRow(n, false), IconColor(n.Kind));
+                shown++;
+            }
+            int rest = items.Count - shown;
+            if (rest > 0)
+            {
+                var more = new TextBlock { Text = string.Format("+ {0} autre(s) nouveauté(s) · ouvrir la liste", rest), FontSize = 13, Foreground = Ui.Link,
+                                           Margin = new Thickness(14, 10, 14, 10), Cursor = Cursors.Hand };
+                more.MouseLeftButtonDown += (s, e) => { ToastHost.Children.Clear(); BuildBellList(); BellPopup.IsOpen = true; };
+                AddToast(more, Color.FromRgb(0x5A, 0xA6, 0xEE));
+            }
+        }
+
+        private void AddToast(UIElement content, Color accent)
+        {
+            var toast = new Border
+            {
+                Child = content, Background = Ui.Frozen(Color.FromRgb(0x2C, 0x2D, 0x33)),
+                BorderBrush = Ui.Frozen(accent), BorderThickness = new Thickness(4, 1, 1, 1), CornerRadius = new CornerRadius(6),
+                Margin = new Thickness(0, 0, 0, 8),
+                Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 18, ShadowDepth = 3, Opacity = 0.5 },
+            };
+            ToastHost.Children.Add(toast);
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(12) };
+            timer.Tick += (s, e) => { timer.Stop(); ToastHost.Children.Remove(toast); };
+            timer.Start();
+        }
+
+        private static string Ago(DateTime utc)
+        {
+            var d = DateTime.UtcNow - utc;
+            if (d.TotalMinutes < 1) return "à l'instant";
+            if (d.TotalHours < 1) return string.Format("il y a {0} min", (int)d.TotalMinutes);
+            if (d.TotalDays < 1) return string.Format("il y a {0} h", (int)d.TotalHours);
+            return utc.ToLocalTime().ToString("dd/MM HH:mm");
         }
 
         // ═══ Mise à jour ══════════════════════════════════════════════════════
@@ -928,7 +1176,7 @@ namespace User.TeamPace
 
         /// <summary>
         /// The one refresh button: new LMU results, telemetry extraction, then team sharing
-        /// (own data out, teammates' data in).
+        /// (own data out, teammates' data in) and the teammates' news.
         /// </summary>
         private void BtnUpdateAll_Click(object sender, RoutedEventArgs e) { UpdateAll(); }
 
@@ -973,6 +1221,7 @@ namespace User.TeamPace
                                 traces > 0 ? string.Format(", {0} relais de télémétrie reçus", traces) : "");
                     }
                     TelemetryService.Invalidate();
+                    NotificationService.Check();
                 }
                 catch (Exception ex)
                 {

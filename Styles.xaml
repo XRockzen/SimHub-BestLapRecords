@@ -41,7 +41,7 @@
     <Style x:Key="ColumnHeaderStyle" TargetType="DataGridColumnHeader">
         <Setter Property="Background"      Value="#1FFFFFFF"/>
         <Setter Property="Foreground"      Value="#C8FFFFFF"/>
-        <Setter Property="FontSize"        Value="11"/>
+        <Setter Property="FontSize"        Value="12"/>
         <Setter Property="FontWeight"      Value="SemiBold"/>
         <Setter Property="Padding"         Value="6,5,6,5"/>
         <Setter Property="BorderBrush"     Value="#26FFFFFF"/>
@@ -60,8 +60,8 @@
         <Setter Property="RowBackground"        Value="Transparent"/>
         <Setter Property="AlternatingRowBackground" Value="#0AFFFFFF"/>
         <Setter Property="Foreground"           Value="#E6FFFFFF"/>
-        <Setter Property="FontSize"             Value="12"/>
-        <Setter Property="RowHeight"            Value="22"/>
+        <Setter Property="FontSize"             Value="13"/>
+        <Setter Property="RowHeight"            Value="25"/>
         <Setter Property="ColumnHeaderStyle"    Value="{StaticResource ColumnHeaderStyle}"/>
         <Setter Property="AutoGenerateColumns"  Value="False"/>
         <Setter Property="CanUserResizeColumns" Value="True"/>
@@ -78,22 +78,22 @@
     </Style>
 
     <Style x:Key="SectionLbl" TargetType="TextBlock">
-        <Setter Property="FontSize"   Value="9"/>
+        <Setter Property="FontSize"   Value="10"/>
         <Setter Property="Opacity"    Value="0.45"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Margin"     Value="0,0,0,4"/>
     </Style>
     <Style x:Key="StatLbl" TargetType="TextBlock">
         <Setter Property="Opacity"  Value="0.45"/>
-        <Setter Property="FontSize" Value="9"/>
+        <Setter Property="FontSize" Value="10"/>
         <Setter Property="Margin"   Value="0,0,0,1"/>
     </Style>
     <Style x:Key="StatVal" TargetType="TextBlock">
-        <Setter Property="FontSize"   Value="13"/>
+        <Setter Property="FontSize"   Value="14"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
     <Style x:Key="StatSub" TargetType="TextBlock">
-        <Setter Property="FontSize" Value="10"/>
+        <Setter Property="FontSize" Value="11"/>
         <Setter Property="Opacity"  Value="0.65"/>
         <Setter Property="Margin"   Value="0,1,0,0"/>
         <Setter Property="TextWrapping" Value="Wrap"/>
@@ -113,7 +113,7 @@
         <Setter Property="Foreground"      Value="#DDFFFFFF"/>
         <Setter Property="Padding"         Value="10,4"/>
         <Setter Property="Cursor"          Value="Hand"/>
-        <Setter Property="FontSize"        Value="12"/>
+        <Setter Property="FontSize"        Value="13"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
@@ -139,7 +139,7 @@
         </Setter>
     </Style>
     <Style x:Key="SmallBtn" TargetType="Button" BasedOn="{StaticResource NavBtn}">
-        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="FontSize" Value="12"/>
         <Setter Property="Padding"  Value="8,3"/>
         <Setter Property="Margin"   Value="0,0,4,0"/>
     </Style>
@@ -153,7 +153,7 @@
         <Setter Property="Padding"         Value="14,6,14,5"/>
         <Setter Property="Margin"          Value="0,0,2,0"/>
         <Setter Property="Cursor"          Value="Hand"/>
-        <Setter Property="FontSize"        Value="14"/>
+        <Setter Property="FontSize"        Value="15"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
@@ -175,7 +175,7 @@
 
     <!-- Clickable breadcrumb segment -->
     <Style x:Key="CrumbLink" TargetType="TextBlock">
-        <Setter Property="FontSize"   Value="12"/>
+        <Setter Property="FontSize"   Value="13"/>
         <Setter Property="Foreground" Value="#FF64B5F6"/>
         <Setter Property="Cursor"     Value="Hand"/>
         <Style.Triggers>
@@ -192,7 +192,7 @@
                 Background="{Binding CarClassBg}"
                 BorderBrush="{Binding CarClassBorder}"
                 BorderThickness="{Binding CarClassThick}">
-            <TextBlock Text="{Binding CarClassLabel}" FontSize="9" FontWeight="Bold"
+            <TextBlock Text="{Binding CarClassLabel}" FontSize="10" FontWeight="Bold"
                        Foreground="White" TextAlignment="Center"/>
         </Border>
     </DataTemplate>
@@ -201,7 +201,7 @@
         <Border CornerRadius="3" Padding="4,1" Margin="2,1"
                 HorizontalAlignment="Center" VerticalAlignment="Center"
                 Background="{Binding TypeBg}">
-            <TextBlock Text="{Binding TypeLabel}" FontSize="9" FontWeight="Bold"
+            <TextBlock Text="{Binding TypeLabel}" FontSize="10" FontWeight="Bold"
                        Foreground="White" TextAlignment="Center"/>
         </Border>
     </DataTemplate>

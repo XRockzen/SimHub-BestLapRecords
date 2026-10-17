@@ -3,6 +3,34 @@
 Chaque version est publiée dans les [releases](../../releases) et proposée automatiquement dans
 TeamPace par le bandeau de mise à jour.
 
+## 3.0.0
+
+- **Nouvelle navigation** : trois onglets (Carrière, Historique, Stratégie) et une **page circuit**
+  avec trois onglets (Progression, Télémétrie, Plan de travail) ; deux niveaux au plus. Un menu
+  change de circuit sans revenir en arrière.
+- **Carrière face à face** : une ligne par circuit et catégorie, le record de chaque pilote sur la
+  même ligne dans un bloc à sa couleur, qui mène et de combien ; chiffres clés comparés ;
+  « records détenus ».
+- **Activité** : la légende disparaît ; un clic sur une barre sélectionne la ligne du circuit, un
+  clic sur une ligne fait ressortir ses barres chez chaque pilote.
+- **Historique** : une ligne par session, groupée par jour, le résultat de chaque pilote sur la même
+  ligne ; filtres par catégorie et par circuit ; sessions vides masquées.
+- **Plan de travail** (nouveau) : les trois virages où gagner du temps, face à ton meilleur passage,
+  un coéquipier ou le meilleur de l'équipe ; la phase en cause (freinage, corde, sortie) et la mesure
+  qui l'explique ; ton tour idéal.
+- **Stratégie** (nouveau) : planificateur d'endurance. Rythme, dégradation, consommation, énergie
+  virtuelle, usure et temps d'arrêt mesurés sur vos sessions (modifiables) ; relais équilibrés,
+  arrêts détaillés, choix du pilote de chaque relais, plans enregistrés.
+- **Notifications** (nouveau) : record battu ou amélioré, victoire, podium, session commune,
+  télémétrie reçue ; pop-up à l'arrivée et cloche avec le nombre de nouveautés non lues.
+- **Télémétrie** : force G, ABS et antipatinage ajoutés à l'extraction (relue automatiquement au
+  premier « ⟳ Tout mettre à jour ») ; noms des virages au-dessus des courbes.
+- Les lignes d'aide permanentes sont remplacées par des info-bulles et un bouton **?** qui déplie
+  l'aide de chaque écran (avec la légende de l'analyse).
+- Textes agrandis d'un cran, boutons harmonisés, temps de secteur au même format que le reste
+  (« 28.569 »).
+- Documentation et captures mises à jour.
+
 ## 2.7.1
 
 - Le tracé des circuits (bords de piste, virages) utilise les tours de toute l'équipe, même des

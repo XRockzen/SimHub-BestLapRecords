@@ -58,7 +58,10 @@ namespace User.TeamPace
             var commonPath = Path.Combine(PluginsDataPath, "Common");
             InvalidLapStore.Init(commonPath);
             LmuSessionStore.Init(commonPath);
-            TelemetryService.Init(PluginPaths.DataDir(commonPath));
+            var dataDir = PluginPaths.DataDir(commonPath);
+            TelemetryService.Init(dataDir);
+            NotificationService.Init(dataDir);
+            StrategyEngine.Init(dataDir);
 
             var dataPath = PluginsDataPath;
             Task.Run(() =>
@@ -168,6 +171,7 @@ namespace User.TeamPace
         public void End(PluginManager pluginManager)
         {
             LmuXmlParser.StopWatcher();
+            if (_teamWatch != null) _teamWatch.Dispose();
             LmuTeamSync.Export();
         }
 
@@ -208,6 +212,8 @@ namespace User.TeamPace
                 LmuTeamSync.PullTeammates();
                 LmuTeamSync.Export();
                 TelemetryService.PullTeam();
+                NotificationService.Check();
+                StartTeamWatch();
 
                 if (imported > 0)
                     SimHub.Logging.Current.Info(
@@ -222,6 +228,27 @@ namespace User.TeamPace
             {
                 IsImporting = false;
             }
+        }
+
+        private System.Threading.Timer _teamWatch;
+
+        /// <summary>
+        /// While SimHub runs, fetch the teammates' news every 5 minutes so a record beaten by a
+        /// teammate pops up without waiting for the next start.
+        /// </summary>
+        private void StartTeamWatch()
+        {
+            if (_teamWatch != null) return;
+            _teamWatch = new System.Threading.Timer(_ =>
+            {
+                try
+                {
+                    if (!LmuTeamSync.IsConfigured) return;
+                    if (LmuTeamSync.PullTeammates() > 0 | TelemetryService.PullTeam() > 0) TelemetryService.Invalidate();
+                    NotificationService.Check();
+                }
+                catch (Exception ex) { SimHub.Logging.Current.Warn("[TeamPace] Team watch: " + ex.Message); }
+            }, null, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
         }
 
         /// <summary>Imports new LMU results now (blocking).</summary>

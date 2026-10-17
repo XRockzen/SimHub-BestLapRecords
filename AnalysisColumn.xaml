@@ -13,12 +13,12 @@
                 <Setter Property="Margin" Value="0,0,8,8"/>
             </Style>
             <Style x:Key="KpiLbl" TargetType="TextBlock">
-                <Setter Property="FontSize"   Value="9.5"/>
+                <Setter Property="FontSize"   Value="10.5"/>
                 <Setter Property="Foreground" Value="#8CFFFFFF"/>
                 <Setter Property="Margin"     Value="0,0,0,2"/>
             </Style>
             <Style x:Key="KpiVal" TargetType="TextBlock">
-                <Setter Property="FontSize"   Value="14"/>
+                <Setter Property="FontSize"   Value="15"/>
                 <Setter Property="FontWeight" Value="SemiBold"/>
                 <Setter Property="Foreground" Value="#F2FFFFFF"/>
                 <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
@@ -30,12 +30,12 @@
                 <Setter Property="CornerRadius" Value="6"/>
                 <Setter Property="Padding"      Value="12,9"/>
                 <Setter Property="Margin"       Value="0,0,8,8"/>
-                <Setter Property="Width"        Value="196"/>
-                <Setter Property="Height"       Value="112"/>
+                <Setter Property="Width"        Value="214"/>
+                <Setter Property="Height"       Value="120"/>
                 <Setter Property="VerticalAlignment" Value="Top"/>
             </Style>
             <Style x:Key="BlockTitle" TargetType="TextBlock">
-                <Setter Property="FontSize"   Value="10"/>
+                <Setter Property="FontSize"   Value="11"/>
                 <Setter Property="FontWeight" Value="SemiBold"/>
                 <Setter Property="Foreground" Value="#99FFFFFF"/>
                 <Setter Property="Margin"     Value="0,0,0,4"/>
@@ -46,13 +46,13 @@
                 <Setter Property="Foreground" Value="White"/>
             </Style>
             <Style x:Key="BlockLine" TargetType="TextBlock">
-                <Setter Property="FontSize"   Value="11"/>
+                <Setter Property="FontSize"   Value="12"/>
                 <Setter Property="Foreground" Value="#C8FFFFFF"/>
                 <Setter Property="Margin"     Value="0,2,0,0"/>
                 <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
             </Style>
             <Style x:Key="SectionTitle" TargetType="TextBlock">
-                <Setter Property="FontSize"   Value="12"/>
+                <Setter Property="FontSize"   Value="13"/>
                 <Setter Property="FontWeight" Value="SemiBold"/>
                 <Setter Property="Foreground" Value="#E6FFFFFF"/>
                 <Setter Property="VerticalAlignment" Value="Center"/>
@@ -73,18 +73,18 @@
         <Border Grid.Row="0" Background="#0DFFFFFF" CornerRadius="8" Padding="14,10,14,4" Margin="0,0,0,12">
             <StackPanel>
                 <DockPanel>
-                    <TextBlock x:Name="TxtDate" DockPanel.Dock="Right" FontSize="11" Foreground="#99FFFFFF"
+                    <TextBlock x:Name="TxtDate" DockPanel.Dock="Right" FontSize="12" Foreground="#99FFFFFF"
                                VerticalAlignment="Center" Margin="12,0,0,0"/>
                     <Border x:Name="BadgeClass" CornerRadius="3" Padding="6,2" Margin="0,0,10,0" VerticalAlignment="Center">
-                        <TextBlock x:Name="TxtClass" FontSize="10" FontWeight="Bold" Foreground="White"/>
+                        <TextBlock x:Name="TxtClass" FontSize="11" FontWeight="Bold" Foreground="White"/>
                     </Border>
                     <TextBlock x:Name="TxtCar" FontSize="16" FontWeight="SemiBold" Foreground="White"
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                 </DockPanel>
                 <WrapPanel Margin="0,5,0,10">
-                    <TextBlock x:Name="TxtTeam" FontSize="11" Foreground="#99FFFFFF" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <TextBlock x:Name="TxtTeam" FontSize="12" Foreground="#99FFFFFF" VerticalAlignment="Center" Margin="0,0,10,0"/>
                     <WrapPanel x:Name="SimBadges" VerticalAlignment="Center"/>
-                    <TextBlock x:Name="TxtLive" FontSize="11" Foreground="#99FFFFFF" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                    <TextBlock x:Name="TxtLive" FontSize="12" Foreground="#99FFFFFF" VerticalAlignment="Center" Margin="6,0,0,0"/>
                 </WrapPanel>
                 <UniformGrid x:Name="KpiGridPanel" Rows="1" SizeChanged="KpiGridPanel_SizeChanged">
                     <StackPanel x:Name="KpiFinishBox" Style="{StaticResource KpiBox}">
@@ -132,7 +132,7 @@
 
         <!-- ═══ 2. Analysis of the checked laps ═══════════════════════════ -->
         <DockPanel Grid.Row="1" Margin="0,0,0,6">
-            <TextBlock x:Name="TxtSelSummary" DockPanel.Dock="Right" FontSize="11" Foreground="#99FFFFFF" VerticalAlignment="Center"/>
+            <TextBlock x:Name="TxtSelSummary" DockPanel.Dock="Right" FontSize="12" Foreground="#99FFFFFF" VerticalAlignment="Center"/>
             <TextBlock Style="{StaticResource SectionTitle}" Text="Analyse des tours sélectionnés"/>
         </DockPanel>
 
@@ -183,13 +183,13 @@
                 </StackPanel></Border>
 
                 <!-- Two blocks wide; its height is set from the longest stop list of all drivers -->
-                <Border x:Name="StatsPitPanel" Style="{StaticResource AnaBlock}" Width="400"><StackPanel>
+                <Border x:Name="StatsPitPanel" Style="{StaticResource AnaBlock}" Width="436"><StackPanel>
                     <TextBlock Style="{StaticResource BlockTitle}" Text="ARRÊTS AUX STANDS"/>
                     <ItemsControl x:Name="StatsPitList">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel Margin="0,2,0,3">
-                                    <TextBlock Text="{Binding Title}" FontSize="11.5" FontWeight="SemiBold" Foreground="White"/>
+                                    <TextBlock Text="{Binding Title}" FontSize="12.5" FontWeight="SemiBold" Foreground="White"/>
                                     <TextBlock Text="{Binding Detail}" Style="{StaticResource BlockLine}" Margin="0,1,0,0"/>
                                 </StackPanel>
                             </DataTemplate>
@@ -197,15 +197,16 @@
                     </ItemsControl>
                 </StackPanel></Border>
             </WrapPanel>
-            <TextBlock x:Name="TxtNoLiveHint" FontSize="11" Foreground="#80FFFFFF" FontStyle="Italic" TextWrapping="Wrap"
-                       Text="Carburant et pneus : ces données sont capturées en direct, roulez avec SimHub ouvert pour les obtenir."/>
+            <TextBlock x:Name="TxtNoLiveHint" FontSize="12" Foreground="#80FFFFFF" FontStyle="Italic" TextWrapping="Wrap"
+                       Text="ⓘ Carburant et pneus non capturés pour cette session"
+                       ToolTip="Ces données sont capturées en direct : roulez avec SimHub ouvert pour les obtenir."/>
         </StackPanel>
 
         <!-- ═══ 3. Lap table, with its selection toolbar right above it ════ -->
         <Border Grid.Row="3" Background="#10FFFFFF" CornerRadius="6,6,0,0" Padding="10,6">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="Cocher :" FontSize="11" Foreground="#99FFFFFF" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <TextBlock Text="Cocher :" FontSize="12" Foreground="#99FFFFFF" VerticalAlignment="Center" Margin="0,0,6,0"/>
                     <Button Style="{StaticResource SmallBtn}" Click="BtnValid_Click"
                             ToolTip="Tours représentatifs : valides, hors tour 1, hors passage aux stands et tour de sortie">Rythme</Button>
                     <Button Style="{StaticResource SmallBtn}" Click="BtnAll_Click">Tout</Button>
@@ -240,23 +241,23 @@
                             <StackPanel Orientation="Horizontal" Background="Transparent" ToolTip="{Binding InfoTooltip}">
                                 <Border CornerRadius="2" Padding="3,0" Margin="0,1,2,1" Background="#BB1565B0"
                                         Visibility="{Binding FlagPit, Converter={x:Static local:VisibleWhenNotEmptyConverter.Instance}}">
-                                    <TextBlock Text="{Binding FlagPit}" FontSize="8" FontWeight="Bold" Foreground="White"/>
+                                    <TextBlock Text="{Binding FlagPit}" FontSize="9" FontWeight="Bold" Foreground="White"/>
                                 </Border>
                                 <Border CornerRadius="2" Padding="3,0" Margin="0,1,2,1" Background="#BB2E7D32"
                                         Visibility="{Binding FlagTire, Converter={x:Static local:VisibleWhenNotEmptyConverter.Instance}}">
-                                    <TextBlock Text="{Binding FlagTire}" FontSize="8" FontWeight="Bold" Foreground="White"/>
+                                    <TextBlock Text="{Binding FlagTire}" FontSize="9" FontWeight="Bold" Foreground="White"/>
                                 </Border>
                                 <Border CornerRadius="2" Padding="3,0" Margin="0,1,2,1" Background="#BBC62828"
                                         Visibility="{Binding FlagInvalid, Converter={x:Static local:VisibleWhenNotEmptyConverter.Instance}}">
-                                    <TextBlock Text="{Binding FlagInvalid}" FontSize="8" FontWeight="Bold" Foreground="White"/>
+                                    <TextBlock Text="{Binding FlagInvalid}" FontSize="9" FontWeight="Bold" Foreground="White"/>
                                 </Border>
                                 <Border CornerRadius="2" Padding="3,0" Margin="0,1,2,1" Background="{Binding FlagWarningBg}"
                                         Visibility="{Binding FlagWarning, Converter={x:Static local:VisibleWhenNotEmptyConverter.Instance}}">
-                                    <TextBlock Text="{Binding FlagWarning}" FontSize="8" FontWeight="Bold" Foreground="White"/>
+                                    <TextBlock Text="{Binding FlagWarning}" FontSize="9" FontWeight="Bold" Foreground="White"/>
                                 </Border>
                                 <Border CornerRadius="2" Padding="3,0" Margin="0,1,2,1" Background="#CC5D4037"
                                         Visibility="{Binding FlagContact, Converter={x:Static local:VisibleWhenNotEmptyConverter.Instance}}">
-                                    <TextBlock Text="{Binding FlagContact}" FontSize="8" FontWeight="Bold" Foreground="White"/>
+                                    <TextBlock Text="{Binding FlagContact}" FontSize="9" FontWeight="Bold" Foreground="White"/>
                                 </Border>
                             </StackPanel>
                         </DataTemplate>
@@ -265,14 +266,14 @@
                 <DataGridTemplateColumn Header="Temps" Width="78">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding LapTime}" Foreground="{Binding LapTimeFg}" FontWeight="SemiBold" FontSize="12"/>
+                            <TextBlock Text="{Binding LapTime}" Foreground="{Binding LapTimeFg}" FontWeight="SemiBold" FontSize="13"/>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
                 <DataGridTemplateColumn x:Name="ColTeamDelta" Header="Δ pilotes" Width="70" Visibility="Collapsed">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding TeamDelta}" Foreground="{Binding TeamDeltaFg}" FontSize="11"/>
+                            <TextBlock Text="{Binding TeamDelta}" Foreground="{Binding TeamDeltaFg}" FontSize="12"/>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>

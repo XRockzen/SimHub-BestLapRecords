@@ -97,6 +97,9 @@ namespace User.TeamPace
 
         public bool UseHours { get; private set; }
 
+        /// <summary>A bar was clicked: its circuit, or null when the selection was cleared.</summary>
+        public event Action<string> TrackClicked;
+
         // Shared scale so several drivers' charts can be compared side by side
         public DateTime? ScaleMinDate  { get; set; }
         public double?   ScaleMaxValue { get; set; }
@@ -356,6 +359,8 @@ namespace User.TeamPace
             }
 
             UpdateHighlight();
+            var h = TrackClicked;
+            if (h != null) h(_selectedTrack);
         }
 
         // ─── Highlight engine ─────────────────────────────────────────────────

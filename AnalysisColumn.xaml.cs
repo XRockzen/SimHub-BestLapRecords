@@ -172,7 +172,7 @@ namespace User.TeamPace
         /// <summary>Same height for every driver's pit block, sized on the longest list.</summary>
         public void SetPitBlockStops(int stops)
         {
-            StatsPitPanel.Height = Math.Max(112, 34 + Math.Max(1, stops) * 38);
+            StatsPitPanel.Height = Math.Max(120, 36 + Math.Max(1, stops) * 41);
         }
 
         /// <summary>Invalidated-lap counter, with the race-control breakdown on hover.</summary>
@@ -252,7 +252,7 @@ namespace User.TeamPace
                 Margin       = new Thickness(0, 0, 4, 0),
                 Background   = Brush(bg),
             };
-            b.Child = new TextBlock { Text = text, FontSize = 8, FontWeight = FontWeights.Bold, Foreground = Brushes.White };
+            b.Child = new TextBlock { Text = text, FontSize = 9, FontWeight = FontWeights.Bold, Foreground = Brushes.White };
             SimBadges.Children.Add(b);
         }
 
@@ -533,7 +533,7 @@ namespace User.TeamPace
         // minutes, differently for each driver. Laps are therefore matched on lap number, and
         // when several captured laps share a number (another session in the window), the one
         // closest to the session's typical clock offset wins.
-        private static int MergeLiveData(LmuSessionRecord r, List<LmuLapRecord> laps, string dbPath)
+        internal static int MergeLiveData(LmuSessionRecord r, List<LmuLapRecord> laps, string dbPath)
         {
             if (r.BlockStartUtc == DateTime.MinValue || laps.Count == 0) return 0;
 

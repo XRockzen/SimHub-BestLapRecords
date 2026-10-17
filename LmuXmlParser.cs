@@ -143,6 +143,7 @@ namespace User.TeamPace
                     LmuTeamSync.ExportAsync();
                     // A results file is written when a session ends: its telemetry can be extracted
                     TelemetryService.RequestAfterSession();
+                    System.Threading.Tasks.Task.Run(() => NotificationService.Check());
                 }
                 else
                     LmuSessionStore.MarkFileParsed(fileId);

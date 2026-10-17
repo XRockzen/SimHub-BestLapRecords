@@ -238,7 +238,7 @@ namespace User.TeamPace
                     dc.DrawLine(GridPen, new Point(r.Left, y), new Point(r.Right, y));
                     // Kept inside the panel so labels of neighbouring panels never overlap
                     double ty = Math.Max(r.Top + 6, Math.Min(r.Bottom - 6, y));
-                    Text(dc, Label(c, v), r.Left - 6, ty, TextAlignment.Right, TextBrush, 10);
+                    Text(dc, Label(c, v), r.Left - 6, ty, TextAlignment.Right, TextBrush, 11);
                 }
                 if (lo < 0 && hi > 0)
                 {
@@ -251,7 +251,7 @@ namespace User.TeamPace
                 for (int k = _traces.Count - 1; k >= 0; k--) DrawSeries(dc, _traces[k], c, r, lo, hi);
                 dc.Pop();
 
-                Text(dc, Title(c), r.Left + 6, r.Top + 8, TextAlignment.Left, TitleBrush, 10.5);
+                Text(dc, Title(c), r.Left + 6, r.Top + 8, TextAlignment.Left, TitleBrush, 11.5);
             }
 
             // Corner names above the panels, corner spans shaded lightly
@@ -265,7 +265,7 @@ namespace User.TeamPace
                     dc.DrawRectangle(CornerBg, null, new Rect(a, MT, Math.Max(1, b - a), last.Bottom - MT));
                     double xa = X(corner.Apex);
                     if (xa >= ML && xa <= ML + PlotW)
-                        Text(dc, corner.Name, xa, MT / 2, TextAlignment.Center, CornerBrush, 10);
+                        Text(dc, corner.Name, xa, MT / 2, TextAlignment.Center, CornerBrush, 11);
                 }
             }
 
@@ -280,7 +280,7 @@ namespace User.TeamPace
                     dc.DrawLine(GridPen, new Point(x, MT), new Point(x, last.Bottom));
                     Text(dc, d >= 1000 ? (d / 1000).ToString(step < 1000 ? "0.0#" : "0", CultureInfo.InvariantCulture) + " km"
                                        : d.ToString("0", CultureInfo.InvariantCulture) + " m",
-                         x, last.Bottom + 10, TextAlignment.Center, TextBrush, 10);
+                         x, last.Bottom + 10, TextAlignment.Center, TextBrush, 11);
                 }
             }
         }

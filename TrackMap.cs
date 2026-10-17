@@ -36,8 +36,15 @@ namespace User.TeamPace
 
         public bool IsLarge { get; set; }
 
+        /// <summary>Numbered markers on the centre line (work plan priorities).</summary>
+        public List<KeyValuePair<double, string>> Highlights { get; set; }
+
+        /// <summary>No lap lines: just the track (work plan overview).</summary>
+        public bool ShowLegend { get; set; }
+
         public TrackMap()
         {
+            ShowLegend = true;
             ClipToBounds = true;
             Cursor = Cursors.Hand;
         }
@@ -143,7 +150,19 @@ namespace User.TeamPace
                     dc.DrawEllipse(Frozen(l.Color), FrozenPen(Colors.White, 2), Pt(l, l.Trace.IndexAt(_cursor)), Zoomed ? 6 : 5, Zoomed ? 6 : 5);
                 }
 
-            DrawLegend(dc);
+            if (Highlights != null && _model != null)
+                foreach (var h in Highlights)
+                {
+                    int k = _model.Index(h.Key);
+                    var p = Map(_model.Cx[k], _model.Cy[k]);
+                    dc.DrawEllipse(LabelBrush, FrozenPen(Color.FromRgb(0x22, 0x23, 0x28), 2), p, 11, 11);
+                    var ft = new FormattedText(h.Value, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, Face, 12.5,
+                                               Frozen(Color.FromRgb(0x22, 0x23, 0x28)), VisualTreeHelper.GetDpi(this).PixelsPerDip);
+                    ft.SetFontWeight(FontWeights.Bold);
+                    dc.DrawText(ft, new Point(p.X - ft.Width / 2, p.Y - ft.Height / 2));
+                }
+
+            if (ShowLegend) DrawLegend(dc);
             if (Zoomed) DrawScale(dc);
         }
 

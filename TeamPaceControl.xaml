@@ -12,7 +12,7 @@
                 <ResourceDictionary Source="/User.TeamPace;component/Styles.xaml"/>
             </ResourceDictionary.MergedDictionaries>
             <Style x:Key="FieldLbl" TargetType="TextBlock">
-                <Setter Property="FontSize" Value="11"/>
+                <Setter Property="FontSize" Value="12"/>
                 <Setter Property="Foreground" Value="#A6FFFFFF"/>
                 <Setter Property="VerticalAlignment" Value="Center"/>
                 <Setter Property="Margin" Value="0,0,8,0"/>
@@ -26,9 +26,9 @@
             <RowDefinition Height="Auto"/>   <!-- top bar -->
             <RowDefinition Height="Auto"/>   <!-- settings (collapsible) -->
             <RowDefinition Height="Auto"/>   <!-- page header -->
-            <RowDefinition Height="Auto"/>   <!-- filters / legend / chart -->
-            <RowDefinition Height="*"/>      <!-- driver columns -->
-            <RowDefinition Height="Auto"/>   <!-- lap table legend -->
+            <RowDefinition Height="Auto"/>   <!-- help · filters · circuit tabs · chart -->
+            <RowDefinition Height="*"/>      <!-- content -->
+            <RowDefinition Height="Auto"/>   <!-- lap table legend (help) -->
             <RowDefinition Height="Auto"/>   <!-- status -->
         </Grid.RowDefinitions>
 
@@ -41,44 +41,74 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                    <TextBlock x:Name="TxtUpdateTitle" FontSize="13" FontWeight="Bold" Foreground="White"/>
-                    <TextBlock x:Name="TxtUpdateNotes" FontSize="11" Foreground="#D9FFFFFF" Margin="0,3,0,0"
-                               TextWrapping="Wrap" MaxHeight="64" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock x:Name="TxtUpdateTitle" FontSize="14" FontWeight="Bold" Foreground="White"/>
+                    <TextBlock x:Name="TxtUpdateNotes" FontSize="12" Foreground="#D9FFFFFF" Margin="0,3,0,0"
+                               TextWrapping="Wrap" MaxHeight="70" TextTrimming="CharacterEllipsis"/>
                 </StackPanel>
                 <StackPanel x:Name="UpdateButtons" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
-                    <styles:SHButtonPrimary x:Name="BtnUpdateInstall" Click="BtnUpdateInstall_Click"
-                                            FontSize="11" Padding="10,3">⬇ Installer</styles:SHButtonPrimary>
-                    <styles:SHButtonSecondary x:Name="BtnUpdateNotes" Click="BtnUpdateNotes_Click"
-                                              FontSize="11" Padding="8,3" Margin="6,0,0,0">Notes de version</styles:SHButtonSecondary>
-                    <styles:SHButtonSecondary x:Name="BtnUpdateLater" Click="BtnUpdateLater_Click"
-                                              FontSize="11" Padding="8,3" Margin="6,0,0,0">Plus tard</styles:SHButtonSecondary>
+                    <Button x:Name="BtnUpdateInstall" Style="{StaticResource NavBtn}" Click="BtnUpdateInstall_Click"
+                            Background="#FF1E88E5" BorderBrush="#FF1E88E5" Foreground="White">⬇ Installer</Button>
+                    <Button x:Name="BtnUpdateNotes" Style="{StaticResource NavBtn}" Click="BtnUpdateNotes_Click" Margin="6,0,0,0">Notes de version</Button>
+                    <Button x:Name="BtnUpdateLater" Style="{StaticResource NavBtn}" Click="BtnUpdateLater_Click" Margin="6,0,0,0">Plus tard</Button>
                 </StackPanel>
             </Grid>
         </Border>
 
-        <!-- ═══ Barre supérieure : onglets · pilotes · réglages ════════════ -->
+        <!-- ═══ Barre supérieure : onglets · pilotes · cloche · mise à jour · réglages ═══ -->
         <Border Grid.Row="1" Background="#0DFFFFFF" CornerRadius="8" Padding="8,6,10,0" Margin="0,0,0,8">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,6">
-                    <TextBlock x:Name="TxtTopStatus" FontSize="11" Foreground="#99FFFFFF" VerticalAlignment="Center"
-                               Margin="0,0,10,0" TextTrimming="CharacterEllipsis" MaxWidth="320"/>
+                    <TextBlock x:Name="TxtTopStatus" FontSize="12" Foreground="#99FFFFFF" VerticalAlignment="Center"
+                               Margin="0,0,10,0" TextTrimming="CharacterEllipsis" MaxWidth="360"/>
+                    <Button x:Name="BtnBell" Style="{StaticResource NavBtn}" Click="BtnBell_Click" Margin="0,0,6,0" Padding="8,4"
+                            ToolTip="Nouveautés de l'équipe">
+                        <Grid>
+                            <Path Data="M6,8 A6,6 0 0 1 18,8 C18,15 21,17 21,17 L3,17 C3,17 6,15 6,8 Z M10.3,21 A1.9,1.9 0 0 0 13.7,21"
+                                  Stroke="#E6FFFFFF" StrokeThickness="1.8" Width="18" Height="18" Stretch="Uniform"/>
+                            <Border x:Name="BellBadge" Background="#FFE53935" CornerRadius="8" MinWidth="16" Height="16" Padding="4,0"
+                                    HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-9,-12,0" Visibility="Collapsed">
+                                <TextBlock x:Name="TxtBellCount" FontSize="10.5" FontWeight="Bold" Foreground="White"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                        </Grid>
+                    </Button>
                     <Button x:Name="BtnUpdateAll" Style="{StaticResource NavBtn}" Click="BtnUpdateAll_Click" Margin="0,0,6,0"
                             ToolTip="Importe les nouveaux résultats LMU, extrait la télémétrie et synchronise l'équipe">⟳ Tout mettre à jour</Button>
                     <Button x:Name="BtnSettings" Style="{StaticResource NavBtn}" Click="BtnSettings_Click"
                             ToolTip="Nom de joueur, dossier des résultats LMU, dossier d'équipe">⚙ Réglages</Button>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal">
-                    <Button x:Name="BtnTabCareer"  Style="{StaticResource TabBtn}" Click="BtnTabCareer_Click">Carrière</Button>
-                    <Button x:Name="BtnTabHistory" Style="{StaticResource TabBtn}" Click="BtnTabHistory_Click">Historique</Button>
+                    <Button x:Name="BtnTabCareer"   Style="{StaticResource TabBtn}" Click="BtnTabCareer_Click"
+                            ToolTip="Vos records face à ceux des coéquipiers, circuit par circuit">Carrière</Button>
+                    <Button x:Name="BtnTabHistory"  Style="{StaticResource TabBtn}" Click="BtnTabHistory_Click"
+                            ToolTip="Toutes les sessions, une ligne par session">Historique</Button>
+                    <Button x:Name="BtnTabStrategy" Style="{StaticResource TabBtn}" Click="BtnTabStrategy_Click"
+                            ToolTip="Planificateur de course d'endurance">Stratégie</Button>
                     <Rectangle Width="1" Fill="#26FFFFFF" Margin="14,4,14,10"/>
                     <TextBlock Text="Pilotes" Style="{StaticResource FieldLbl}" Margin="0,0,10,6"/>
                     <StackPanel x:Name="DriverChips" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,6"/>
-                    <ComboBox x:Name="CmbAddDriver" Width="190" Height="24" FontSize="11" VerticalAlignment="Center"
+                    <ComboBox x:Name="CmbAddDriver" Width="200" Height="26" FontSize="12" VerticalAlignment="Center"
                               Margin="0,0,0,6" SelectionChanged="CmbAddDriver_SelectionChanged"
                               ToolTip="Ajouter un pilote à comparer (4 maximum)"/>
                 </StackPanel>
             </DockPanel>
         </Border>
+
+        <Popup x:Name="BellPopup" PlacementTarget="{Binding ElementName=BtnBell}" Placement="Bottom" HorizontalOffset="-360"
+               StaysOpen="False" AllowsTransparency="True" Closed="BellPopup_Closed">
+            <Border Width="420" Background="#FF2C2D33" BorderBrush="#FF4A4C54" BorderThickness="1" CornerRadius="8" Margin="0,6,0,0">
+                <DockPanel>
+                    <DockPanel DockPanel.Dock="Top" Margin="14,10,14,8">
+                        <TextBlock x:Name="LnkReadAll" DockPanel.Dock="Right" Text="tout marquer comme lu" FontSize="12"
+                                   Foreground="#FF7FB6F0" Cursor="Hand" MouseLeftButtonDown="LnkReadAll_Click" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="TxtBellTitle" Text="Nouveautés" FontSize="14" FontWeight="SemiBold" Foreground="White"/>
+                    </DockPanel>
+                    <ScrollViewer MaxHeight="460" VerticalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="BellList"/>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+        </Popup>
 
         <!-- ═══ Réglages (repliables) ══════════════════════════════════════ -->
         <Border Grid.Row="2" x:Name="SettingsPanel" Background="#0AFFFFFF" BorderBrush="#1FFFFFFF" BorderThickness="1"
@@ -86,163 +116,149 @@
             <StackPanel>
                 <Grid Margin="0,0,0,8">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="130"/>
-                        <ColumnDefinition Width="180"/>
+                        <ColumnDefinition Width="140"/>
+                        <ColumnDefinition Width="200"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="Joueur LMU" Style="{StaticResource FieldLbl}"/>
-                    <TextBox Grid.Column="1" x:Name="TxtLmuPlayer" FontSize="11" Height="24"
+                    <TextBox Grid.Column="1" x:Name="TxtLmuPlayer" FontSize="12" Height="26"
                              VerticalContentAlignment="Center" TextChanged="TxtLmuPlayer_TextChanged"
                              ToolTip="Votre nom exactement comme dans Le Mans Ultimate"/>
                     <TextBlock Grid.Column="2" Text="Dossier résultats" Style="{StaticResource FieldLbl}" Margin="16,0,8,0"/>
-                    <TextBox Grid.Column="3" x:Name="TxtLmuPath" FontSize="11" Height="24"
+                    <TextBox Grid.Column="3" x:Name="TxtLmuPath" FontSize="12" Height="26"
                              VerticalContentAlignment="Center" TextChanged="TxtLmuPath_TextChanged"
                              ToolTip="Chemin vers …\Le Mans Ultimate\UserData\Log\Results"/>
-                    <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock x:Name="TxtLmuStatus" Margin="8,0,0,0" FontSize="10" Foreground="#99FFFFFF"
-                                   FontStyle="Italic" VerticalAlignment="Center"/>
-                    </StackPanel>
+                    <TextBlock Grid.Column="4" x:Name="TxtLmuStatus" Margin="8,0,0,0" FontSize="11.5" Foreground="#99FFFFFF"
+                               FontStyle="Italic" VerticalAlignment="Center"/>
                 </Grid>
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="130"/>
+                        <ColumnDefinition Width="140"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="Dossier d'équipe" Style="{StaticResource FieldLbl}"/>
-                    <TextBox Grid.Column="1" x:Name="TxtTeamFolder" IsReadOnly="True" FontSize="11" Height="24"
+                    <TextBox Grid.Column="1" x:Name="TxtTeamFolder" IsReadOnly="True" FontSize="12" Height="26"
                              VerticalContentAlignment="Center"
                              ToolTip="Dossier Google Drive partagé avec vos coéquipiers"/>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                        <styles:SHButtonSecondary x:Name="BtnTeamBrowse" Click="BtnTeamBrowse_Click"
-                                                  FontSize="10" Padding="6,2" Margin="6,0,0,0">📁 Choisir…</styles:SHButtonSecondary>
-                        <TextBlock x:Name="TxtTeamStatus" Margin="8,0,0,0" FontSize="10" Foreground="#99FFFFFF"
+                        <Button x:Name="BtnTeamBrowse" Style="{StaticResource NavBtn}" Click="BtnTeamBrowse_Click" Margin="6,0,0,0">📁 Choisir…</Button>
+                        <TextBlock x:Name="TxtTeamStatus" Margin="8,0,0,0" FontSize="11.5" Foreground="#99FFFFFF"
                                    FontStyle="Italic" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Grid>
             </StackPanel>
         </Border>
 
-        <!-- ═══ En-tête de page : retour · fil d'Ariane cliquable · titre ══ -->
+        <!-- ═══ En-tête de page : retour · fil d'Ariane · titre · actions · aide ══ -->
         <Grid Grid.Row="3" Margin="0,0,0,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <styles:SHButtonPrimary Grid.Column="2" x:Name="BtnTelemetry" Click="BtnTelemetry_Click" VerticalAlignment="Bottom"
-                                    FontSize="12" Padding="12,4" Margin="12,0,0,2" Visibility="Collapsed"
-                                    ToolTip="Superposer les courbes (vitesse, freins, accélérateur, rapports, volant) des tours de chaque pilote">Télémétrie des tours  ›</styles:SHButtonPrimary>
             <Button Grid.Column="0" x:Name="BtnBack" Style="{StaticResource NavBtn}" Click="BtnBack_Click"
-                    VerticalAlignment="Center" Margin="0,0,14,0" Padding="10,6" FontSize="14"
+                    VerticalAlignment="Center" Margin="0,0,14,0" Padding="10,6" FontSize="15"
                     ToolTip="Retour (bouton précédent de la souris ou Alt + ←)">←</Button>
             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                 <WrapPanel x:Name="BreadcrumbPanel" Margin="0,0,0,2"/>
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock x:Name="TxtPageTitle" FontSize="21" FontWeight="SemiBold" Foreground="White"
+                    <TextBlock x:Name="TxtPageTitle" FontSize="22" FontWeight="SemiBold" Foreground="White"
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                     <Border x:Name="PageBadge" CornerRadius="3" Padding="7,2" Margin="12,0,0,0"
                             VerticalAlignment="Center" Visibility="Collapsed">
-                        <TextBlock x:Name="TxtPageBadge" FontSize="11" FontWeight="Bold" Foreground="White"/>
+                        <TextBlock x:Name="TxtPageBadge" FontSize="12" FontWeight="Bold" Foreground="White"/>
                     </Border>
-                    <TextBlock x:Name="TxtPageSubtitle" FontSize="13" Foreground="#99FFFFFF" Margin="14,0,0,0"
+                    <TextBlock x:Name="TxtPageSubtitle" FontSize="14" Foreground="#99FFFFFF" Margin="14,0,0,0"
                                VerticalAlignment="Bottom" Padding="0,0,0,3" TextTrimming="CharacterEllipsis"/>
                 </StackPanel>
             </StackPanel>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Bottom" Margin="12,0,0,2">
+                <StackPanel x:Name="HeaderActions" Orientation="Horizontal"/>
+                <Button x:Name="BtnHelp" Style="{StaticResource NavBtn}" Click="BtnHelp_Click" Margin="8,0,0,0" Padding="9,4"
+                        ToolTip="Aide de cet écran">?</Button>
+            </StackPanel>
         </Grid>
 
-        <!-- ═══ Barre contextuelle : filtres partagés · légende · courbe ═══ -->
+        <!-- ═══ Aide repliable · filtres · onglets du circuit · courbe ═════ -->
         <StackPanel Grid.Row="4" Margin="0,0,0,8">
+            <Border x:Name="HelpPanel" Visibility="Collapsed" Background="#142196F3" BorderBrush="#552196F3" BorderThickness="1"
+                    CornerRadius="6" Padding="12,8" Margin="0,0,0,8">
+                <TextBlock x:Name="TxtHelp" FontSize="12.5" Foreground="#E6FFFFFF" TextWrapping="Wrap" LineHeight="19"/>
+            </Border>
             <WrapPanel x:Name="ClassFilterBar"/>
-            <StackPanel x:Name="TypeFilterBar" Orientation="Horizontal">
-                <TextBlock Text="Afficher" Style="{StaticResource FieldLbl}"/>
-                <Button x:Name="BtnFAll"   Style="{StaticResource SmallBtn}" Click="TypeFilter_Click" Tag="ALL">Tout</Button>
-                <Button x:Name="BtnFRace"  Style="{StaticResource SmallBtn}" Click="TypeFilter_Click" Tag="R">Courses</Button>
-                <Button x:Name="BtnFQuali" Style="{StaticResource SmallBtn}" Click="TypeFilter_Click" Tag="Q">Qualifs</Button>
-                <Button x:Name="BtnFPrac"  Style="{StaticResource SmallBtn}" Click="TypeFilter_Click" Tag="P" Margin="0,0,12,0">Essais</Button>
-                <Button x:Name="BtnFSim"   Style="{StaticResource SmallBtn}" Click="SimFilter_Click"
-                        ToolTip="Seulement les sessions en réglages de simulation complets (dégâts, carburant, pneus réalistes)">Sim complète</Button>
-                <Button x:Name="BtnFCommon" Style="{StaticResource SmallBtn}" Click="CommonFilter_Click"
-                        ToolTip="N'afficher que les sessions partagées avec un autre pilote affiché">⇄ Communes uniquement</Button>
+            <StackPanel x:Name="CircuitTabs" Orientation="Horizontal" Margin="0,0,0,2">
+                <Button x:Name="BtnCtProgress"  Style="{StaticResource TabBtn}" Click="CircuitTab_Click" Tag="Progress"
+                        ToolTip="Meilleur tour de chaque pilote, session après session">Progression</Button>
+                <Button x:Name="BtnCtTelemetry" Style="{StaticResource TabBtn}" Click="CircuitTab_Click" Tag="Telemetry"
+                        ToolTip="Tours superposés : vitesse, freinage, accélérateur, trajectoires">Télémétrie</Button>
+                <Button x:Name="BtnCtWork"      Style="{StaticResource TabBtn}" Click="CircuitTab_Click" Tag="Work"
+                        ToolTip="Les virages où travailler en priorité">Plan de travail</Button>
             </StackPanel>
-            <WrapPanel x:Name="CommonLegend" Margin="0,6,0,0">
-                <Border Background="#30FFC857" CornerRadius="3" Padding="8,2" VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal">
-                        <Ellipse Width="9" Height="9" Fill="#FFD85A30" Margin="0,0,3,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="session commune" FontSize="11" Foreground="White" VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Border>
-                <TextBlock FontSize="11" Foreground="#A6FFFFFF" Margin="10,0,0,0" VerticalAlignment="Center"
-                           Text="la pastille indique avec qui elle a été courue  ·  clic : sélection chez tous les pilotes  ·  double-clic : analyse côte à côte"/>
-            </WrapPanel>
             <Border x:Name="ProgressChartPanel" Background="#0DFFFFFF" CornerRadius="8" Padding="10,8" Margin="0,4,0,0">
                 <StackPanel>
-                    <DockPanel Margin="0,0,0,4">
-                        <TextBlock DockPanel.Dock="Right" FontSize="11" Foreground="#80FFFFFF" VerticalAlignment="Center"
-                                   Text="clic sur un point : sélectionner  ·  double-clic : analyser"/>
-                        <TextBlock Text="Meilleur tour par session" FontSize="12" FontWeight="SemiBold" Foreground="#E6FFFFFF"/>
-                    </DockPanel>
+                    <TextBlock Text="Meilleur tour par session" FontSize="13" FontWeight="SemiBold" Foreground="#E6FFFFFF" Margin="0,0,0,4"
+                               ToolTip="Clic sur un point : le sélectionner chez tous les pilotes · double-clic : analyser la session"/>
                     <Canvas x:Name="ProgressCanvas" Height="190" ClipToBounds="False"/>
                 </StackPanel>
             </Border>
         </StackPanel>
 
-        <!-- ═══ Colonnes : une par pilote ═════════════════════════════════ -->
+        <!-- ═══ Contenu ═══════════════════════════════════════════════════ -->
         <Grid Grid.Row="5" x:Name="ColumnsHost"/>
 
-        <!-- ═══ Légende du tableau des tours, juste sous les tableaux ══════ -->
-        <Border Grid.Row="6" x:Name="AnalysisLegend" Background="#10FFFFFF" CornerRadius="0,0,6,6" Padding="12,7">
+        <!-- ═══ Légende du tableau des tours (dans l'aide) ═════════════════ -->
+        <Border Grid.Row="6" x:Name="AnalysisLegend" Background="#10FFFFFF" CornerRadius="0,0,6,6" Padding="12,7" Visibility="Collapsed">
             <WrapPanel>
                 <WrapPanel.Resources>
                     <Style TargetType="TextBlock">
-                        <Setter Property="FontSize" Value="11"/>
+                        <Setter Property="FontSize" Value="12"/>
                         <Setter Property="Foreground" Value="#C8FFFFFF"/>
                         <Setter Property="VerticalAlignment" Value="Center"/>
                     </Style>
                 </WrapPanel.Resources>
                 <TextBlock Text="Repères" FontWeight="SemiBold" Foreground="White" Margin="0,0,10,0"/>
                 <Border CornerRadius="2" Padding="4,1" Background="#BB1565B0" VerticalAlignment="Center">
-                    <TextBlock Text="PIT" FontSize="9" FontWeight="Bold" Foreground="White"/>
+                    <TextBlock Text="PIT" FontSize="10" FontWeight="Bold" Foreground="White"/>
                 </Border>
                 <TextBlock Text="stand" Margin="5,0,10,0"/>
                 <Border CornerRadius="2" Padding="4,1" Background="#BB1565B0" VerticalAlignment="Center">
-                    <TextBlock Text="SORTIE" FontSize="9" FontWeight="Bold" Foreground="White"/>
+                    <TextBlock Text="SORTIE" FontSize="10" FontWeight="Bold" Foreground="White"/>
                 </Border>
                 <TextBlock Text="sortie garage / stand" Margin="5,0,10,0"/>
                 <Border CornerRadius="2" Padding="4,1" Background="#BB2E7D32" VerticalAlignment="Center">
-                    <TextBlock Text="PNEU" FontSize="9" FontWeight="Bold" Foreground="White"/>
+                    <TextBlock Text="PNEU" FontSize="10" FontWeight="Bold" Foreground="White"/>
                 </Border>
                 <TextBlock Text="gomme changée" Margin="5,0,10,0"/>
                 <Border CornerRadius="2" Padding="4,1" Background="#BBC62828" VerticalAlignment="Center">
-                    <TextBlock Text="INV" FontSize="9" FontWeight="Bold" Foreground="White"/>
+                    <TextBlock Text="INV" FontSize="10" FontWeight="Bold" Foreground="White"/>
                 </Border>
                 <TextBlock Text="invalidé (coupure / sortie)" Margin="5,0,10,0"/>
                 <Border CornerRadius="2" Padding="4,1" Background="#CCEF6C00" VerticalAlignment="Center">
-                    <TextBlock Text="AVERT" FontSize="9" FontWeight="Bold" Foreground="White"/>
+                    <TextBlock Text="AVERT" FontSize="10" FontWeight="Bold" Foreground="White"/>
                 </Border>
                 <TextBlock Text="avertissement" Margin="5,0,10,0"/>
                 <Border CornerRadius="2" Padding="4,1" Background="#66777777" VerticalAlignment="Center">
-                    <TextBlock Text="LIM" FontSize="9" FontWeight="Bold" Foreground="White"/>
+                    <TextBlock Text="LIM" FontSize="10" FontWeight="Bold" Foreground="White"/>
                 </Border>
                 <TextBlock Text="limites sans suite" Margin="5,0,10,0"/>
                 <Border CornerRadius="2" Padding="4,1" Background="#CC5D4037" VerticalAlignment="Center">
-                    <TextBlock Text="CHOC" FontSize="9" FontWeight="Bold" Foreground="White"/>
+                    <TextBlock Text="CHOC" FontSize="10" FontWeight="Bold" Foreground="White"/>
                 </Border>
                 <TextBlock Text="contact" Margin="5,0,10,0"/>
                 <Border CornerRadius="2" Padding="4,1" Background="#CC8E24AA" VerticalAlignment="Center">
-                    <TextBlock Text="PÉN" FontSize="9" FontWeight="Bold" Foreground="White"/>
+                    <TextBlock Text="PÉN" FontSize="10" FontWeight="Bold" Foreground="White"/>
                 </Border>
-                <TextBlock Text="pénalité  ·  détail au survol" Margin="5,0,24,0"/>
+                <TextBlock Text="pénalité" Margin="5,0,24,0"/>
                 <TextBlock Text="Couleurs" FontWeight="SemiBold" Foreground="White" Margin="0,0,10,0"/>
                 <TextBlock Text="1:36.779" Foreground="#FF4CAF50" FontWeight="SemiBold"/>
                 <TextBlock Text="meilleur tour" Margin="5,0,14,0"/>
                 <TextBlock Text="2:06.707" Foreground="#FFEF5350" FontWeight="SemiBold"/>
                 <TextBlock Text="pire tour" Margin="5,0,14,0"/>
-                <TextBlock Text="0:25.813" Foreground="#FFBA68C8" FontWeight="SemiBold"/>
-                <TextBlock Text="meilleur secteur" Margin="5,0,6,0"/>
-                <TextBlock Text="(parmi les tours cochés)" Foreground="#80FFFFFF" Margin="0,0,24,0"/>
+                <TextBlock Text="25.813" Foreground="#FFBA68C8" FontWeight="SemiBold"/>
+                <TextBlock Text="meilleur secteur (parmi les tours cochés)" Margin="5,0,24,0"/>
                 <StackPanel x:Name="TxtLegendTeam" Orientation="Horizontal">
                     <TextBlock Text="Δ pilotes" FontWeight="SemiBold" Foreground="White" Margin="0,0,8,0"/>
                     <TextBlock Text="écart au plus rapide sur le même tour,"/>
@@ -254,12 +270,16 @@
 
         <DockPanel Grid.Row="7" Margin="0,6,0,0">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                <TextBlock x:Name="TxtVersion" FontSize="10" Opacity="0.5" VerticalAlignment="Center"/>
-                <TextBlock x:Name="LnkCheckUpdate" Text="  ·  Vérifier les mises à jour" FontSize="10"
+                <TextBlock x:Name="TxtVersion" FontSize="11" Opacity="0.5" VerticalAlignment="Center"/>
+                <TextBlock x:Name="LnkCheckUpdate" Text="  ·  Vérifier les mises à jour" FontSize="11"
                            Foreground="#FF64B5F6" Cursor="Hand" VerticalAlignment="Center"
                            MouseLeftButtonDown="LnkCheckUpdate_Click"/>
             </StackPanel>
-            <TextBlock x:Name="TxtStatus" Opacity="0.5" FontSize="10" FontStyle="Italic"/>
+            <TextBlock x:Name="TxtStatus" Opacity="0.6" FontSize="11.5" FontStyle="Italic"/>
         </DockPanel>
+
+        <!-- ═══ Pop-ups des nouveautés, en haut à droite ══════════════════ -->
+        <StackPanel x:Name="ToastHost" Grid.Row="0" Grid.RowSpan="8" HorizontalAlignment="Right" VerticalAlignment="Top"
+                    Margin="0,150,6,0" Width="380" Panel.ZIndex="100"/>
     </Grid>
 </UserControl>

@@ -77,6 +77,8 @@ namespace User.TeamPace
         public float[] X, Y;       // metres: v2 in a frame shared by every lap of the track, v1 from the lap's first point
         public float[] Lateral;    // v2: distance from the track centre line, metres, + = right (null in v1 files)
         public float[] Edge;       // v2: track edge on the car's side, same convention
+        public float[] GLat, GLong; // v3: g forces (null before)
+        public byte[]  Abs, Tc;     // v3: share of the time ABS / traction control was active, % (null before)
 
         public TeleTrace(int n)
         {
@@ -84,7 +86,10 @@ namespace User.TeamPace
             Time = new float[n]; Speed = new float[n]; Throttle = new float[n]; Brake = new float[n];
             Steer = new float[n]; Rpm = new float[n]; Gear = new sbyte[n]; X = new float[n]; Y = new float[n];
             Lateral = new float[n]; Edge = new float[n];
+            GLat = new float[n]; GLong = new float[n]; Abs = new byte[n]; Tc = new byte[n];
         }
+
+        public bool HasDriverAids { get { return Abs != null; } }
 
         public bool HasLateral { get { return Lateral != null; } }
 
@@ -112,7 +117,7 @@ namespace User.TeamPace
     public static class TeleFormat
     {
         public const int Magic   = 0x31545054;   // "TPT1"
-        public const int Version = 2;   // 2: shared X/Y frame, lateral position and track edge
+        public const int Version = 3;   // 2: shared X/Y frame, lateral position, track edge · 3: g forces, ABS, TC
 
         public static void Write(string path, TeleFileHeader h, List<TeleTrace> traces)
         {
@@ -225,6 +230,10 @@ namespace User.TeamPace
                     WriteDeltas(w, t.Y, 20);
                     WriteDeltas(w, t.Lateral, 100);   // 1 cm
                     WriteDeltas(w, t.Edge, 100);
+                    WriteDeltas(w, t.GLat, 100);      // 0.01 g
+                    WriteDeltas(w, t.GLong, 100);
+                    w.Write(t.Abs);
+                    w.Write(t.Tc);
                     w.Flush();
                 }
                 return ms.ToArray();
@@ -253,6 +262,14 @@ namespace User.TeamPace
                     ReadDeltas(r, t.Edge, 100);
                 }
                 else t.Lateral = t.Edge = null;
+                if (version >= 3)
+                {
+                    ReadDeltas(r, t.GLat, 100);
+                    ReadDeltas(r, t.GLong, 100);
+                    t.Abs = r.ReadBytes(t.N);
+                    t.Tc  = r.ReadBytes(t.N);
+                }
+                else { t.GLat = t.GLong = null; t.Abs = t.Tc = null; }
                 return t;
             }
         }

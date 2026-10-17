@@ -26,17 +26,17 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <StackPanel Margin="0,0,8,8">
-                            <TextBlock Text="{Binding Label}" FontSize="9.5" Foreground="#8CFFFFFF" Margin="0,0,0,2"/>
+                            <TextBlock Text="{Binding Label}" FontSize="10.5" Foreground="#8CFFFFFF" Margin="0,0,0,2"/>
                             <TextBlock Text="{Binding Value}" FontSize="16" FontWeight="SemiBold" Foreground="{Binding Color}"
                                        TextTrimming="CharacterEllipsis"/>
-                            <TextBlock Text="{Binding Detail}" FontSize="10.5" Foreground="#99FFFFFF" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Text="{Binding Detail}" FontSize="11.5" Foreground="#99FFFFFF" TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
         </Border>
 
-        <TextBlock x:Name="TxtSummary" Grid.Row="1" FontSize="11" Foreground="#99FFFFFF" Margin="2,0,0,5"/>
+        <TextBlock x:Name="TxtSummary" Grid.Row="1" FontSize="12" Foreground="#99FFFFFF" Margin="2,0,0,5"/>
 
         <DataGrid x:Name="SessionGrid" Grid.Row="2" Style="{StaticResource GridBase}"
                   IsReadOnly="True" CanUserSortColumns="True"
@@ -63,7 +63,7 @@
                 <DataGridTemplateColumn x:Name="ColDelta" Header="Δ précédente" Width="86" Visibility="Collapsed">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding Delta}" Foreground="{Binding DeltaFg}" FontSize="11"/>
+                            <TextBlock Text="{Binding Delta}" Foreground="{Binding DeltaFg}" FontSize="12"/>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>

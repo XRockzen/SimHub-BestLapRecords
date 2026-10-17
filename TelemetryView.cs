@@ -68,7 +68,7 @@ namespace User.TeamPace
         };
         private readonly TextBlock _mapHint = new TextBlock
         {
-            FontSize = 10.5, Foreground = new SolidColorBrush(Color.FromArgb(128, 255, 255, 255)),
+            FontSize = 11.5, Foreground = new SolidColorBrush(Color.FromArgb(128, 255, 255, 255)),
             VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis,
         };
         private readonly Grid _center = new Grid();
@@ -88,7 +88,8 @@ namespace User.TeamPace
         };
         private bool _building;
 
-        public TelemetryView(List<DriverView> drivers, string circuit, List<Preset> presets)
+        public TelemetryView(List<DriverView> drivers, string circuit, List<Preset> presets,
+                             double zoomFrom = double.NaN, double zoomTo = double.NaN)
         {
             _drivers = drivers;
             _circuit = circuit;
@@ -111,6 +112,8 @@ namespace User.TeamPace
             _map.HoverDistance   += d => _chart.SetCursor(d);
             _map.ZoomRequested   += (d, f) => _chart.ZoomAt(d, f);
             Reload(false);
+            if (!double.IsNaN(zoomFrom) && !double.IsNaN(zoomTo))
+                Dispatcher.BeginInvoke(new Action(() => _chart.SetView(zoomFrom, zoomTo)), System.Windows.Threading.DispatcherPriority.Loaded);
         }
 
         // ─── Slots ────────────────────────────────────────────────────────────
@@ -174,47 +177,11 @@ namespace User.TeamPace
 
         // ─── Track model ──────────────────────────────────────────────────────
 
-        private static readonly Dictionary<string, TrackModel> Models = new Dictionary<string, TrackModel>();
-
-        /// <summary>
-        /// Centre line, edges and corners rebuilt from the fastest clean laps of the whole team on
-        /// this circuit (up to 40), displayed or not: more laps, more complete track edges.
-        /// </summary>
         private TrackModel BuildModel()
         {
-            var laps = new List<TeleLapRef>();
-            foreach (var kv in _laps)
-                foreach (var l in kv.Value)
-                    if (l.IsClean && l.File.Version >= 2) laps.Add(l);
-            foreach (var mate in LmuTeamSync.GetDrivers())
-            {
-                if (_laps.ContainsKey(mate.DbPath ?? "")) continue;
-                foreach (var l in TelemetryService.GetLaps(new DriverView(mate, DriverView.Palette[0]), _circuit))
-                    if (l.IsClean && l.File.Version >= 2) laps.Add(l);
-            }
-            if (laps.Count == 0) return null;
-            laps.Sort((a, b) => a.LapSec.CompareTo(b.LapSec));
-            if (laps.Count > 40) laps.RemoveRange(40, laps.Count - 40);
-
-            var key = _circuit + "|" + laps.Count + "|" + laps[0].File.Path + "|" + laps[laps.Count - 1].File.Path;
-            TrackModel model;
-            if (Models.TryGetValue(key, out model)) return model;
-
-            var traces = new List<TeleTrace>();
-            double length = 0;
-            foreach (var l in laps)
-            {
-                try { traces.Add(TelemetryService.LoadTrace(l)); length = Math.Max(length, l.File.TrackLength); }
-                catch (Exception ex) { SimHub.Logging.Current.Warn("[TeamPace] Track model: " + ex.Message); }
-            }
-            try { model = TrackModel.Build(traces, length); }
-            catch (Exception ex)
-            {
-                SimHub.Logging.Current.Warn("[TeamPace] Track model failed: " + ex);
-                model = null;
-            }
-            Models[key] = model;
-            return model;
+            var known = new List<TeleLapRef>();
+            foreach (var kv in _laps) known.AddRange(kv.Value);
+            return TelemetryService.TrackModelFor(_circuit, known);
         }
 
         // ─── Layout ───────────────────────────────────────────────────────────
@@ -308,14 +275,14 @@ namespace User.TeamPace
         private void BuildToggles()
         {
             _toggles.Children.Clear();
-            _toggles.Children.Add(new TextBlock { Text = "Courbes", FontSize = 11, Foreground = new SolidColorBrush(Color.FromArgb(166, 255, 255, 255)),
+            _toggles.Children.Add(new TextBlock { Text = "Courbes", FontSize = 12, Foreground = new SolidColorBrush(Color.FromArgb(166, 255, 255, 255)),
                                                   VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0) });
             foreach (var c in TelemetryChart.Channels)
             {
                 var channel = c;
                 var cb = new CheckBox
                 {
-                    Content = TelemetryChart.Title(c).Split(' ')[0], IsChecked = Visible.Contains(c), FontSize = 11,
+                    Content = TelemetryChart.Title(c).Split(' ')[0], IsChecked = Visible.Contains(c), FontSize = 12,
                     Foreground = Brushes.White, Margin = new Thickness(0, 0, 14, 0), VerticalAlignment = VerticalAlignment.Center,
                 };
                 cb.Checked   += (s, e) => { Visible.Add(channel);    _chart.SetVisible(VisibleList()); };
@@ -325,7 +292,7 @@ namespace User.TeamPace
             _toggles.Children.Add(new TextBlock
             {
                 Text = "courbes : molette pour zoomer, glisser pour se déplacer, double-clic pour revoir le tour",
-                FontSize = 10.5, Foreground = new SolidColorBrush(Color.FromArgb(128, 255, 255, 255)),
+                FontSize = 11.5, Foreground = new SolidColorBrush(Color.FromArgb(128, 255, 255, 255)),
                 VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0),
             });
         }
@@ -440,7 +407,7 @@ namespace User.TeamPace
             grid.Children.Add(cbLap);
 
             // Summary
-            var info = new TextBlock { FontSize = 11.5, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0),
+            var info = new TextBlock { FontSize = 12.5, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0),
                                        TextTrimming = TextTrimming.CharacterEllipsis };
             Grid.SetColumn(info, 4);
             if (slot.Lap == null)
@@ -466,7 +433,7 @@ namespace User.TeamPace
 
             if (_slots.Count > 1)
             {
-                var remove = new TextBlock { Text = "✕", FontSize = 12, Opacity = 0.6, Cursor = Cursors.Hand, ToolTip = "Retirer ce tour",
+                var remove = new TextBlock { Text = "✕", FontSize = 13, Opacity = 0.6, Cursor = Cursors.Hand, ToolTip = "Retirer ce tour",
                                              VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
                 remove.MouseLeftButtonDown += (s, e) => { _slots.Remove(slot); Reload(true); e.Handled = true; };
                 Grid.SetColumn(remove, 5);
@@ -477,7 +444,7 @@ namespace User.TeamPace
 
         private static ComboBox Combo(int column)
         {
-            var cb = new ComboBox { Height = 24, FontSize = 11, Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center,
+            var cb = new ComboBox { Height = 24, FontSize = 12, Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center,
                                     MaxDropDownHeight = 420 };
             Grid.SetColumn(cb, column);
             return cb;
@@ -618,7 +585,7 @@ namespace User.TeamPace
             _cornerPanel.Children.Add(new TextBlock
             {
                 Text = others.Count > 0 ? "Virages  ·  écart sur la référence" : "Virages  ·  temps de passage",
-                FontSize = 11, Foreground = new SolidColorBrush(Color.FromArgb(166, 255, 255, 255)), Margin = new Thickness(0, 0, 0, 4),
+                FontSize = 12, Foreground = new SolidColorBrush(Color.FromArgb(166, 255, 255, 255)), Margin = new Thickness(0, 0, 0, 4),
             });
 
             var sectors = _model.CornerSectors();
@@ -635,13 +602,13 @@ namespace User.TeamPace
                 grid.Children.Add(new TextBlock
                 {
                     Text = string.Format(Inv, "{0}  {1}  {2:0}°", c.Name, c.Left ? "gauche" : "droite", c.Angle),
-                    FontSize = 11, Foreground = new SolidColorBrush(Color.FromArgb(220, 255, 200, 87)),
+                    FontSize = 12, Foreground = new SolidColorBrush(Color.FromArgb(220, 255, 200, 87)),
                 });
                 int col = 1;
                 double tr = refSlot.Trace.TimeAt(b) - refSlot.Trace.TimeAt(a);
                 foreach (var o in (others.Count > 0 ? others : new List<Slot> { refSlot }))
                 {
-                    var cell = new TextBlock { FontSize = 11, HorizontalAlignment = HorizontalAlignment.Right };
+                    var cell = new TextBlock { FontSize = 12, HorizontalAlignment = HorizontalAlignment.Right };
                     if (o == refSlot)
                     {
                         cell.Text = double.IsNaN(tr) ? "—" : string.Format(Inv, "{0:0.00} s", tr);
@@ -689,7 +656,7 @@ namespace User.TeamPace
             _readout.Children.Add(new TextBlock
             {
                 Text = cursor ? string.Format(Inv, "À {0:0} m", dist) : "Survolez les courbes pour lire les valeurs",
-                FontSize = 11, Foreground = new SolidColorBrush(Color.FromArgb(166, 255, 255, 255)), Margin = new Thickness(0, 0, 0, 6),
+                FontSize = 12, Foreground = new SolidColorBrush(Color.FromArgb(166, 255, 255, 255)), Margin = new Thickness(0, 0, 0, 6),
             });
 
             Slot refSlot = _slots.Count > 0 && _slots[0].Trace != null ? _slots[0] : null;
@@ -707,7 +674,7 @@ namespace User.TeamPace
                 panel.Children.Add(new TextBlock
                 {
                     Text = string.Format("{0}  ·  T{1}  ·  {2}", s.Driver.Name, s.Lap.LapNum, Fmt.LapSec(s.Lap.LapSec)),
-                    FontSize = 11.5, FontWeight = FontWeights.SemiBold, Foreground = new SolidColorBrush(s.Color),
+                    FontSize = 12.5, FontWeight = FontWeights.SemiBold, Foreground = new SolidColorBrush(s.Color),
                     TextTrimming = TextTrimming.CharacterEllipsis,
                 });
 
@@ -736,7 +703,7 @@ namespace User.TeamPace
                     line = string.Format(Inv, "{0}\nV. max {1:0} km/h{2}", s.Lap.SessionLabel, top,
                                          s.Lap.Remark != null ? "   ·   " + s.Lap.Remark : "");
                 }
-                panel.Children.Add(new TextBlock { Text = line, FontSize = 11, Foreground = new SolidColorBrush(Color.FromArgb(220, 255, 255, 255)),
+                panel.Children.Add(new TextBlock { Text = line, FontSize = 12, Foreground = new SolidColorBrush(Color.FromArgb(220, 255, 255, 255)),
                                                    Margin = new Thickness(0, 2, 0, 0) });
                 box.Child = panel;
                 _readout.Children.Add(box);

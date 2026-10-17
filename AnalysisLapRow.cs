@@ -50,9 +50,8 @@ namespace User.TeamPace
         private static string Sec(float s)
         {
             if (s <= 0) return "—";
-            var t = TimeSpan.FromSeconds(s);
-            return string.Format("{0}:{1:00}.{2:000}",
-                (int)t.TotalMinutes, t.Seconds, t.Milliseconds);
+            // Same as everywhere else: "28.569" under a minute, "1:02.312" above
+            return Fmt.Seconds(TimeSpan.FromSeconds(s));
         }
 
         public string S1 { get { return Sec(Lap.S1); } }
