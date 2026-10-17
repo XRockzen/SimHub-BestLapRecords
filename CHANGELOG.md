@@ -3,6 +3,21 @@
 Chaque version est publiée dans les [releases](../../releases) et proposée automatiquement dans
 TeamPace par le bandeau de mise à jour.
 
+## 3.4.0
+
+- **Correction importante, courses en équipe** : quand une voiture était partagée (relais entre
+  pilotes), toute la course (tours et résultat) n'apparaissait que chez le pilote de l'arrivée. LMU
+  n'écrit en effet qu'un résultat par voiture, au nom du dernier pilote. TeamPace retrouve
+  maintenant qui a conduit chaque tour (relais et passages sur la ligne enregistrés par LMU) :
+  chacun garde **ses tours**, avec le résultat de la voiture, et la carte de session montre
+  l'équipage (« équipage : Amaury Marin 75 · Pascal Marin 51 tours »).
+- LMU écrit un nouveau fichier de résultats à chaque fois qu'on rejoint une course en cours (après
+  un relais, une déconnexion) : ces fichiers sont rassemblés et la course n'est gardée qu'une fois,
+  dans sa version la plus complète.
+- Correction : l'heure de départ d'une séance rejointe en cours de route était celle de l'arrivée
+  dans la séance ; c'est maintenant le vrai départ, commun à tous les pilotes.
+- Toutes les courses sont relues automatiquement au premier démarrage de cette version.
+
 ## 3.3.0
 
 - **Stratégie** : le ravitaillement se règle en **énergie virtuelle**, comme dans LMU (auto, plein à

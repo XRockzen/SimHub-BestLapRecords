@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
 namespace User.TeamPace
@@ -226,6 +227,13 @@ namespace User.TeamPace
 
             // ── Count player incidents and penalties from Stream ───────────────
             var stream = block.Element("Stream") ?? header.Element("Stream");
+
+            // A results file written after joining a session already running (after a driver
+            // swap, a reconnection) has its <DateTime> at the join, while lap times ("et") count
+            // from the session start: move the start back so both share the session clock.
+            double firstEt = FirstEventTime(stream);
+            if (session.BlockStartUtc != DateTime.MinValue && firstEt > 60)
+                session.BlockStartUtc = session.BlockStartUtc.AddSeconds(-firstEt);
             if (stream != null)
             {
                 foreach (var ev in stream.Elements("Incident"))
@@ -248,11 +256,26 @@ namespace User.TeamPace
                 { playerDriver = drv; break; }
             }
 
+            // Shared car (endurance): LMU writes one result per car, under the name of the driver
+            // at the finish. The player's car is the one whose slot they drove.
+            var carNames = CarNames(stream, playerName);
+            if (playerDriver == null && carNames.Count > 0)
+                foreach (var drv in block.Elements("Driver"))
+                {
+                    var drvName = (GetText(drv, "Name") ?? "").Trim();
+                    bool swapped = false;
+                    foreach (var sw in drv.Elements("Swap")) if (NameMatches(sw.Value.Trim(), playerName)) swapped = true;
+                    if (swapped || carNames.Contains(drvName)) { playerDriver = drv; break; }
+                }
+
             if (playerDriver == null)
             {
                 session = null;
                 return false;
             }
+            carNames.Add(playerDriver.Element("Name").Value.Trim());
+            foreach (var sw in playerDriver.Elements("Swap"))
+                if (sw.Value.Trim().Length > 0 && sw.Value.Trim() != "???") carNames.Add(sw.Value.Trim());
 
             // ── Parse driver result ────────────────────────────────────────────
             session.CarType       = GetText(playerDriver, "CarType");
@@ -283,11 +306,208 @@ namespace User.TeamPace
             // ── Parse per-lap data ─────────────────────────────────────────────
             foreach (var lapEl in playerDriver.Elements("Lap"))
                 laps.Add(ParseLapElement(lapEl, fileId));
+            session.CarLaps = laps.Count;
+
+            // ── Shared car: keep the player's own laps ─────────────────────────
+            string driverName = playerDriver.Element("Name").Value.Trim();
+            if (carNames.Count > 1)
+            {
+                var owners = LapOwners(filePath, header, session, stream, carNames, laps);
+                if (owners != null)
+                {
+                    var counts = new Dictionary<string, int>();
+                    var own = new List<LmuLapRecord>();
+                    string ownName = null;
+                    foreach (var l in laps)
+                    {
+                        string o;
+                        if (!owners.TryGetValue(l.LapNum, out o)) continue;
+                        int c; counts.TryGetValue(o, out c); counts[o] = c + 1;
+                        if (NameMatches(o, playerName)) { own.Add(l); ownName = o; }
+                    }
+                    if (counts.Count > 1)
+                    {
+                        var parts = new List<string>();
+                        foreach (var kv in counts) parts.Add(string.Format("{0} {1}", kv.Key, kv.Value));
+                        session.TeamDrivers = string.Join(" · ", parts);
+                        laps = own;
+                        session.TotalLaps = own.Count;
+                        long best = 0;
+                        foreach (var l in own) if (l.IsValid && l.LapTimeTicks > 0 && (best == 0 || l.LapTimeTicks < best)) best = l.LapTimeTicks;
+                        session.BestLapTime = TimeSpan.FromTicks(best);
+                        if (ownName != null) driverName = ownName;
+                        if (own.Count == 0) { session = null; return false; }
+                    }
+                }
+            }
 
             if (stream != null)
-                AttachStreamEvents(stream, playerDriver.Element("Name").Value.Trim(), laps);
+                AttachStreamEvents(stream, driverName, laps);
 
             return true;
+        }
+
+        // ─── Shared cars ───────────────────────────────────────────────────────
+
+        private static readonly Regex ScoreRx  = new Regex(@"^\s*(.+?)\((\d+)\) lap=", RegexOptions.Compiled);
+        private static readonly Regex ChangeRx = new Regex("Slot=(\\d+) Vehicle=\"[^\"]*\" Old=\"([^\"]*)\" New=\"([^\"]*)\"", RegexOptions.Compiled);
+
+        private static bool NameMatches(string a, string b)
+        {
+            if (string.IsNullOrEmpty(a) || string.IsNullOrEmpty(b)) return false;
+            return string.Equals(a, b, StringComparison.OrdinalIgnoreCase) ||
+                   a.IndexOf(b, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   b.IndexOf(a, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        /// <summary>
+        /// Session time of the first logged event. A few events can carry a bogus time (2 s in a
+        /// log starting at 7486 s): the first time followed by a steady run of events counts.
+        /// </summary>
+        private static double FirstEventTime(XElement stream)
+        {
+            if (stream == null) return 0;
+            var times = new List<double>();
+            foreach (var ev in stream.Elements())
+            {
+                float et = AttrFloat(ev, "et", -1f);
+                if (et >= 0) times.Add(et);
+            }
+            if (times.Count == 0) return 0;
+            times.Sort();
+            for (int i = 0; i < times.Count; i++)
+            {
+                int j = Math.Min(times.Count - 1, i + 5);
+                if (j == i || times[j] - times[i] < 120) return times[i];
+            }
+            return times[0];
+        }
+
+        /// <summary>Everyone who drove the player's car (same slot) in this file's log.</summary>
+        private static HashSet<string> CarNames(XElement stream, string playerName)
+        {
+            var bySlot = new Dictionary<string, HashSet<string>>();
+            Action<string, string> add = (slot, name) =>
+            {
+                HashSet<string> set;
+                if (!bySlot.TryGetValue(slot, out set)) bySlot[slot] = set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                set.Add(name.Trim());
+            };
+            if (stream != null)
+                foreach (var ev in stream.Elements())
+                {
+                    var n = ev.Name.LocalName;
+                    if (n == "Score")
+                    {
+                        var m = ScoreRx.Match(ev.Value ?? "");
+                        if (m.Success) add(m.Groups[2].Value, m.Groups[1].Value);
+                    }
+                    else if (n == "DriverChange")
+                    {
+                        var m = ChangeRx.Match(ev.Value ?? "");
+                        if (m.Success) { add(m.Groups[1].Value, m.Groups[2].Value); add(m.Groups[1].Value, m.Groups[3].Value); }
+                    }
+                }
+            foreach (var kv in bySlot)
+                foreach (var name in kv.Value)
+                    if (NameMatches(name, playerName)) return kv.Value;
+            return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Who drove each lap of a shared car, from the race log: lap crossings ("Name(slot)
+        /// lap=N") and driver swaps. A file only logs what happened after the player joined, so
+        /// the other results files of the same session (written at each swap or reconnection)
+        /// are read too. Null when nothing tells.
+        /// </summary>
+        private static Dictionary<int, string> LapOwners(string filePath, XElement header, LmuSessionRecord session,
+                                                          XElement stream, HashSet<string> names, List<LmuLapRecord> laps)
+        {
+            var events = new List<KeyValuePair<double, string>>();   // from this time on, this driver
+            var before = new List<KeyValuePair<double, string>>();   // until this time, this driver (swap "Old")
+            Action<XElement> collect = st =>
+            {
+                if (st == null) return;
+                foreach (var ev in st.Elements())
+                {
+                    float et = AttrFloat(ev, "et", -1f);
+                    if (et < 0) continue;
+                    var n = ev.Name.LocalName;
+                    if (n == "Score")
+                    {
+                        var m = ScoreRx.Match(ev.Value ?? "");
+                        if (m.Success && names.Contains(m.Groups[1].Value.Trim()))
+                            events.Add(new KeyValuePair<double, string>(et, m.Groups[1].Value.Trim()));
+                    }
+                    else if (n == "DriverChange")
+                    {
+                        var m = ChangeRx.Match(ev.Value ?? "");
+                        if (!m.Success) continue;
+                        string oldName = m.Groups[2].Value.Trim(), newName = m.Groups[3].Value.Trim();
+                        if (!names.Contains(oldName) && !names.Contains(newName)) continue;
+                        events.Add(new KeyValuePair<double, string>(et, newName));
+                        before.Add(new KeyValuePair<double, string>(et, oldName));
+                    }
+                }
+            };
+            collect(stream);
+
+            // Other files of the same session, same track, written around the same time
+            try
+            {
+                var dir = Path.GetDirectoryName(filePath);
+                var mine = File.GetLastWriteTimeUtc(filePath);
+                var suffix = session.SessionType.Substring(0, 1);
+                foreach (var other in Directory.GetFiles(dir, "*.xml"))
+                {
+                    if (string.Equals(other, filePath, StringComparison.OrdinalIgnoreCase)) continue;
+                    var id = Path.GetFileNameWithoutExtension(other);
+                    if (id.Length < 2 || id.Substring(id.Length - 2, 1) != suffix) continue;
+                    if (Math.Abs((File.GetLastWriteTimeUtc(other) - mine).TotalHours) > session.RaceTimeMinutes / 60 + 2) continue;
+                    XDocument doc;
+                    try { doc = XDocument.Load(other); } catch { continue; }
+                    var h = doc.Root.Element("RaceResults") ?? doc.Root;
+                    if (GetText(h, "TrackVenue") != session.TrackVenue || GetText(h, "TrackCourse") != session.TrackCourse) continue;
+                    XElement b = null;
+                    foreach (var child in h.Elements())
+                        if (child.Name.LocalName.StartsWith(session.IsRace ? "Race" : session.IsQuali ? "Qualify" : "Practice")
+                            && child.Element("DateTime") != null && (child.Element("Stream") != null || child.Element("Driver") != null))
+                        { b = child; break; }
+                    if (b == null) continue;
+                    var st = b.Element("Stream") ?? h.Element("Stream");
+                    double unix;
+                    var dt = b.Element("DateTime");
+                    if (dt == null || !double.TryParse(dt.Value, NumberStyles.Any, CultureInfo.InvariantCulture, out unix)) continue;
+                    var start = DateTimeOffset.FromUnixTimeSeconds((long)unix).UtcDateTime.AddSeconds(-FirstEventTime(st));
+                    if (Math.Abs((start - session.BlockStartUtc).TotalMinutes) > 3) continue;
+                    collect(st);
+                }
+            }
+            catch (Exception ex)
+            {
+                SimHub.Logging.Current.Warn("[LmuXml] Shared car files: " + ex.Message);
+            }
+
+            if (events.Count == 0) return null;
+            events.Sort((a, b) => a.Key.CompareTo(b.Key));
+            before.Sort((a, b) => a.Key.CompareTo(b.Key));
+
+            var owners = new Dictionary<int, string>();
+            foreach (var l in laps)
+            {
+                double at = l.ElapsedTime + 1;   // a lap belongs to whoever was driving as it began
+                string owner = null;
+                foreach (var e in events) { if (e.Key <= at) owner = e.Value; else break; }
+                if (owner == null)
+                {
+                    // Before the first logged event: the driver handing over at the first swap,
+                    // or the first driver seen crossing the line
+                    foreach (var bf in before) if (bf.Key > at) { owner = bf.Value; break; }
+                    if (owner == null) owner = events[0].Value;
+                }
+                owners[l.LapNum] = owner;
+            }
+            return owners;
         }
 
         /// <summary>

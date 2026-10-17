@@ -64,6 +64,12 @@ namespace User.TeamPace
             TxtClass.Text = LmuCategoryStyle.GetShortName(cls);
             TxtCar.Text   = r.CarType ?? "";
             TxtTeam.Text  = r.TeamName ?? "";
+            if (!string.IsNullOrEmpty(r.TeamDrivers))
+            {
+                // Shared car: this column holds this driver's laps, the result is the car's
+                TxtTeam.Text += "   ·   équipage : " + r.TeamDrivers + " tours";
+                TxtTeam.ToolTip = string.Format("Voiture partagée : {0} tours au total. Cette colonne ne montre que les tours de ce pilote ; la position est celle de la voiture.", r.CarLaps);
+            }
             TxtDate.Text  = r.SessionDate != DateTime.MinValue
                 ? r.SessionDate.ToString("ddd d MMM yyyy · HH:mm", CultureInfo.GetCultureInfo("fr-FR")) : "";
 

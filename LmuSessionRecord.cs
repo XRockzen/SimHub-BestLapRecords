@@ -42,6 +42,8 @@ namespace User.TeamPace
         public TimeSpan FinishTime      { get; set; }
         public int      TotalLaps       { get; set; }
         public int      Pitstops        { get; set; }
+        public int      CarLaps         { get; set; }  // laps of the whole car (team races: every driver)
+        public string   TeamDrivers     { get; set; }  // "Amaury Marin 74 · Pascal Marin 52" when the car was shared
         public string   FinishStatus    { get; set; }
         public string   DNFReason       { get; set; }
         public string   ControlAndAids  { get; set; }

@@ -22,7 +22,7 @@ namespace User.TeamPace
 
         // Bump when the parser starts accepting files it used to skip: clears
         // the "already parsed" flags once so those files get re-imported.
-        private const int ParserVersion = 4;
+        private const int ParserVersion = 5;   // 5: shared cars split by driver, session clock origin
 
         public static string PlayerName  { get; private set; }
         public static string ResultsPath { get; private set; }
@@ -199,6 +199,13 @@ namespace User.TeamPace
                 {
                     using (var db = new LiteDatabase(string.Format("Filename={0}", _dbPath)))
                     {
+                        // LMU writes a results file each time you join a running session (after a
+                        // driver swap, a disconnection): keep only the most complete one
+                        if (!KeepAgainstDuplicates(db, session))
+                        {
+                            MarkParsed(db, session.FileId);
+                            return;
+                        }
                         db.GetCollection("sessions").Upsert(SessionToDoc(session));
 
                         if (laps != null && laps.Count > 0)
@@ -209,15 +216,7 @@ namespace User.TeamPace
                                 col.Insert(LapToDoc(lap));
                         }
 
-                        // Mark as parsed
-                        var pf = db.GetCollection("parsed_files");
-                        if (pf.FindOne(Query.EQ("FileId", new BsonValue(session.FileId))) == null)
-                        {
-                            var doc = new BsonDocument();
-                            doc["FileId"] = new BsonValue(session.FileId);
-                            doc["Date"]   = new BsonValue(DateTime.UtcNow);
-                            pf.Insert(doc);
-                        }
+                        MarkParsed(db, session.FileId);
                     }
                 }
                 catch (Exception ex)
@@ -226,6 +225,39 @@ namespace User.TeamPace
                         string.Format("[LmuSessionStore] SaveSession error: {0}", ex.Message));
                 }
             }
+        }
+
+        private static void MarkParsed(LiteDatabase db, string fileId)
+        {
+            var pf = db.GetCollection("parsed_files");
+            if (pf.FindOne(Query.EQ("FileId", new BsonValue(fileId))) != null) return;
+            var doc = new BsonDocument();
+            doc["FileId"] = new BsonValue(fileId);
+            doc["Date"]   = new BsonValue(DateTime.UtcNow);
+            pf.Insert(doc);
+        }
+
+        /// <summary>
+        /// Same session already stored from another results file (same track, same type, same
+        /// session start): keeps whichever covers more laps. Returns false when the new one loses.
+        /// </summary>
+        private static bool KeepAgainstDuplicates(LiteDatabase db, LmuSessionRecord session)
+        {
+            if (session.BlockStartUtc == DateTime.MinValue) return true;
+            var sessions = db.GetCollection("sessions");
+            var laps = db.GetCollection("laps");
+            var tolerance = TimeSpan.FromMinutes(3).Ticks;
+            foreach (var d in sessions.Find(Query.EQ("TrackVenue", new BsonValue(session.TrackVenue ?? ""))))
+            {
+                var other = DocToSession(d);
+                if (other.FileId == session.FileId || other.SessionType != session.SessionType) continue;
+                if (other.TrackCourse != session.TrackCourse || other.BlockStartUtc == DateTime.MinValue) continue;
+                if (Math.Abs(other.BlockStartUtc.Ticks - session.BlockStartUtc.Ticks) > tolerance) continue;
+                if (Math.Max(other.CarLaps, other.TotalLaps) > Math.Max(session.CarLaps, session.TotalLaps)) return false;
+                sessions.Delete(d["_id"]);
+                laps.Delete(Query.EQ("SessionId", new BsonValue(other.FileId)));
+            }
+            return true;
         }
 
         // ─── Read ──────────────────────────────────────────────────────────────
@@ -395,6 +427,8 @@ namespace User.TeamPace
             d["ControlAndAids"]  = new BsonValue(s.ControlAndAids ?? "");
             d["IncidentCount"]   = new BsonValue(s.IncidentCount);
             d["PenaltyCount"]    = new BsonValue(s.PenaltyCount);
+            d["CarLaps"]         = new BsonValue(s.CarLaps);
+            d["TeamDrivers"]     = new BsonValue(s.TeamDrivers ?? "");
             return d;
         }
 
@@ -437,6 +471,8 @@ namespace User.TeamPace
                 ControlAndAids  = Str(d, "ControlAndAids"),
                 IncidentCount   = Int(d, "IncidentCount"),
                 PenaltyCount    = Int(d, "PenaltyCount"),
+                CarLaps         = Int(d, "CarLaps"),
+                TeamDrivers     = Str(d, "TeamDrivers"),
             };
         }
 

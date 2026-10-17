@@ -217,6 +217,12 @@ pour les tours sans temps officiel : TeamPace le reconstitue à partir du dépar
 l'affiche **entre parenthèses**, sans jamais le compter dans les statistiques. Un retour au garage
 (Échap) n'est pas pris pour un arrêt aux stands.
 
+**Voiture partagée (endurance avec relais)** : LMU n'écrit qu'un résultat par voiture, au nom du
+pilote à l'arrivée, et un nouveau fichier à chaque fois qu'on rejoint la course (après un relais
+ou une déconnexion). TeamPace rassemble ces fichiers, garde la course une seule fois et donne à
+chacun **ses propres tours** (meilleur tour, rythme, arrêts), avec le résultat de la voiture. La
+carte de session indique l'équipage (par exemple *équipage : Amaury Marin 75 · Pascal Marin 51 tours*).
+
 ### Page circuit : télémétrie
 
 ![Télémétrie de deux tours dans un virage](docs/images/10-telemetrie.png)
@@ -333,6 +339,7 @@ administrateur. Le lien **Vérifier les mises à jour**, en bas à droite du plu
 | Le dossier d'équipe est introuvable dans « Choisir… » | Le coéquipier doit d'abord l'**ajouter à son Drive** (étape 3.3). |
 | Pas de télémétrie pour un pilote | Il doit avoir TeamPace 2.6 ou plus et cliquer une fois sur **⟳ Tout mettre à jour**. La télémétrie de LMU doit être active (dossier `UserData\Telemetry` non vide). |
 | Rien n'arrive chez les coéquipiers (base, télémétrie, plans) | Google Drive a peut-être changé de lettre de lecteur (par exemple J: → I:) : TeamPace retrouve le dossier tout seul s'il existe sur une autre lettre. S'il reste introuvable, un ⚠ s'affiche en haut et dans les réglages : lancez Google Drive, ou choisissez de nouveau le dossier avec **📁 Choisir…**. |
+| Une course en équipe n'apparaît que chez le pilote de l'arrivée | Mettez à jour TeamPace (3.4 ou plus) chez **chaque** pilote : les courses sont relues automatiquement au démarrage suivant, puis cliquez sur **⟳ Tout mettre à jour**. |
 | Colonnes carburant / pneus vides | Ces valeurs sont capturées en direct : roulez avec SimHub ouvert. En ligne, LMU ne les écrit pas dans ses fichiers de résultats. |
 
 ## Pour le développeur
