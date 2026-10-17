@@ -3,6 +3,34 @@
 Chaque version est publiée dans les [releases](../../releases) et proposée automatiquement dans
 TeamPace par le bandeau de mise à jour.
 
+## 4.0.0
+
+Version de nettoyage : chaque écran a été repris pour être plus clair, plus visuel et sans texte
+inutile, et les outils s'enchaînent d'une seule façon.
+
+- **Navigation** : l'analyse d'une course a deux onglets, **Tours** et **Course**. *Course* réunit
+  le prévu / réel face au plan de l'équipe et toutes les voitures sur une seule page : plus de
+  passage par la stratégie ni de sous-écran « Toutes les voitures ». La stratégie montre le même
+  bloc dans son onglet *Analyse de course*.
+- **Analyse d'une session** :
+  - en-tête sur une ligne (voiture · équipe), l'équipage et la capture directe au survol ;
+    vitesse max retirée ;
+  - statistiques épurées : carburant en litres par tour, énergie « 100 % = N tours », **usure des
+    4 pneus en schéma coloré**, **arrêts sur une frise** (détail au survol) ;
+  - **▾ Statistiques** et **▾ Tour par tour** se replient, chez tous les pilotes à la fois ;
+  - sur une voiture partagée, le nombre d'arrêts est celui du pilote.
+- **Page circuit** : record, roulage, sessions et tours par pilote, rien de plus ; plus de menu de
+  circuits ni de bouton « Préparer une course » ; la courbe s'affiche avec **Courbe** à côté des
+  onglets.
+- **Toutes les voitures** : une case par voiture pour la courbe d'écarts (toutes par défaut,
+  *Autour de nous*, *Aucune*), et une légende visible du déroulé de la course.
+- **Plan de travail** : seules les mesures qui coûtent du temps sont affichées (le reste derrière
+  « détail ») ; l'explication du calcul est passée dans l'aide.
+- **Moins de texte partout** : sous-titres de la Carrière, de l'Historique et de la Stratégie,
+  aides sous les titres, consignes de la télémétrie : tout est dans le bouton **?** et les
+  info-bulles, réécrits pour chaque écran.
+- **Historique** : le filtre « simulation complète » passe dans le menu **⋯**.
+
 ## 3.7.1
 
 - **Stratégie, l'énergie d'abord** : chaque relais dure ce que permet l'énergie (ou le réservoir),

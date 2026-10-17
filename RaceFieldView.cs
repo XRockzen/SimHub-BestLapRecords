@@ -13,7 +13,7 @@ namespace User.TeamPace
     /// Race analysis: every car of a category, its stops, stints and pace, what our car lost
     /// against a reference car, and what worked or not compared with the top five.
     /// </summary>
-    internal class RaceFieldView : ScrollViewer
+    internal class RaceFieldView : StackPanel
     {
         private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
         private static readonly Brush Blue = Ui.Frozen(Color.FromRgb(0x5A, 0xA9, 0xF0));
@@ -26,12 +26,11 @@ namespace User.TeamPace
         private string _class;
         private CarRun _ref;
         private readonly StackPanel _body = new StackPanel();
+        private readonly HashSet<CarRun> _shown = new HashSet<CarRun>();   // cars drawn on the gap chart
 
         public RaceFieldView(RaceField field)
         {
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
-            Content = _body;
+            Children.Add(_body);
 
             _all = RaceFieldAnalysis.RunAll(field);
             _us = _all.FirstOrDefault(r => r.Car.IsUs);
@@ -52,6 +51,27 @@ namespace User.TeamPace
         {
             var runs = ClassRuns;
             _ref = runs.FirstOrDefault(r => r != _us);
+            ShowAll();
+        }
+
+        /// <summary>Every car that ran most of the race (a car out early would crush the scale).</summary>
+        private void ShowAll()
+        {
+            var runs = ClassRuns;
+            int maxLaps = runs.Count > 0 ? runs.Max(r => r.Laps) : 0;
+            _shown.Clear();
+            foreach (var r in runs) if (r.Laps >= maxLaps * 0.8) _shown.Add(r);
+        }
+
+        /// <summary>The three cars ahead of us and the three behind, in the class.</summary>
+        private void ShowAround()
+        {
+            var runs = ClassRuns;
+            _shown.Clear();
+            int i = runs.IndexOf(_us);
+            if (i < 0) { foreach (var r in runs.Take(7)) _shown.Add(r); return; }
+            for (int k = Math.Max(0, i - 3); k <= Math.Min(runs.Count - 1, i + 3); k++) _shown.Add(runs[k]);
+            if (runs.Count > 0) _shown.Add(runs[0]);
         }
 
         /// <summary>The first five of the class (us excluded), among cars that ran most of the race.</summary>
@@ -86,13 +106,36 @@ namespace User.TeamPace
             else if (_us == null)
                 _body.Children.Add(Note("Votre voiture n'est pas dans ce résultat : seul le classement est affiché."));
 
-            _body.Children.Add(Section("Toutes les voitures de la catégorie",
-                "Clic sur une ligne : elle devient la référence. Barres du déroulé : orange = arrêt avec changement de pilote, bleu = arrêt, rouge = temps perdu en piste ; leur largeur est le temps perdu."));
+            var head = new DockPanel { Margin = new Thickness(0, 6, 0, 6) };
+            var legend = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            legend.Children.Add(Swatch(StopLine.SwapBrush, "arrêt avec changement de pilote"));
+            legend.Children.Add(Swatch(Blue, "arrêt"));
+            legend.Children.Add(Swatch(StopLine.LostBrush, "temps perdu en piste"));
+            legend.Children.Add(Ui.T("   largeur = temps perdu", 12, Ui.Faint));
+            DockPanel.SetDock(legend, Dock.Right);
+            head.Children.Add(legend);
+            head.Children.Add(Ui.T("Toutes les voitures", 15, Ui.Text, FontWeights.SemiBold));
+            _body.Children.Add(head);
             _body.Children.Add(Table());
 
-            _body.Children.Add(Section("Écart au premier de la catégorie, tour par tour",
-                "Plus bas = plus loin derrière. Chaque marche est un arrêt ; une pente, une différence de rythme."));
-            _body.Children.Add(Ui.Card(new GapChart(GapCars(), ClassRuns.FirstOrDefault(), _us) { Height = 280 }, new Thickness(10)));
+            var chartHead = new DockPanel { Margin = new Thickness(0, 6, 0, 6) };
+            var picks = new StackPanel { Orientation = Orientation.Horizontal };
+            Action<string, string, Action> pick = (text, tip, act) =>
+            {
+                var b = Ui.SmallButton(text, tip);
+                b.Margin = new Thickness(6, 0, 0, 0);
+                b.Click += (s, e) => { act(); Build(); };
+                picks.Children.Add(b);
+            };
+            pick("Toutes", "Toutes les voitures qui ont couru l'essentiel de la course", ShowAll);
+            pick("Autour de nous", "Le premier, et les trois voitures devant et derrière nous", ShowAround);
+            pick("Aucune", "Seulement notre voiture", () => _shown.Clear());
+            DockPanel.SetDock(picks, Dock.Right);
+            chartHead.Children.Add(picks);
+            chartHead.Children.Add(Ui.T("Écart au premier, tour par tour", 15, Ui.Text, FontWeights.SemiBold));
+            _body.Children.Add(chartHead);
+            var cars = GapCars();
+            _body.Children.Add(Ui.Card(new GapChart(cars, ClassRuns.FirstOrDefault(), _us) { Height = Math.Max(280, cars.Count * 16 + 40) }, new Thickness(10)));
         }
 
         private UIElement ClassBar()
@@ -114,15 +157,12 @@ namespace User.TeamPace
             return bar;
         }
 
-        private static UIElement Section(string title, string help)
+        private static UIElement Swatch(Brush color, string text)
         {
-            var p = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 6, 0, 6) };
-            p.Children.Add(Ui.T(title, 15, Ui.Text, FontWeights.SemiBold));
-            var q = Ui.T("  ⓘ", 13, Ui.Faint);
-            q.ToolTip = help;
-            q.Cursor = Cursors.Help;
-            p.Children.Add(q);
-            return p;
+            var s = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(14, 0, 0, 0) };
+            s.Children.Add(new Border { Width = 12, Height = 10, Background = color, CornerRadius = new CornerRadius(2), Margin = new Thickness(0, 0, 5, 0), VerticalAlignment = VerticalAlignment.Center });
+            s.Children.Add(Ui.T(text, 12, Ui.Muted));
+            return s;
         }
 
         private static UIElement Note(string text)
@@ -263,10 +303,7 @@ namespace User.TeamPace
 
             foreach (var t in bad) p.Children.Add(Finding(false, t));
             foreach (var t in good) p.Children.Add(Finding(true, t));
-            var who = Ui.T("Premiers : " + names, 11.5, Ui.Faint);
-            who.Margin = new Thickness(0, 6, 0, 0);
-            who.TextWrapping = TextWrapping.Wrap;
-            p.Children.Add(who);
+            sub.ToolTip = "Premiers : " + names;
             return Ui.Card(p, new Thickness(14, 12, 14, 12));
         }
 
@@ -284,10 +321,10 @@ namespace User.TeamPace
 
         // ═══ Every car ════════════════════════════════════════════════════════
 
-        private static readonly string[] Heads = { "Pos", "Équipe", "Tours", "Rythme", "Δ rythme", "Arrêts", "Aux stands", "Relais", "En piste", "Déroulé de la course" };
+        private static readonly string[] Heads = { "", "Pos", "Équipe", "Tours", "Rythme", "Δ rythme", "Arrêts", "Aux stands", "Relais", "En piste", "Déroulé de la course" };
         private static readonly string[] HeadTips =
         {
-            "Position dans la catégorie", "Équipe et numéro ; au survol : les pilotes", "Tours bouclés",
+            "Voitures tracées sur la courbe d'écarts", "Position dans la catégorie", "Équipe et numéro ; au survol : les pilotes", "Tours bouclés",
             "Tour médian de la course, arrêts compris exclus", "Écart de rythme avec notre voiture (+ = plus lent que nous)",
             "Arrêts aux stands repérés au temps perdu (les pénalités de type stop and go en font partie)",
             "Temps perdu à tous les arrêts, entrée et sortie des stands comprises", "Relais moyen, en tours",
@@ -297,7 +334,7 @@ namespace User.TeamPace
         private UIElement Table()
         {
             var g = new Grid();
-            var widths = new[] { 42.0, 230, 54, 78, 76, 56, 84, 58, 76, -1 };
+            var widths = new[] { 30.0, 42, 230, 54, 78, 76, 56, 84, 58, 76, -1 };
             foreach (var w in widths)
                 g.ColumnDefinitions.Add(new ColumnDefinition { Width = w < 0 ? new GridLength(1, GridUnitType.Star) : new GridLength(w), MinWidth = w < 0 ? 200 : 0 });
 
@@ -313,7 +350,7 @@ namespace User.TeamPace
                 {
                     var t = Ui.T(Heads[c], 12, Ui.Muted, FontWeights.SemiBold);
                     t.Margin = new Thickness(6, 7, 6, 7);
-                    if (c >= 2) t.HorizontalAlignment = HorizontalAlignment.Right;
+                    if (c >= 3) t.HorizontalAlignment = HorizontalAlignment.Right;
                     cell = t;
                 }
                 ((FrameworkElement)cell).ToolTip = HeadTips[c];
@@ -341,6 +378,12 @@ namespace User.TeamPace
                 var weight = us ? FontWeights.SemiBold : FontWeights.Normal;
                 double dPace = _us != null && r.Pace > 0 ? r.Pace - _us.Pace : double.NaN;
                 string drivers = string.Join(", ", r.Car.Drivers);
+                var shown = new CheckBox { IsChecked = _shown.Contains(run) || us, IsEnabled = !us, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0), ToolTip = "Tracer sur la courbe d'écarts" };
+                shown.Checked += (s, e) => { _shown.Add(run); Build(); };
+                shown.Unchecked += (s, e) => { _shown.Remove(run); Build(); };
+                Grid.SetRow(shown, row);
+                g.Children.Add(shown);
+
                 var cells = new[]
                 {
                     r.ClassPosition > 0 ? r.ClassPosition.ToString() : "—",
@@ -360,12 +403,13 @@ namespace User.TeamPace
                     var t = Ui.T(cells[c], 13, us && c == 1 ? Ui.Amber : fg, weight);
                     t.Margin = new Thickness(6, 5, 6, 5);
                     t.IsHitTestVisible = c <= 1;
+                    int gc = c + 1;
                     if (c == 0 && !string.IsNullOrEmpty(r.Car.Finish) && r.Car.Finish != "Finished Normally")
                         t.ToolTip = "Non classé à l'arrivée (" + r.Car.Finish + ")";
                     if (c == 1) t.ToolTip = "Pilotes : " + drivers + (string.IsNullOrEmpty(r.Car.Vehicle) ? "" : "\n" + r.Car.Vehicle);
                     if (c >= 2) t.HorizontalAlignment = HorizontalAlignment.Right;
                     if (c == 0 && !string.IsNullOrEmpty(r.Car.Finish) && r.Car.Finish != "Finished Normally") t.Text += " *";
-                    Grid.SetRow(t, row); Grid.SetColumn(t, c);
+                    Grid.SetRow(t, row); Grid.SetColumn(t, gc);
                     g.Children.Add(t);
                 }
                 var line = new StopLine(run, _t0, _t1, us) { Height = 26, Margin = new Thickness(4, 0, 6, 0), ToolTip = StopsTip(run) };
@@ -392,9 +436,7 @@ namespace User.TeamPace
 
         private List<CarRun> GapCars()
         {
-            var list = new List<CarRun>();
-            foreach (var r in ClassRuns.Take(4)) list.Add(r);
-            if (_ref != null && !list.Contains(_ref)) list.Add(_ref);
+            var list = ClassRuns.Where(r => _shown.Contains(r)).ToList();
             if (_us != null && _us.Car.CarClass == _class && !list.Contains(_us)) list.Add(_us);
             return list;
         }
@@ -433,8 +475,8 @@ namespace User.TeamPace
         private class StopLine : FrameworkElement
         {
             private static readonly Pen Run = new Pen(Ui.Frozen(Color.FromArgb(70, 255, 255, 255)), 2);
-            private static readonly Brush Swap = Ui.Frozen(Color.FromRgb(0xFF, 0xA7, 0x26));
-            private static readonly Brush Lost = Ui.Frozen(Color.FromArgb(200, 0xEF, 0x53, 0x50));
+            public static readonly Brush SwapBrush = Ui.Frozen(Color.FromRgb(0xFF, 0xA7, 0x26));
+            public static readonly Brush LostBrush = Ui.Frozen(Color.FromArgb(200, 0xEF, 0x53, 0x50));
             private readonly CarRun _r;
             private readonly double _t0, _t1;
 
@@ -449,9 +491,9 @@ namespace User.TeamPace
                 dc.DrawLine(Run, new Point(X(_r.Start), mid), new Point(X(_r.End), mid));
                 foreach (var s in _r.Incidents)
                     if (s.Loss >= 8)
-                        dc.DrawRectangle(Lost, null, new Rect(X(s.At), mid - 4, Math.Max(2, s.Loss / span * w), 8));
+                        dc.DrawRectangle(LostBrush, null, new Rect(X(s.At), mid - 4, Math.Max(2, s.Loss / span * w), 8));
                 foreach (var s in _r.Stops)
-                    dc.DrawRoundedRectangle(s.Swap != null ? Swap : Blue, null, new Rect(X(s.At), mid - 7, Math.Max(3, s.Loss / span * w), 14), 2, 2);
+                    dc.DrawRoundedRectangle(s.Swap != null ? SwapBrush : Blue, null, new Rect(X(s.At), mid - 7, Math.Max(3, s.Loss / span * w), 14), 2, 2);
             }
         }
 

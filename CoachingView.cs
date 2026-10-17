@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -177,19 +178,6 @@ namespace User.TeamPace
                 map.Highlights = marks;
             }
             side.Children.Add(Ui.Card(map, new Thickness(6)));
-            var basis = new StackPanel();
-            basis.Children.Add(Ui.T("Sur quoi c'est calculé", 13, Ui.Text, FontWeights.SemiBold));
-            basis.Children.Add(new TextBlock
-            {
-                Text = string.Format("Le tour idéal met bout à bout le meilleur passage de l'équipe dans chaque virage, tous pilotes confondus ({0} tours propres avec la télémétrie). " +
-                                     "Il est le même pour tout le monde. Le passage habituel de {1} ({2} tours) y est comparé virage par virage : " +
-                                     "chaque virage est découpé en freinage, corde et sortie, et on garde la phase qui coûte le plus et la mesure qui l'explique.",
-                    r.TeamLaps, r.SubjectName, r.SubjectLaps),
-                TextWrapping = TextWrapping.Wrap, FontSize = 12.5, Foreground = Ui.Muted, Margin = new Thickness(0, 6, 0, 0),
-            });
-            var card = Ui.Card(basis);
-            card.Margin = new Thickness(0, 10, 0, 0);
-            side.Children.Add(card);
             Grid.SetColumn(side, 1);
             _body.Children.Add(side);
         }
@@ -259,16 +247,29 @@ namespace User.TeamPace
             phases.ToolTip = "Temps perdu dans chaque phase du virage";
             DockPanel.SetDock(phases, Dock.Left);
             mid.Children.Add(phases);
+            // What costs time first; the measures already at the level behind "détail"
             var chips = new WrapPanel();
-            foreach (var e in p.Evidence)
+            var more = new List<UIElement>();
+            foreach (var e in p.Evidence.OrderBy(x => x.Verdict))
             {
                 var bg = e.Verdict < 0 ? Color.FromArgb(46, 239, 138, 99) : e.Verdict > 0 ? Color.FromArgb(36, 102, 187, 106) : Color.FromArgb(30, 255, 255, 255);
                 var fg = e.Verdict < 0 ? Color.FromRgb(0xF5, 0xB4, 0x9B) : e.Verdict > 0 ? Color.FromRgb(0x9F, 0xD3, 0xA2) : Color.FromRgb(0xD5, 0xD7, 0xDD);
-                chips.Children.Add(new Border
+                var chip = new Border
                 {
                     Background = Ui.Frozen(bg), CornerRadius = new CornerRadius(4), Padding = new Thickness(8, 3, 8, 3), Margin = new Thickness(0, 0, 6, 6),
                     Child = new TextBlock { Text = e.Text, FontSize = 12, Foreground = Ui.Frozen(fg) },
-                });
+                };
+                if (e.Verdict >= 0) { chip.Visibility = Visibility.Collapsed; more.Add(chip); }
+                chips.Children.Add(chip);
+            }
+            if (more.Count > 0)
+            {
+                var link = Ui.T("détail (" + more.Count + ")", 12, Ui.Link);
+                link.Cursor = Cursors.Hand;
+                link.Margin = new Thickness(2, 3, 0, 6);
+                link.ToolTip = "Les autres mesures de ce virage";
+                link.MouseLeftButtonDown += (snd, ev) => { foreach (var c in more) c.Visibility = Visibility.Visible; link.Visibility = Visibility.Collapsed; };
+                chips.Children.Add(link);
             }
             mid.Children.Add(chips);
             panel.Children.Add(mid);

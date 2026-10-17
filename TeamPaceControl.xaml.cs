@@ -33,7 +33,7 @@ namespace User.TeamPace
     /// </summary>
     public partial class TeamPaceControl : UserControl
     {
-        private enum Screen { Career, History, Strategy, Circuit, Analysis, Race }
+        private enum Screen { Career, History, Strategy, Circuit, Analysis }
         private enum CircuitTab { Progress, Telemetry, Work }
 
         private class NavState
@@ -49,7 +49,7 @@ namespace User.TeamPace
             public string BadgeClass; // raw car class for the title badge
             public List<TelemetryView.Preset> Presets;   // telemetry: laps shown, kept up to date by the view
             public double ZoomFrom = double.NaN, ZoomTo = double.NaN;
-            public RaceField Field;   // race analysis: every car
+            public bool RaceTab;      // session analysis: the "Course" tab
         }
 
         private ProgressionChart _progressChart;
@@ -374,11 +374,14 @@ namespace User.TeamPace
             // The tab the current path started from stays highlighted
             var rootScreen = _back.Count > 0 ? new List<NavState>(_back)[_back.Count - 1].Screen : _state.Screen;
             SetTabActive(BtnTabCareer,   rootScreen == Screen.Career || rootScreen == Screen.Circuit);
-            SetTabActive(BtnTabHistory,  rootScreen == Screen.History || rootScreen == Screen.Analysis || rootScreen == Screen.Race);
+            SetTabActive(BtnTabHistory,  rootScreen == Screen.History || rootScreen == Screen.Analysis);
             SetTabActive(BtnTabStrategy, rootScreen == Screen.Strategy);
 
             ClassFilterBar.Visibility     = _state.Screen == Screen.Career ? Visibility.Visible : Visibility.Collapsed;
             CircuitTabs.Visibility        = _state.Screen == Screen.Circuit ? Visibility.Visible : Visibility.Collapsed;
+            AnalysisTabs.Visibility       = Visibility.Collapsed;
+            BtnChart.Visibility           = _state.Screen == Screen.Circuit && _state.Tab == CircuitTab.Progress ? Visibility.Visible : Visibility.Collapsed;
+            Ui.SetOn(BtnChart, _progressChartOn);
             ProgressChartPanel.Visibility = _state.Screen == Screen.Circuit && _state.Tab == CircuitTab.Progress && _progressChartOn ? Visibility.Visible : Visibility.Collapsed;
             TxtLegendTeam.Visibility      = _drivers.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
             TxtStatus.Text = "";
@@ -390,7 +393,6 @@ namespace User.TeamPace
                 case Screen.Strategy: RenderStrategy(); break;
                 case Screen.Circuit:  RenderCircuit();  break;
                 case Screen.Analysis: RenderAnalysis(); break;
-                case Screen.Race:     RenderRace();     break;
             }
             UpdateHelp();
         }
@@ -441,10 +443,7 @@ namespace User.TeamPace
 
         private void RenderCareer()
         {
-            SetHeader("Carrière",
-                _drivers.Count > 1 ? string.Join(" face à ", _drivers.ConvertAll(d => d.Name)) + ", circuit par circuit"
-                                   : "Vos records, circuit par circuit",
-                null);
+            SetHeader("Carrière", null, null);
             _career = new CareerFaceView(_drivers, _activeClasses);
             _career.CircuitOpened += (circuit, label, raw) => OpenCircuit(circuit, label, raw, CircuitTab.Progress, true);
             Fill(_career);
@@ -496,7 +495,7 @@ namespace User.TeamPace
 
         private void RenderHistory()
         {
-            SetHeader("Historique", "Une ligne par session, le résultat de chaque pilote sur la même ligne", null);
+            SetHeader("Historique", null, null);
             var view = new HistoryView(_drivers);
             view.SessionOpened += OpenAnalysis;
             Fill(view);
@@ -508,17 +507,25 @@ namespace User.TeamPace
 
         private void RenderStrategy()
         {
-            SetHeader("Stratégie", _state.Circuit != null ? _state.Circuit + "  ·  " + _state.ClassLabel : "Planificateur d'endurance", _state.BadgeClass);
-            var view = new StrategyView(_drivers, _state.Circuit, _state.ClassLabel);
-            view.FieldRequested += f => Navigate(new NavState
-            {
-                Screen = Screen.Race, Field = f, Circuit = _state.Circuit, ClassLabel = _state.ClassLabel, BadgeClass = _state.BadgeClass,
-                Title = _state.Circuit ?? "Course", Subtitle = "toutes les voitures", Crumb = "Toutes les voitures",
-            }, true);
-            Fill(view);
+            SetHeader("Stratégie", null, null);
+            Fill(new StrategyView(_drivers, _state.Circuit, _state.ClassLabel));
         }
 
         // ─── Circuit page ─────────────────────────────────────────────────────
+
+        private void BtnChart_Click(object sender, RoutedEventArgs e)
+        {
+            _progressChartOn = !_progressChartOn;
+            Render();
+        }
+
+        private void AnalysisTab_Click(object sender, RoutedEventArgs e)
+        {
+            bool race = (string)((Button)sender).Tag == "Race";
+            if (race == _state.RaceTab) return;
+            _state.RaceTab = race;
+            Render();
+        }
 
         private void CircuitTab_Click(object sender, RoutedEventArgs e)
         {
@@ -539,39 +546,9 @@ namespace User.TeamPace
             SetTabActive(BtnCtTelemetry, _state.Tab == CircuitTab.Telemetry);
             SetTabActive(BtnCtWork,      _state.Tab == CircuitTab.Work);
 
-            // Header: switch circuit in place, or plan a race here
-            var circuits = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var d in _drivers) foreach (var s in d.Sessions) circuits.Add(s.TrackDisplayName + "  ·  " + LmuCategoryStyle.GetShortName(s.CarClass));
-            var pick = new ComboBox { Width = 320, Height = 26, FontSize = 12, MaxDropDownHeight = 460, ToolTip = "Changer de circuit sans revenir en arrière" };
-            foreach (var c in circuits) pick.Items.Add(c);
-            pick.SelectedItem = _state.Circuit + "  ·  " + _state.ClassLabel;
-            pick.SelectionChanged += (s, e) =>
-            {
-                if (pick.SelectedItem == null) return;
-                var parts = ((string)pick.SelectedItem).Split(new[] { "  ·  " }, StringSplitOptions.None);
-                _state.Circuit = parts[0]; _state.ClassLabel = parts[1]; _state.BadgeClass = null; _state.Presets = null;
-                _state.ZoomFrom = _state.ZoomTo = double.NaN;
-                _state.Crumb = ShortCircuit(parts[0]) + " · " + parts[1];
-                Dispatcher.BeginInvoke(new Action(Render));
-            };
-            HeaderActions.Children.Add(pick);
-            var race = Ui.Button("Préparer une course ici →", "Ouvre la stratégie d'endurance pour ce circuit et cette catégorie");
-            race.Margin = new Thickness(8, 0, 0, 0);
-            race.Click += (s, e) => Navigate(new NavState
-            {
-                Screen = Screen.Strategy, Circuit = _state.Circuit, ClassLabel = _state.ClassLabel, BadgeClass = _state.BadgeClass, Crumb = "Stratégie",
-            }, true);
-            HeaderActions.Children.Add(race);
-
             switch (_state.Tab)
             {
-                case CircuitTab.Progress:
-                    var chart = Ui.Button(_progressChartOn ? "Masquer le graphique" : "📈 Graphique", "Courbe du meilleur tour de chaque séance");
-                    chart.Margin = new Thickness(0, 0, 8, 0);
-                    chart.Click += (s, e) => { _progressChartOn = !_progressChartOn; Render(); };
-                    HeaderActions.Children.Insert(0, chart);
-                    RenderProgress();
-                    break;
+                case CircuitTab.Progress:  RenderProgress(); break;
                 case CircuitTab.Telemetry: RenderTelemetry(); break;
                 case CircuitTab.Work:      RenderWork(); break;
             }
@@ -704,45 +681,15 @@ namespace User.TeamPace
                 items.Add(new SessionListColumn.SummaryItem { Label = "SESSIONS", Value = "0", Detail = "jamais roulé ici", Color = "#F2FFFFFF" });
                 return items;
             }
-            LmuSessionRecord recordSession = sessions[0];
-            foreach (var s in sessions) if (s.BestLapTime.Ticks == best) recordSession = s;
-            var first = sessions[0];
-            var last  = sessions[sessions.Count - 1];
-
-            items.Add(new SessionListColumn.SummaryItem
-            {
-                Label = "RECORD", Value = Fmt.Lap(TimeSpan.FromTicks(best)), Color = "#FF66BB6A",
-                Detail = string.Format("{0} du {1}", recordSession.SessionTypeLong, recordSession.SessionDate.ToString("dd/MM/yy")),
-            });
-            if (_drivers.Count > 1)
-                items.Add(new SessionListColumn.SummaryItem
-                {
-                    Label = "ÉCART ÉQUIPE",
-                    Value = best == teamBest ? "★ meilleur" : "+" + Fmt.Seconds(TimeSpan.FromTicks(best - teamBest)),
-                    Color = best == teamBest ? "#FF66BB6A" : "#FFEF9A9A",
-                    Detail = "sur le record du circuit",
-                });
-            var gain = TimeSpan.FromTicks(best - first.BestLapTime.Ticks);
-            items.Add(new SessionListColumn.SummaryItem
-            {
-                Label = "PROGRESSION",
-                Value = sessions.Count > 1 && gain.Ticks < 0 ? Fmt.Signed(gain) : "—",
-                Color = "#F2FFFFFF",
-                Detail = sessions.Count > 1 ? "depuis le " + first.SessionDate.ToString("dd/MM/yy") : "une seule session",
-            });
-            items.Add(new SessionListColumn.SummaryItem
-            {
-                Label = "DERNIÈRE SÉANCE", Value = last.BestLapFormatted, Color = "#F2FFFFFF",
-                Detail = last.BestLapTime.Ticks == best ? "★ record"
-                       : "+" + Fmt.Seconds(TimeSpan.FromTicks(last.BestLapTime.Ticks - best)) + " du record",
-            });
             var driving = TimeSpan.Zero; int laps = 0;
             foreach (var s in sessions) { driving = driving + CareerColumn.SessionDuration(s); laps += s.TotalLaps; }
             items.Add(new SessionListColumn.SummaryItem
             {
-                Label = "ROULAGE", Value = Fmt.TotalTime(driving), Color = "#FF80DEEA",
-                Detail = string.Format("{0} sessions · {1} tours", sessions.Count, laps),
+                Label = "RECORD", Value = (_drivers.Count > 1 && best == teamBest ? "★ " : "") + Fmt.Lap(TimeSpan.FromTicks(best)), Color = "#FF66BB6A", Detail = "",
             });
+            items.Add(new SessionListColumn.SummaryItem { Label = "ROULAGE", Value = Fmt.TotalTime(driving), Color = "#FF80DEEA", Detail = "" });
+            items.Add(new SessionListColumn.SummaryItem { Label = "SESSIONS", Value = sessions.Count.ToString(), Color = "#F2FFFFFF", Detail = "" });
+            items.Add(new SessionListColumn.SummaryItem { Label = "TOURS", Value = laps.ToString(), Color = "#F2FFFFFF", Detail = "" });
             return items;
         }
 
@@ -759,28 +706,26 @@ namespace User.TeamPace
         private void RenderAnalysis()
         {
             SetHeader(_state.Title, _state.Subtitle, _state.BadgeClass);
-            var tele = Ui.Button("Télémétrie des tours →", "Superpose les tours de la séance : vitesse, freinage, accélérateur, trajectoires");
+            LmuSessionRecord any = null;
+            foreach (var x in _state.Sessions.Values) { any = x; break; }
+            bool isRace = any != null && any.IsRace;
+            AnalysisTabs.Visibility = isRace ? Visibility.Visible : Visibility.Collapsed;
+            if (!isRace) _state.RaceTab = false;
+            SetTabActive(BtnAtLaps, !_state.RaceTab);
+            SetTabActive(BtnAtRace, _state.RaceTab);
+
+            if (_state.RaceTab)
+            {
+                // The race as the car lived it: against the team's plan, then every car
+                var plan = RaceReviewView.PlanFor(_state.Circuit, _state.ClassLabel);
+                var review = new RaceReviewView(_drivers, any, plan);
+                Fill(new ScrollViewer { Content = review, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Padding = new Thickness(0, 0, 6, 0) });
+                return;
+            }
+
+            var tele = Ui.Button("Télémétrie →", "Les tours de la séance superposés : vitesse, freinage, accélérateur, trajectoires");
             tele.Click += (s, e) => OpenTelemetryFromAnalysis(null, 0);
             HeaderActions.Children.Add(tele);
-
-            var field = FieldOf(_state.Sessions);
-            if (field != null)
-            {
-                var race = Ui.Button("Analyse de course →", "Dans la stratégie : la course face au plan, arrêt par arrêt, et face aux autres équipes");
-                race.Margin = new Thickness(8, 0, 0, 0);
-                LmuSessionRecord any = null;
-                foreach (var x in _state.Sessions.Values) { any = x; break; }
-                race.Click += (s, e) =>
-                {
-                    StrategyView.ShowRace(any);
-                    Navigate(new NavState
-                    {
-                        Screen = Screen.Strategy, Circuit = _state.Circuit, ClassLabel = _state.ClassLabel, BadgeClass = _state.BadgeClass, Crumb = "Analyse de course",
-                    }, true);
-                };
-                HeaderActions.Children.Insert(0, race);
-                race.Margin = new Thickness(0, 0, 8, 0);
-            }
 
             foreach (var d in _drivers)
             {
@@ -794,7 +739,7 @@ namespace User.TeamPace
                     // The column scrolls as a whole, so the lap table stays reachable under tall blocks
                     var scroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = col };
                     scroll.SizeChanged += (sv, e) => col.SetLapTableHeight(scroll.ViewportHeight - 40);
-                    AddColumn(d, scroll, s.SessionTypeLong);
+                    AddColumn(d, scroll, null);
                 }
                 else
                 {
@@ -853,14 +798,6 @@ namespace User.TeamPace
             return null;
         }
 
-        // ─── Race ─────────────────────────────────────────────────────────────
-
-        private void RenderRace()
-        {
-            SetHeader(_state.Title, "Analyse de course · " + _state.Subtitle, _state.BadgeClass);
-            Fill(new RaceFieldView(_state.Field));
-        }
-
         private void UpdateAverageReferences()
         {
             AnalysisColumn best = null;
@@ -907,7 +844,7 @@ namespace User.TeamPace
         {
             Ui.SetOn(BtnHelp, _helpOpen);
             HelpPanel.Visibility = _helpOpen ? Visibility.Visible : Visibility.Collapsed;
-            AnalysisLegend.Visibility = _helpOpen && _state.Screen == Screen.Analysis ? Visibility.Visible : Visibility.Collapsed;
+            AnalysisLegend.Visibility = _helpOpen && _state.Screen == Screen.Analysis && !_state.RaceTab ? Visibility.Visible : Visibility.Collapsed;
             TxtHelp.Text = HelpText();
         }
 
@@ -916,30 +853,29 @@ namespace User.TeamPace
             switch (_state.Screen)
             {
                 case Screen.Career:
-                    return "Une ligne par circuit et catégorie : le record de chaque pilote, le plus rapide en vert (★), l'écart des autres en rouge.\n" +
-                           "Clic sur une ligne : le circuit ressort dans l'activité de chacun. Clic sur une barre de l'activité : sa ligne est sélectionnée.\n" +
-                           "Double-clic sur une ligne : la page du circuit (progression, télémétrie, plan de travail). Les étiquettes de catégorie filtrent le tableau.";
+                    return "Une ligne par circuit et catégorie : le record de chaque pilote ; le plus rapide en vert (★), l'écart des autres en rouge. Les étiquettes de catégorie filtrent le tableau.\n" +
+                           "Clic : le circuit ressort dans l'activité. Double-clic : la page du circuit (progression, télémétrie, plan de travail).";
                 case Screen.History:
-                    return "Une ligne par session, groupées par jour. Une session courue par plusieurs pilotes affichés n'occupe qu'une ligne (fond doré), avec le résultat de chacun.\n" +
-                           "Double-clic : l'analyse de la session, côte à côte si elle est commune. Les sessions sans aucun tour chronométré sont masquées.";
+                    return "Une ligne par session, groupées par jour. Une session courue par plusieurs pilotes n'occupe qu'une ligne, avec le résultat de chacun ; ÉQUIPAGE marque une course en équipe.\n" +
+                           "Double-clic : l'analyse de la session. Les sessions sans tour chronométré sont masquées.";
                 case Screen.Strategy:
-                    return "Préparation : glissez un arrêt (carré jaune) pour le déplacer, glissez un pilote sur un relais ou cliquez le relais pour le choisir ; chaque arrêt se règle sur sa carte (énergie, pneus). « Enregistrer » partage le plan avec l'équipe.\n" +
-                           "Analyse de course : une course réelle face au plan, arrêt par arrêt, et face aux autres équipes. Données mesurées : les mesures de l'équipe ; une valeur saisie passe en jaune (effacez-la pour revenir à la mesure).";
-                case Screen.Race:
-                    return "Les arrêts des autres voitures sont repérés au temps perdu : LMU n'écrit ni leur carburant, ni leur énergie, ni leurs pneus. Un arrêt coûte au moins 40 s ; en dessous, c'est du temps perdu en piste (sortie, contact, trafic).\n" +
-                           "« Où le temps est parti » décompose l'écart avec la voiture de référence (clic sur une ligne pour en changer) ; les constats comparent notre voiture aux premiers de la catégorie.";
+                    return "Préparation : l'énergie d'abord, le plein à chaque arrêt et le complément au dernier. Glissez un arrêt (carré jaune) pour le déplacer ; glissez un pilote sur un relais, ou cliquez le relais. Chaque arrêt se règle sur sa carte : le niveau d'énergie voulu à la sortie des stands et les pneus.\n" +
+                           "Analyse de course : une course réelle face au plan, puis toutes les voitures. Données mesurées : une valeur saisie passe en jaune ; effacez-la pour revenir à la mesure.";
                 case Screen.Analysis:
-                    return "Cochez ou décochez des tours : les statistiques et les couleurs se recalculent pour chaque pilote. « Rythme » coche les tours représentatifs.\n" +
-                           "Double-clic sur un tour : sa télémétrie. Au survol du temps théorique et des invalides : le détail. Repères et couleurs ci-dessous.";
+                    if (_state.RaceTab)
+                        return "Prévu / réel : le plan de l'équipe pour ce circuit face à la course ; un arrêt réel est aussi large que le temps qu'il a coûté. Les arrêts des autres voitures sont repérés au temps perdu (40 s ou plus) : LMU n'écrit ni leur énergie ni leurs pneus.\n" +
+                               "Toutes les voitures : clic sur une ligne pour en faire la référence de « Où le temps est parti » ; les cases choisissent les voitures de la courbe d'écarts (plus bas = plus loin du premier).";
+                    return "Cochez ou décochez des tours : les statistiques se recalculent. « Rythme » coche les tours représentatifs. ▾ replie les statistiques ou le tableau.\n" +
+                           "Double-clic sur un tour : sa télémétrie. Au survol du théorique, des invalides et des arrêts : le détail. Repères et couleurs ci-dessous.";
                 default:
                     if (_state.Tab == CircuitTab.Progress)
-                        return "Meilleur tour de chaque séance, plus bas = plus rapide ; l'étoile marque le record, l'anneau doré une session commune.\n" +
-                               "Clic sur un point : sélectionné chez tous les pilotes. Double-clic : l'analyse de la session. Δ précédente : écart avec la séance précédente du même pilote.";
+                        return "Les séances de chaque pilote sur ce circuit, la plus récente en haut ; Δ : écart avec sa séance précédente. Clic : la séance ressort chez tous ; double-clic : son analyse.\n" +
+                               "« Courbe » affiche le meilleur tour de chaque séance (plus bas = plus rapide, ★ = record, anneau doré = séance commune).";
                     if (_state.Tab == CircuitTab.Telemetry)
-                        return "Jusqu'à 4 tours superposés ; le premier sert de référence pour l'écart (une courbe qui monte = du temps perdu).\n" +
+                        return "Jusqu'à 4 tours superposés ; le premier sert de référence pour l'écart (une courbe qui monte = du temps perdu). Les valeurs sous la souris s'affichent au-dessus des courbes.\n" +
                                "Courbes : molette pour zoomer, glisser pour se déplacer, double-clic pour revoir le tour. Carte : clic sur un virage pour zoomer, ⤢ pour l'agrandir. Anneau rouge : début de freinage, anneau vert : remise des gaz.";
-                    return "Les trois virages où travailler, classés par temps à gagner. Chaque virage est découpé en freinage, corde et sortie ; la phase qui coûte le plus est expliquée par la mesure qui diffère le plus.\n" +
-                           "« Comparer à » : ton meilleur passage, un coéquipier ou le meilleur de l'équipe. Seuls les écarts qui se répètent sur plusieurs tours comptent.";
+                    return "Le tour idéal met bout à bout le meilleur passage de l'équipe dans chaque virage ; il est le même pour tous. Le passage habituel du pilote choisi (40 tours récents et 10 plus rapides) y est comparé virage par virage.\n" +
+                           "Chaque virage est découpé en freinage, corde et sortie : la phase qui coûte le plus est expliquée par les mesures qui diffèrent. Un virage irrégulier devient une priorité de régularité.";
             }
         }
 

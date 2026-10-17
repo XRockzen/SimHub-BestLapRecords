@@ -31,7 +31,7 @@
                 <Setter Property="Padding"      Value="12,9"/>
                 <Setter Property="Margin"       Value="0,0,8,8"/>
                 <Setter Property="Width"        Value="214"/>
-                <Setter Property="Height"       Value="120"/>
+                <Setter Property="Height"       Value="104"/>
                 <Setter Property="VerticalAlignment" Value="Top"/>
             </Style>
             <Style x:Key="BlockTitle" TargetType="TextBlock">
@@ -66,26 +66,23 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*" MinHeight="140"/>
+            <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- ═══ 1. Session card ═══════════════════════════════════════════ -->
-        <Border Grid.Row="0" Background="#0DFFFFFF" CornerRadius="8" Padding="14,10,14,4" Margin="0,0,0,12">
+        <!-- ═══ 1. Session card: car and team on one line, then the key figures ═══ -->
+        <Border Grid.Row="0" Background="#0DFFFFFF" CornerRadius="8" Padding="14,10,14,4" Margin="0,0,0,10">
             <StackPanel>
-                <DockPanel>
-                    <TextBlock x:Name="TxtDate" DockPanel.Dock="Right" FontSize="12" Foreground="#99FFFFFF"
-                               VerticalAlignment="Center" Margin="12,0,0,0"/>
+                <DockPanel Margin="0,0,0,8">
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                        <WrapPanel x:Name="SimBadges" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock x:Name="TxtDate" FontSize="12" Foreground="#99FFFFFF" VerticalAlignment="Center"/>
+                    </StackPanel>
                     <Border x:Name="BadgeClass" CornerRadius="3" Padding="6,2" Margin="0,0,10,0" VerticalAlignment="Center">
                         <TextBlock x:Name="TxtClass" FontSize="11" FontWeight="Bold" Foreground="White"/>
                     </Border>
-                    <TextBlock x:Name="TxtCar" FontSize="16" FontWeight="SemiBold" Foreground="White"
+                    <TextBlock x:Name="TxtCar" FontSize="15" FontWeight="SemiBold" Foreground="White"
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                 </DockPanel>
-                <WrapPanel Margin="0,5,0,10">
-                    <TextBlock x:Name="TxtTeam" FontSize="12" Foreground="#99FFFFFF" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                    <WrapPanel x:Name="SimBadges" VerticalAlignment="Center"/>
-                    <TextBlock x:Name="TxtLive" FontSize="12" Foreground="#99FFFFFF" VerticalAlignment="Center" Margin="6,0,0,0"/>
-                </WrapPanel>
                 <UniformGrid x:Name="KpiGridPanel" Rows="1" SizeChanged="KpiGridPanel_SizeChanged">
                     <StackPanel x:Name="KpiFinishBox" Style="{StaticResource KpiBox}">
                         <TextBlock Style="{StaticResource KpiLbl}" Text="ARRIVÉE"/>
@@ -96,18 +93,14 @@
                         <TextBlock x:Name="KpiGrid" Style="{StaticResource KpiVal}"/>
                     </StackPanel>
                     <StackPanel Style="{StaticResource KpiBox}">
-                        <TextBlock Style="{StaticResource KpiLbl}" Text="MEILLEUR TOUR"/>
+                        <TextBlock Style="{StaticResource KpiLbl}" Text="MEILLEUR"/>
                         <TextBlock x:Name="KpiBest" Style="{StaticResource KpiVal}" Foreground="#FF66BB6A"/>
                     </StackPanel>
                     <StackPanel x:Name="KpiTheoBox" Style="{StaticResource KpiBox}" Background="Transparent" Cursor="Help"
                                 ToolTipService.InitialShowDelay="150" ToolTipService.ShowDuration="30000">
-                        <TextBlock Style="{StaticResource KpiLbl}" Text="THÉORIQUE ⓘ"/>
+                        <TextBlock Style="{StaticResource KpiLbl}" Text="THÉORIQUE"/>
                         <TextBlock x:Name="KpiTheo" Style="{StaticResource KpiVal}" Foreground="#FF90CAF9"
                                    TextDecorations="Underline"/>
-                    </StackPanel>
-                    <StackPanel Style="{StaticResource KpiBox}">
-                        <TextBlock Style="{StaticResource KpiLbl}" Text="VITESSE MAX"/>
-                        <TextBlock x:Name="KpiTop" Style="{StaticResource KpiVal}"/>
                     </StackPanel>
                     <StackPanel Style="{StaticResource KpiBox}">
                         <TextBlock Style="{StaticResource KpiLbl}" Text="TOURS"/>
@@ -123,84 +116,84 @@
                     </StackPanel>
                     <StackPanel x:Name="KpiInvalidBox" Style="{StaticResource KpiBox}" Background="Transparent" Cursor="Help"
                                 ToolTipService.InitialShowDelay="150" ToolTipService.ShowDuration="30000">
-                        <TextBlock Style="{StaticResource KpiLbl}" Text="INVALIDES ⓘ"/>
+                        <TextBlock Style="{StaticResource KpiLbl}" Text="INVALIDES"/>
                         <TextBlock x:Name="KpiInvalid" Style="{StaticResource KpiVal}" Foreground="#FFEF9A9A"/>
                     </StackPanel>
                 </UniformGrid>
             </StackPanel>
         </Border>
 
-        <!-- ═══ 2. Analysis of the checked laps ═══════════════════════════ -->
-        <DockPanel Grid.Row="1" Margin="0,0,0,6">
-            <TextBlock x:Name="TxtSelSummary" DockPanel.Dock="Right" FontSize="12" Foreground="#99FFFFFF" VerticalAlignment="Center"/>
-            <TextBlock Style="{StaticResource SectionTitle}" Text="Analyse des tours sélectionnés"/>
-        </DockPanel>
+        <!-- ═══ 2. Statistics of the checked laps (folds away) ════════════ -->
+        <Border Grid.Row="1" x:Name="StatsHeader" Background="Transparent" Cursor="Hand" Margin="0,0,0,6"
+                MouseLeftButtonDown="StatsHeader_Click" ToolTip="Replier ou déplier les statistiques">
+            <DockPanel>
+                <TextBlock x:Name="TxtSelSummary" DockPanel.Dock="Right" FontSize="12" Foreground="#99FFFFFF" VerticalAlignment="Center"/>
+                <TextBlock x:Name="TxtStatsTitle" Style="{StaticResource SectionTitle}" Text="▾  Statistiques"/>
+            </DockPanel>
+        </Border>
 
-        <StackPanel Grid.Row="2" Margin="0,0,0,8">
-            <WrapPanel>
-                <Border Style="{StaticResource AnaBlock}"><StackPanel>
-                    <TextBlock Style="{StaticResource BlockTitle}" Text="RYTHME (moyenne)"/>
-                    <TextBlock x:Name="TxtStAvg" Style="{StaticResource BlockBig}"/>
-                    <TextBlock x:Name="TxtStVsBest" Style="{StaticResource BlockLine}" FontWeight="SemiBold"/>
-                    <TextBlock x:Name="TxtStBestWorst" Style="{StaticResource BlockLine}"/>
-                </StackPanel></Border>
+        <WrapPanel Grid.Row="2" x:Name="StatsBody" Margin="0,0,0,8">
+            <Border Style="{StaticResource AnaBlock}"><StackPanel>
+                <TextBlock Style="{StaticResource BlockTitle}" Text="RYTHME"/>
+                <TextBlock x:Name="TxtStAvg" Style="{StaticResource BlockBig}"/>
+                <TextBlock x:Name="TxtStVsBest" Style="{StaticResource BlockLine}" FontWeight="SemiBold"/>
+                <TextBlock x:Name="TxtStBestWorst" Style="{StaticResource BlockLine}"/>
+            </StackPanel></Border>
 
-                <Border Style="{StaticResource AnaBlock}"><StackPanel>
-                    <TextBlock Style="{StaticResource BlockTitle}" Text="RÉGULARITÉ"
-                               ToolTip="Écart-type des tours sélectionnés : plus il est bas, plus les tours se ressemblent"/>
-                    <TextBlock x:Name="TxtStSigma" Style="{StaticResource BlockBig}"/>
-                    <TextBlock x:Name="TxtStSpread" Style="{StaticResource BlockLine}"/>
-                    <TextBlock x:Name="TxtStDuree" Style="{StaticResource BlockLine}"/>
-                </StackPanel></Border>
+            <Border Style="{StaticResource AnaBlock}"><StackPanel>
+                <TextBlock Style="{StaticResource BlockTitle}" Text="RÉGULARITÉ"
+                           ToolTip="Écart-type des tours cochés : plus il est bas, plus les tours se ressemblent"/>
+                <TextBlock x:Name="TxtStSigma" Style="{StaticResource BlockBig}"/>
+                <TextBlock x:Name="TxtStSpread" Style="{StaticResource BlockLine}"/>
+            </StackPanel></Border>
 
-                <Border x:Name="StatsFuelPanel" Style="{StaticResource AnaBlock}"><StackPanel>
-                    <TextBlock Style="{StaticResource BlockTitle}" Text="CARBURANT"/>
-                    <TextBlock x:Name="TxtStFuelAvg" Style="{StaticResource BlockBig}"/>
-                    <TextBlock x:Name="TxtStFuelTot" Style="{StaticResource BlockLine}"/>
-                    <TextBlock x:Name="TxtStFuelLaps" Style="{StaticResource BlockLine}" TextWrapping="Wrap" TextTrimming="None"/>
-                </StackPanel></Border>
+            <Border x:Name="StatsFuelPanel" Style="{StaticResource AnaBlock}"><StackPanel>
+                <TextBlock Style="{StaticResource BlockTitle}" Text="CARBURANT"/>
+                <TextBlock x:Name="TxtStFuelAvg" Style="{StaticResource BlockBig}"/>
+            </StackPanel></Border>
 
-                <Border x:Name="StatsVePanel" Style="{StaticResource AnaBlock}"><StackPanel>
-                    <TextBlock Style="{StaticResource BlockTitle}" Text="ÉNERGIE VIRTUELLE"/>
-                    <TextBlock x:Name="TxtStVeAvg" Style="{StaticResource BlockBig}"/>
-                    <TextBlock x:Name="TxtStVeTot" Style="{StaticResource BlockLine}" TextWrapping="Wrap" TextTrimming="None"/>
-                </StackPanel></Border>
+            <Border x:Name="StatsVePanel" Style="{StaticResource AnaBlock}"><StackPanel>
+                <TextBlock Style="{StaticResource BlockTitle}" Text="ÉNERGIE VIRTUELLE"/>
+                <TextBlock x:Name="TxtStVeAvg" Style="{StaticResource BlockBig}"/>
+                <TextBlock x:Name="TxtStVeTot" Style="{StaticResource BlockLine}"/>
+            </StackPanel></Border>
 
-                <Border x:Name="StatsTirePanel" Style="{StaticResource AnaBlock}"><StackPanel>
-                    <TextBlock Style="{StaticResource BlockTitle}" Text="USURE PNEUS PAR TOUR"/>
-                    <Grid Margin="0,2,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition/><ColumnDefinition/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition/><RowDefinition/>
-                        </Grid.RowDefinitions>
-                        <TextBlock x:Name="TxtStTireFL" Grid.Row="0" Grid.Column="0" Style="{StaticResource BlockLine}"/>
-                        <TextBlock x:Name="TxtStTireFR" Grid.Row="0" Grid.Column="1" Style="{StaticResource BlockLine}"/>
-                        <TextBlock x:Name="TxtStTireRL" Grid.Row="1" Grid.Column="0" Style="{StaticResource BlockLine}"/>
-                        <TextBlock x:Name="TxtStTireRR" Grid.Row="1" Grid.Column="1" Style="{StaticResource BlockLine}"/>
-                    </Grid>
-                </StackPanel></Border>
+            <!-- The four tyres seen from above: wear per lap, the warmer the more worn -->
+            <Border x:Name="StatsTirePanel" Style="{StaticResource AnaBlock}"><DockPanel>
+                <TextBlock DockPanel.Dock="Top" Style="{StaticResource BlockTitle}" Text="USURE PAR TOUR"/>
+                <Grid HorizontalAlignment="Center" Margin="0,2,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="58"/><ColumnDefinition Width="22"/><ColumnDefinition Width="58"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="30"/><RowDefinition Height="8"/><RowDefinition Height="30"/>
+                    </Grid.RowDefinitions>
+                    <Border Grid.Column="1" Grid.RowSpan="3" Width="10" Background="#22FFFFFF" CornerRadius="3"/>
+                    <Border x:Name="SqFL" Grid.Row="0" Grid.Column="0" CornerRadius="4" ToolTip="Avant gauche">
+                        <TextBlock x:Name="TxtStTireFL" FontSize="12.5" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <Border x:Name="SqFR" Grid.Row="0" Grid.Column="2" CornerRadius="4" ToolTip="Avant droit">
+                        <TextBlock x:Name="TxtStTireFR" FontSize="12.5" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <Border x:Name="SqRL" Grid.Row="2" Grid.Column="0" CornerRadius="4" ToolTip="Arrière gauche">
+                        <TextBlock x:Name="TxtStTireRL" FontSize="12.5" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <Border x:Name="SqRR" Grid.Row="2" Grid.Column="2" CornerRadius="4" ToolTip="Arrière droit">
+                        <TextBlock x:Name="TxtStTireRR" FontSize="12.5" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </Grid>
+            </DockPanel></Border>
 
-                <!-- Two blocks wide; its height is set from the longest stop list of all drivers -->
-                <Border x:Name="StatsPitPanel" Style="{StaticResource AnaBlock}" Width="436"><StackPanel>
-                    <TextBlock Style="{StaticResource BlockTitle}" Text="ARRÊTS AUX STANDS"/>
-                    <ItemsControl x:Name="StatsPitList">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <StackPanel Margin="0,2,0,3">
-                                    <TextBlock Text="{Binding Title}" FontSize="12.5" FontWeight="SemiBold" Foreground="White"/>
-                                    <TextBlock Text="{Binding Detail}" Style="{StaticResource BlockLine}" Margin="0,1,0,0"/>
-                                </StackPanel>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel></Border>
-            </WrapPanel>
-            <TextBlock x:Name="TxtNoLiveHint" FontSize="12" Foreground="#80FFFFFF" FontStyle="Italic" TextWrapping="Wrap"
-                       Text="ⓘ Carburant et pneus non capturés pour cette session"
-                       ToolTip="Ces données sont capturées en direct : roulez avec SimHub ouvert pour les obtenir."/>
-        </StackPanel>
+            <!-- Stops along the session: one mark per stop, as wide as the time it cost -->
+            <Border x:Name="StatsPitPanel" Style="{StaticResource AnaBlock}" Width="436"><DockPanel>
+                <DockPanel DockPanel.Dock="Top">
+                    <TextBlock x:Name="TxtPitSummary" DockPanel.Dock="Right" FontSize="12" Foreground="#C8FFFFFF"/>
+                    <TextBlock Style="{StaticResource BlockTitle}" Text="ARRÊTS"/>
+                </DockPanel>
+                <Canvas x:Name="PitStrip" Height="54" Margin="0,6,0,0" ClipToBounds="False" Background="Transparent"
+                        SizeChanged="PitStrip_SizeChanged"/>
+            </DockPanel></Border>
+        </WrapPanel>
 
         <!-- ═══ 3. Lap table, with its selection toolbar right above it ════ -->
         <Border Grid.Row="3" Background="#10FFFFFF" CornerRadius="6,6,0,0" Padding="10,6">
@@ -212,11 +205,12 @@
                     <Button Style="{StaticResource SmallBtn}" Click="BtnAll_Click">Tout</Button>
                     <Button Style="{StaticResource SmallBtn}" Click="BtnNone_Click" Margin="0">Aucun</Button>
                 </StackPanel>
-                <TextBlock Style="{StaticResource SectionTitle}" Text="Tour par tour"/>
+                <TextBlock x:Name="TxtLapsTitle" Style="{StaticResource SectionTitle}" Text="▾  Tour par tour" Cursor="Hand"
+                           MouseLeftButtonDown="LapsHeader_Click" ToolTip="Replier ou déplier le tableau"/>
             </DockPanel>
         </Border>
 
-        <DataGrid x:Name="LapGrid" Grid.Row="4" Style="{StaticResource GridBase}"
+        <DataGrid x:Name="LapGrid" Grid.Row="4" Style="{StaticResource GridBase}" VerticalAlignment="Top"
                   IsReadOnly="False" CanUserSortColumns="False">
             <DataGrid.RowStyle>
                 <Style TargetType="DataGridRow">

@@ -189,6 +189,15 @@
                 <TextBlock x:Name="TxtHelp" FontSize="12.5" Foreground="#E6FFFFFF" TextWrapping="Wrap" LineHeight="19"/>
             </Border>
             <WrapPanel x:Name="ClassFilterBar"/>
+            <DockPanel>
+            <Button x:Name="BtnChart" DockPanel.Dock="Right" Style="{StaticResource SmallBtn}" Click="BtnChart_Click" VerticalAlignment="Center"
+                    ToolTip="Afficher ou masquer la courbe du meilleur tour de chaque séance" Visibility="Collapsed">Courbe</Button>
+            <StackPanel x:Name="AnalysisTabs" Orientation="Horizontal" Margin="0,0,0,2" Visibility="Collapsed">
+                <Button x:Name="BtnAtLaps" Style="{StaticResource TabBtn}" Click="AnalysisTab_Click" Tag="Laps"
+                        ToolTip="Les tours de chaque pilote">Tours</Button>
+                <Button x:Name="BtnAtRace" Style="{StaticResource TabBtn}" Click="AnalysisTab_Click" Tag="Race"
+                        ToolTip="La course de la voiture : face au plan, et face à toutes les autres voitures">Course</Button>
+            </StackPanel>
             <StackPanel x:Name="CircuitTabs" Orientation="Horizontal" Margin="0,0,0,2">
                 <Button x:Name="BtnCtProgress"  Style="{StaticResource TabBtn}" Click="CircuitTab_Click" Tag="Progress"
                         ToolTip="Meilleur tour de chaque pilote, session après session">Progression</Button>
@@ -197,6 +206,7 @@
                 <Button x:Name="BtnCtWork"      Style="{StaticResource TabBtn}" Click="CircuitTab_Click" Tag="Work"
                         ToolTip="Les virages où travailler en priorité">Plan de travail</Button>
             </StackPanel>
+            </DockPanel>
             <Border x:Name="ProgressChartPanel" Background="#0DFFFFFF" CornerRadius="8" Padding="10,8" Margin="0,4,0,0">
                 <StackPanel>
                     <TextBlock Text="Meilleur tour par session" FontSize="13" FontWeight="SemiBold" Foreground="#E6FFFFFF" Margin="0,0,0,4"

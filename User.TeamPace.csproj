@@ -108,6 +108,7 @@
     <Compile Include="StrategyEngine.cs" />
     <Compile Include="StrategyView.cs" />
     <Compile Include="StrategyReview.cs" />
+    <Compile Include="RaceReviewView.cs" />
     <Compile Include="RaceField.cs" />
     <Compile Include="TeamRaceStore.cs" />
     <Compile Include="PluginIcon.cs" />

@@ -265,8 +265,7 @@ namespace User.TeamPace
             _map.InvalidateVisual();
             if (_toggles.Children.Count > 0) { BuildToggles(); _chart.SetVisible(VisibleList()); }
             _btnLarge.Content = _large ? "⤡ Réduire" : "⤢ Agrandir";
-            _mapHint.Text = _large ? "Carte  ·  clic sur un virage : zoom  ·  molette : zoom avant / arrière"
-                                   : "Carte  ·  clic : zoom sur un virage";
+            _mapHint.Text = "Carte";
         }
 
         private void ZoomOnCorner(double dist)
@@ -293,12 +292,6 @@ namespace User.TeamPace
                 cb.Unchecked += (s, e) => { Visible.Remove(channel); _chart.SetVisible(VisibleList()); };
                 _toggles.Children.Add(cb);
             }
-            _toggles.Children.Add(new TextBlock
-            {
-                Text = "courbes : molette pour zoomer, glisser pour se déplacer, double-clic pour revoir le tour",
-                FontSize = 11.5, Foreground = new SolidColorBrush(Color.FromArgb(128, 255, 255, 255)),
-                VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0),
-            });
         }
 
         private static List<TeleChannel> VisibleList()
@@ -677,7 +670,7 @@ namespace User.TeamPace
             var bg = new Border { Background = new SolidColorBrush(Color.FromArgb(13, 255, 255, 255)), CornerRadius = new CornerRadius(6) };
             Grid.SetColumnSpan(bg, 9); Grid.SetRowSpan(bg, live.Count + 1);
             _readout.Children.Add(bg);
-            AddCell(new TextBlock { Text = cursor ? string.Format(Inv, "À {0:0} m", dist) : "Survolez les courbes : les valeurs s'affichent ici",
+            AddCell(new TextBlock { Text = cursor ? string.Format(Inv, "À {0:0} m", dist) : "Sous la souris",
                                     FontSize = 12, Foreground = cursor ? Brushes.White : muted, FontWeight = cursor ? FontWeights.SemiBold : FontWeights.Normal }, 0, 0);
             for (int c = 0; c < ReadoutHeads.Length; c++)
                 AddCell(new TextBlock { Text = ReadoutHeads[c], FontSize = 11.5, Foreground = muted, HorizontalAlignment = HorizontalAlignment.Right }, 0, c + 1);

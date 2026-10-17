@@ -131,10 +131,20 @@ namespace User.TeamPace
                 common.Click += (s, e) => { _commonOnly = !_commonOnly; _shown = PageSize; Refresh(); };
                 _filters.Children.Add(common);
             }
-            var sim = Ui.Button("Sim complète", "Seulement les sessions avec dégâts, carburant et usure réalistes");
-            Ui.SetOn(sim, _simOnly);
-            sim.Click += (s, e) => { _simOnly = !_simOnly; _shown = PageSize; Refresh(); };
-            _filters.Children.Add(sim);
+            // Rare filters in a small menu
+            var more = Ui.Button(_simOnly ? "⋯ sim complète" : "⋯", "Autres filtres");
+            Ui.SetOn(more, _simOnly);
+            more.Click += (s, e) =>
+            {
+                var menu = new ContextMenu();
+                var item = new MenuItem { Header = "Seulement les sessions en simulation complète", IsCheckable = true, IsChecked = _simOnly,
+                                          ToolTip = "Dégâts, carburant et usure réalistes" };
+                item.Click += (a2, b2) => { _simOnly = !_simOnly; _shown = PageSize; Refresh(); };
+                menu.Items.Add(item);
+                menu.PlacementTarget = more;
+                menu.IsOpen = true;
+            };
+            _filters.Children.Add(more);
 
             if (emptyCount > 0 || _showEmpty)
             {

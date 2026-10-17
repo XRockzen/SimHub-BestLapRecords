@@ -1,6 +1,7 @@
 ﻿<UserControl x:Class="User.TeamPace.SessionListColumn"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:User.TeamPace">
     <UserControl.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
@@ -29,7 +30,8 @@
                             <TextBlock Text="{Binding Label}" FontSize="10.5" Foreground="#8CFFFFFF" Margin="0,0,0,2"/>
                             <TextBlock Text="{Binding Value}" FontSize="16" FontWeight="SemiBold" Foreground="{Binding Color}"
                                        TextTrimming="CharacterEllipsis"/>
-                            <TextBlock Text="{Binding Detail}" FontSize="11.5" Foreground="#99FFFFFF" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Text="{Binding Detail}" FontSize="11.5" Foreground="#99FFFFFF" TextTrimming="CharacterEllipsis"
+                                       Visibility="{Binding Detail, Converter={x:Static local:VisibleWhenNotEmptyConverter.Instance}}"/>
                         </StackPanel>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>

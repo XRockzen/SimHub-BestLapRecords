@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -30,13 +31,39 @@ namespace User.TeamPace
 
         public IList<AnalysisLapRow> Rows { get { return _rows; } }
 
+        // Folded groups, the same for every column and kept while browsing
+        private static bool _statsOpen = true, _lapsOpen = true;
+        private static event Action Folded;
+
         public AnalysisColumn(DriverView driver, LmuSessionRecord session)
         {
             Driver  = driver;
             Session = session;
             InitializeComponent();
             LapGrid.MouseDoubleClick += LapGrid_MouseDoubleClick;
+            Loaded   += (s, e) => { Folded += ApplyFolds; ApplyFolds(); };
+            Unloaded += (s, e) => Folded -= ApplyFolds;
             Build();
+        }
+
+        private void StatsHeader_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            _statsOpen = !_statsOpen;
+            var h = Folded; if (h != null) h();
+        }
+
+        private void LapsHeader_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            _lapsOpen = !_lapsOpen;
+            var h = Folded; if (h != null) h();
+        }
+
+        private void ApplyFolds()
+        {
+            StatsBody.Visibility = _statsOpen ? Visibility.Visible : Visibility.Collapsed;
+            TxtStatsTitle.Text = (_statsOpen ? "▾" : "▸") + "  Statistiques";
+            LapGrid.Visibility = _lapsOpen ? Visibility.Visible : Visibility.Collapsed;
+            TxtLapsTitle.Text = (_lapsOpen ? "▾" : "▸") + "  Tour par tour";
         }
 
         private void LapGrid_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -62,14 +89,10 @@ namespace User.TeamPace
             BadgeClass.BorderBrush = Brush(LmuCategoryStyle.GetBorder(cls));
             BadgeClass.BorderThickness = LmuCategoryStyle.GetBorderThickness(cls) == "1" ? new Thickness(1) : new Thickness(0);
             TxtClass.Text = LmuCategoryStyle.GetShortName(cls);
-            TxtCar.Text   = r.CarType ?? "";
-            TxtTeam.Text  = r.TeamName ?? "";
+            TxtCar.Text   = (r.CarType ?? "") + (string.IsNullOrEmpty(r.TeamName) ? "" : "  ·  " + r.TeamName.Trim());
             if (!string.IsNullOrEmpty(r.TeamDrivers))
-            {
                 // Shared car: this column holds this driver's laps, the result is the car's
-                TxtTeam.Text += "   ·   équipage : " + r.TeamDrivers + " tours";
-                TxtTeam.ToolTip = string.Format("Voiture partagée : {0} tours au total. Cette colonne ne montre que les tours de ce pilote ; la position est celle de la voiture.", r.CarLaps);
-            }
+                TxtCar.ToolTip = string.Format("Équipage : {0} tours\nLa voiture a fait {1} tours ; cette colonne ne montre que ceux de ce pilote, la position est celle de la voiture.", r.TeamDrivers, r.CarLaps);
             TxtDate.Text  = r.SessionDate != DateTime.MinValue
                 ? r.SessionDate.ToString("ddd d MMM yyyy · HH:mm", CultureInfo.GetCultureInfo("fr-FR")) : "";
 
@@ -85,8 +108,10 @@ namespace User.TeamPace
                 : r.IncidentCount.ToString();
 
             SimBadges.Children.Clear();
-            AddBadge(r.IsFullSim ? "SIM COMPLÈTE" : "ARCADE", r.IsFullSim ? "#CC1565B0" : "#CC666666");
-            AddBadge(r.Setting == "Multiplayer" ? "MULTI" : "SOLO", r.Setting == "Multiplayer" ? "#CC8B5523" : "#CC2E7D32");
+            AddBadge(r.IsFullSim ? "SIM" : "ARCADE", r.IsFullSim ? "#991565B0" : "#99666666",
+                     r.IsFullSim ? "Simulation complète : dégâts, carburant et usure réalistes" : "Dégâts, carburant ou usure réduits");
+            AddBadge(r.Setting == "Multiplayer" ? "MULTI" : "SOLO", r.Setting == "Multiplayer" ? "#998B5523" : "#992E7D32",
+                     r.Setting == "Multiplayer" ? "Course en ligne" : "Hors ligne");
 
             var laps = LmuSessionStore.GetLapsForSession(r.FileId, Driver.DbPath);
             int liveMatched = MergeLiveData(r, laps, Driver.DbPath);
@@ -106,7 +131,6 @@ namespace User.TeamPace
             bool hasTheo = b1 < float.MaxValue && b2 < float.MaxValue && b3 < float.MaxValue;
             if (hasTheo) theo = b1 + b2 + b3;
             KpiTheo.Text = theo > 0 ? Fmt.LapSec(theo) : "—";
-            KpiTop.Text  = top > 0 ? string.Format(Inv, "{0:0} km/h", top) : "—";
             KpiTheoBox.ToolTip = hasTheo
                 ? string.Format(Inv,
                     "Meilleurs secteurs des tours valides\n\nS1   {0}   tour {1}\nS2   {2}   tour {3}\nS3   {4}   tour {5}\n\nThéorique   {6}",
@@ -165,9 +189,11 @@ namespace User.TeamPace
                 if (row.IsPitLap) { HasPits = true; PitCount++; }
             }
             ShowRaceControlSummary();
-            TxtLive.Text = liveMatched > 0
-                ? string.Format(Inv, "● capture directe : {0} tour(s)", liveMatched)
-                : "";
+            // A shared car's result counts the car's stops: this column shows the driver's own
+            if (!string.IsNullOrEmpty(r.TeamDrivers)) KpiPits.Text = PitCount.ToString();
+            TxtDate.ToolTip = liveMatched > 0
+                ? string.Format(Inv, "Capture directe SimHub : {0} tour(s) (carburant, usure, arrêts)", liveMatched)
+                : "Pas de capture directe : SimHub n'était pas ouvert pendant la session";
             SetOptionalBlocks(HasFuel, HasVe, HasTyres, HasPits);
 
             Recalc();
@@ -182,10 +208,7 @@ namespace User.TeamPace
             LapGrid.Height = Math.Max(260, height);
         }
 
-        public void SetPitBlockStops(int stops)
-        {
-            StatsPitPanel.Height = Math.Max(120, 36 + Math.Max(1, stops) * 41);
-        }
+        public void SetPitBlockStops(int stops) { }
 
         /// <summary>Invalidated-lap counter, with the race-control breakdown on hover.</summary>
         private void ShowRaceControlSummary()
@@ -244,7 +267,6 @@ namespace User.TeamPace
             ColFuelLeft.Visibility    = fuel  ? Visibility.Visible : Visibility.Collapsed;
             ColVe.Visibility          = ve    ? Visibility.Visible : Visibility.Collapsed;
             ColWear.Visibility        = tyres ? Visibility.Visible : Visibility.Collapsed;
-            TxtNoLiveHint.Visibility  = fuel && tyres ? Visibility.Collapsed : Visibility.Visible;
         }
 
         private static string Pos(int cls, int overall)
@@ -255,7 +277,7 @@ namespace User.TeamPace
             return "—";
         }
 
-        private void AddBadge(string text, string bg)
+        private void AddBadge(string text, string bg, string tip)
         {
             var b = new Border
             {
@@ -265,6 +287,7 @@ namespace User.TeamPace
                 Background   = Brush(bg),
             };
             b.Child = new TextBlock { Text = text, FontSize = 9, FontWeight = FontWeights.Bold, Foreground = Brushes.White };
+            b.ToolTip = tip;
             SimBadges.Children.Add(b);
         }
 
@@ -366,29 +389,24 @@ namespace User.TeamPace
                 double sigma = cnt > 1 ? Math.Sqrt(sq / (cnt - 1)) : 0;
 
                 TxtStAvg.Text       = Fmt.Lap(TimeSpan.FromTicks(AverageTicks));
-                TxtStBestWorst.Text = string.Format(Inv, "Meilleur {0}  ·  Pire {1}",
+                TxtStBestWorst.Text = string.Format(Inv, "{0}  ·  {1}",
                     Fmt.Lap(TimeSpan.FromTicks(best)), Fmt.Lap(TimeSpan.FromTicks(worst)));
                 TxtStSigma.Text  = cnt > 1 ? string.Format(Inv, "± {0:0.000} s", sigma) : "—";
-                TxtStSpread.Text = "Écart meilleur / pire : " + Fmt.Seconds(TimeSpan.FromTicks(worst - best));
-                var d = TimeSpan.FromTicks(sum);
-                TxtStDuree.Text = string.Format(Inv, "{0} tour(s) · {1}", cnt,
-                    d.TotalHours >= 1 ? string.Format(Inv, "{0}h {1:00}m", (int)d.TotalHours, d.Minutes)
-                                      : string.Format(Inv, "{0}m {1:00}s", d.Minutes, d.Seconds));
+                TxtStSpread.Text = "meilleur / pire : " + Fmt.Seconds(TimeSpan.FromTicks(worst - best));
             }
             else
             {
                 TxtStAvg.Text = TxtStSigma.Text = "—";
                 TxtStBestWorst.Text = TxtStSpread.Text = "";
-                TxtStDuree.Text = "Cochez des tours dans le tableau";
             }
             UpdateVsBest();
 
             UpdateFuel(sel);
             UpdateEnergy(sel);
-            TxtStTireFL.Text = "AVG  " + WearPerLap(sel, x => x.WearLapFL);
-            TxtStTireFR.Text = "AVD  " + WearPerLap(sel, x => x.WearLapFR);
-            TxtStTireRL.Text = "ARG  " + WearPerLap(sel, x => x.WearLapRL);
-            TxtStTireRR.Text = "ARD  " + WearPerLap(sel, x => x.WearLapRR);
+            Tyre(SqFL, TxtStTireFL, WearPerLap(sel, x => x.WearLapFL));
+            Tyre(SqFR, TxtStTireFR, WearPerLap(sel, x => x.WearLapFR));
+            Tyre(SqRL, TxtStTireRL, WearPerLap(sel, x => x.WearLapRL));
+            Tyre(SqRR, TxtStTireRR, WearPerLap(sel, x => x.WearLapRR));
             UpdatePits(sel);
 
             if (StatsChanged != null) StatsChanged(this);
@@ -444,18 +462,8 @@ namespace User.TeamPace
                 if (l > 0) left = l;
             }
             string unit = litres ? "L" : "% rés.";
-            if (cnt == 0)
-            {
-                TxtStFuelAvg.Text = "—"; TxtStFuelTot.Text = TxtStFuelLaps.Text = "";
-                return;
-            }
-            float avg = tot / cnt;
-            TxtStFuelAvg.Text  = string.Format(Inv, "{0:F2} {1}/tour", avg, unit);
-            TxtStFuelTot.Text  = string.Format(Inv, "Total {0:F1} {1} sur {2} tour(s)", tot, unit, cnt);
-            TxtStFuelLaps.Text = left > 0 ? string.Format(Inv, "Autonomie ≈ {0:F1} tours", left / avg) : "";
-            if (!litres)
-                TxtStFuelLaps.Text += (TxtStFuelLaps.Text.Length > 0 ? "\n" : "") +
-                                      string.Format(Inv, "Plein ≈ {0:F1} tours", 100f / avg);
+            if (cnt == 0) { TxtStFuelAvg.Text = "—"; return; }
+            TxtStFuelAvg.Text = string.Format(Inv, "{0:F2} {1}/tour", tot / cnt, unit);
         }
 
         private void UpdateEnergy(List<AnalysisLapRow> sel)
@@ -466,14 +474,25 @@ namespace User.TeamPace
             if (cnt == 0) { TxtStVeAvg.Text = "—"; TxtStVeTot.Text = ""; return; }
             float avg = tot / cnt;
             TxtStVeAvg.Text = string.Format(Inv, "{0:F2} %/tour", avg);
-            TxtStVeTot.Text = string.Format(Inv, "Total {0:F1} %  ·  100 % ≈ {1:F1} tours", tot, 100f / avg);
+            TxtStVeTot.Text = string.Format(Inv, "100 % = {0:F1} tours", 100f / avg);
         }
 
-        private static string WearPerLap(List<AnalysisLapRow> rows, Func<AnalysisLapRow, float> wear)
+        private static double WearPerLap(List<AnalysisLapRow> rows, Func<AnalysisLapRow, float> wear)
         {
             float sum = 0f; int cnt = 0;
             foreach (var row in rows) { float w = wear(row); if (w > 0) { sum += w; cnt++; } }
-            return cnt > 0 ? string.Format(Inv, "{0:F2} %/tour", sum / cnt) : "—";
+            return cnt > 0 ? sum / cnt : double.NaN;
+        }
+
+        /// <summary>A tyre square: its wear per lap, from green (light) to red (heavy).</summary>
+        private static void Tyre(Border square, TextBlock text, double wear)
+        {
+            if (double.IsNaN(wear)) { text.Text = "—"; square.Background = new SolidColorBrush(Color.FromArgb(30, 255, 255, 255)); return; }
+            text.Text = string.Format(Inv, "{0:F2} %", wear);
+            double k = Math.Max(0, Math.Min(1, (wear - 0.3) / 0.9));   // 0.3 %/lap → green, 1.2 %/lap → red
+            var green = Color.FromRgb(0x2E, 0x7D, 0x32); var amber = Color.FromRgb(0xC7, 0x8A, 0x10); var red = Color.FromRgb(0xC6, 0x28, 0x28);
+            Func<Color, Color, double, Color> mix = (a, b, t) => Color.FromRgb((byte)(a.R + (b.R - a.R) * t), (byte)(a.G + (b.G - a.G) * t), (byte)(a.B + (b.B - a.B) * t));
+            square.Background = new SolidColorBrush(k < 0.5 ? mix(green, amber, k * 2) : mix(amber, red, (k - 0.5) * 2));
         }
 
         // Measured when captured live, otherwise estimated from lap times:
@@ -490,39 +509,78 @@ namespace User.TeamPace
             {
                 var row = _rows[i];
                 if (!row.IsPitLap) continue;
-                var title = "Tour " + row.LapNum;
+                double loss = double.NaN;
                 double inLap = Duration(row.Lap);
                 if (refSec > 0 && inLap > 0)
                 {
-                    double loss = inLap - refSec;
-                    // The out-lap counts only when it is a real lap: a return to the garage
-                    // cuts it short.
-                    double outLap = i + 1 < _rows.Count && !_rows[i + 1].IsPitLap ? Duration(_rows[i + 1].Lap) : 0;
+                    loss = inLap - refSec;
+                    // The out-lap counts only when it is a real lap that follows (a return to the
+                    // garage cuts it short; on a shared car the next lap may be another stint)
+                    bool next = i + 1 < _rows.Count && !_rows[i + 1].IsPitLap && _rows[i + 1].LapNum == row.LapNum + 1;
+                    double outLap = next ? Duration(_rows[i + 1].Lap) : 0;
                     if (outLap > refSec * 0.85) loss += outLap - refSec;
-                    title += string.Format(Inv, "   ·   temps perdu ≈ {0:+0.0;-0.0} s", loss);
                 }
-
-                var parts = new List<string>();
+                var parts = new List<string> { "Tour " + row.LapNum + (double.IsNaN(loss) ? "" : string.Format(Inv, "  ·  temps perdu ≈ {0:0.0} s", loss)) };
                 var p = row.Lap.LivePit;
                 if (p != null)
                 {
-                    parts.Add(string.Format(Inv, "voie {0:F1} s", p.LaneSec));
-                    parts.Add(string.Format(Inv, "arrêt {0:F1} s", p.StoppedSec));
+                    parts.Add(string.Format(Inv, "voie {0:F1} s  ·  arrêt {1:F1} s", p.LaneSec, p.StoppedSec));
                     if (p.FuelAddedL > 0.5) parts.Add(string.Format(Inv, "+{0:F1} L", p.FuelAddedL));
-                    if (p.TyresCount > 0)   parts.Add(p.TyresCount == 1 ? "1 pneu" : p.TyresCount + " pneus");
+                    if (p.TyresCount > 0) parts.Add(p.TyresCount == 1 ? "1 pneu" : p.TyresCount + " pneus");
                     else if (p.TyresChanged) parts.Add("pneus changés");
                 }
-                else parts.Add("détail non capturé (SimHub fermé pendant l'arrêt)");
-                items.Add(new PitItem { Title = title, Detail = string.Join("  ·  ", parts) });
+                else parts.Add("détail non capturé (SimHub fermé)");
+                items.Add(new PitItem { Lap = row.LapNum, Loss = loss, Tyres = p != null ? (p.TyresCount > 0 ? p.TyresCount : p.TyresChanged ? 4 : 0) : -1, Detail = string.Join("\n", parts) });
             }
-            if (items.Count == 0) items.Add(new PitItem { Title = "Aucun arrêt", Detail = "" });
-            StatsPitList.ItemsSource = items;
+            _pits = items;
+            double total = items.Where(x => !double.IsNaN(x.Loss)).Sum(x => x.Loss);
+            TxtPitSummary.Text = items.Count == 0 ? "aucun" : string.Format(Inv, "{0}  ·  {1:0} s perdues", items.Count, total);
+            DrawPits();
+        }
+
+        private List<PitItem> _pits = new List<PitItem>();
+
+        private void PitStrip_SizeChanged(object sender, SizeChangedEventArgs e) { DrawPits(); }
+
+        /// <summary>Laps on a line, one mark per stop (width = time lost), its lap under it; details on hover.</summary>
+        private void DrawPits()
+        {
+            PitStrip.Children.Clear();
+            double w = PitStrip.ActualWidth;
+            if (w < 20 || _rows.Count == 0) return;
+            int first = _rows[0].LapNum, last = _rows[_rows.Count - 1].LapNum;
+            double span = Math.Max(1, last - first + 1);
+            Func<double, double> X = lap => (lap - first) / span * w;
+            var axis = new System.Windows.Shapes.Rectangle { Width = w, Height = 3, Fill = new SolidColorBrush(Color.FromArgb(60, 255, 255, 255)), RadiusX = 1.5, RadiusY = 1.5 };
+            Canvas.SetTop(axis, 13);
+            PitStrip.Children.Add(axis);
+            double refSec = 0;
+            foreach (var r in _rows) if (r.IsValid && !r.IsPitLap && r.Lap.LapTimeTicks > 0) { refSec = r.Lap.LapTime.TotalSeconds; break; }
+            foreach (var p in _pits)
+            {
+                // A lap is about refSec long on this scale: the mark is as wide as the time lost
+                double width = refSec > 0 && !double.IsNaN(p.Loss) ? Math.Max(6, p.Loss / refSec * w / span) : 6;
+                var mark = new Border
+                {
+                    Width = width, Height = 20, CornerRadius = new CornerRadius(3), ToolTip = p.Detail,
+                    Background = new SolidColorBrush(Color.FromRgb(0xFF, 0xC8, 0x57)),
+                };
+                Canvas.SetLeft(mark, Math.Min(w - width, X(p.Lap)));
+                Canvas.SetTop(mark, 4);
+                PitStrip.Children.Add(mark);
+                var label = new TextBlock { Text = "T" + p.Lap, FontSize = 11, Foreground = new SolidColorBrush(Color.FromArgb(200, 255, 255, 255)) };
+                Canvas.SetLeft(label, Math.Min(w - 26, Math.Max(0, X(p.Lap) - 4)));
+                Canvas.SetTop(label, 27);
+                PitStrip.Children.Add(label);
+            }
         }
 
         public class PitItem
         {
-            public string Title  { get; set; }
-            public string Detail { get; set; }
+            public int Lap;
+            public double Loss;
+            public int Tyres;      // tyres changed, -1 unknown
+            public string Detail;
         }
 
         /// <summary>Official time, or the rebuilt one for laps LMU did not time (pit laps).</summary>

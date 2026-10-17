@@ -28,12 +28,12 @@ les courses d'endurance : un planificateur calcule les relais à partir de vos p
 | **Comparaison entre coéquipiers** | jusqu'à 4 pilotes, une couleur par pilote, leurs résultats sur la même ligne |
 | **Carrière face à face** | record de chacun par circuit et catégorie, qui mène et de combien, chiffres clés, activité semaine par semaine |
 | **Historique** | une ligne par session, les sessions courues ensemble détectées automatiquement |
-| **Progression** | courbe du meilleur tour de chaque pilote sur un circuit, session après session |
+| **Progression** | les séances de chaque pilote sur un circuit, et la courbe de son meilleur tour |
 | **Analyse tour par tour** | secteurs, écart au coéquipier sur chaque tour, carburant, énergie virtuelle, usure des pneus, arrêts aux stands |
-| **Analyse de course** | toutes les voitures d'une course : arrêts, relais, rythme, où le temps est parti face aux premiers |
+| **Analyse de course** | la course face au plan de l'équipe, arrêt par arrêt, puis toutes les voitures : arrêts, relais, rythme, où le temps est parti |
 | **Télémétrie** | n'importe quel tour de chaque pilote superposé : écart cumulé, vitesse, pédales, rapport, volant, régime, trajectoires sur la carte du circuit |
 | **Plan de travail** | les trois virages où gagner du temps, avec la phase et la mesure en cause |
-| **Stratégie** | planificateur d'endurance : relais, arrêts, carburant, pneus, à partir de vos mesures |
+| **Stratégie** | planificateur d'endurance : relais, arrêts, énergie, pneus, à partir de vos mesures, modifiable à la souris |
 | **Notifications** | records battus, victoires, sessions communes de l'équipe, en pop-up et sous la cloche |
 | **Capture en direct** | pendant que vous roulez (SimHub ouvert) : litres par tour, usure par tour, temps dans la voie des stands et à l'arrêt |
 | **Automatique** | chaque session terminée dans LMU est importée seule, serveurs privés compris |
@@ -126,15 +126,17 @@ La synchronisation démarre aussitôt. Le dossier choisi s'affiche dans les **�
 ### Se déplacer dans TeamPace
 
 Trois onglets en haut : **Carrière** (point de départ), **Historique** (toutes les sessions) et
-**Stratégie** (préparer une course d'endurance). Deux niveaux au plus en dessous :
+**Stratégie** (préparer une course d'endurance et la comparer à ce qui s'est passé). En dessous :
 
-- un clic sur un circuit de la Carrière ouvre sa **page circuit** : *Progression*, *Télémétrie* et
-  *Plan de travail* ;
-- un double-clic sur une session ouvre son **analyse**, côte à côte si elle est commune.
+- un double-clic sur un circuit de la Carrière ouvre sa **page circuit** : *Progression*,
+  *Télémétrie* et *Plan de travail* ;
+- un double-clic sur une session ouvre son **analyse**, côte à côte si elle est commune, avec deux
+  onglets pour une course : *Tours* et *Course*.
 
 Pour remonter : le bouton **←**, le **fil d'Ariane** au-dessus du titre (chaque niveau est
-cliquable), le bouton « précédent » de la souris ou **Alt + ←**. Le bouton **?** en haut à droite
-déplie l'aide de l'écran en cours ; le reste des explications est dans les info-bulles.
+cliquable), le bouton « précédent » de la souris ou **Alt + ←**. Les écrans n'ont pas de texte
+d'aide : le bouton **?** en haut à droite déplie l'aide de l'écran en cours, et les info-bulles
+donnent le détail.
 
 ### Ajouter un coéquipier à l'écran
 
@@ -148,7 +150,7 @@ vous ne pouvez rien modifier chez eux, et eux rien chez vous.
 
 ![Carrière face à face](docs/images/01-carriere-comparaison.png)
 
-Les chiffres clés de chaque pilote côte à côte, puis **une ligne par circuit et catégorie** avec le
+Les chiffres clés de chaque pilote côte à côte (roulage en heures), puis **une ligne par circuit et catégorie** avec le
 record de chaque pilote sur la même ligne : un bloc teinté à sa couleur par pilote (record, voiture,
 date, temps roulé). Le plus rapide est en vert (★), l'écart des autres en rouge ; la colonne
 **Écart** indique qui mène et de combien. Les étiquettes de catégorie filtrent le tableau.
@@ -157,20 +159,18 @@ date, temps roulé). Le plus rapide est en vert (★), l'écart des autres en ro
 
 Un **clic** sur une ligne fait ressortir ce circuit dans l'activité de chaque pilote (heures par
 semaine, une couleur par circuit) ; à l'inverse, un clic sur une barre de l'activité sélectionne sa
-ligne. Un **double-clic** ouvre la page du circuit.
+ligne. Un **double-clic** ouvre la page du circuit ; pour changer de circuit, on revient à la Carrière.
 
 ### Page circuit : progression
 
 ![Progression sur un circuit](docs/images/03-progression.png)
 
-Le menu en haut à droite change de circuit sans revenir en arrière ; **Préparer une course ici**
-ouvre la stratégie déjà réglée sur ce circuit.
+Pour chaque pilote : son **record**, son **roulage**, ses **sessions** et ses **tours** sur ce
+circuit, puis ses séances, la plus récente en haut, avec l'écart à la séance précédente. Un clic
+fait ressortir la séance chez tous les pilotes ; un double-clic l'analyse.
 
-La **courbe** (bouton **📈 Graphique**, masquée par défaut) : chaque point est le meilleur tour
-d'une session, une couleur par pilote, et la ligne suit le record de chacun. **Plus c'est bas, plus c'est rapide** (★ = record, anneau doré = session
-commune). Un clic sélectionne la session dans les tableaux ; un double-clic l'analyse. Sous la
-courbe, les chiffres clés de chaque pilote : record, écart au meilleur de l'équipe, progression,
-dernière séance et temps roulé.
+Le bouton **Courbe** (à droite des onglets) affiche le meilleur tour de chaque séance : une couleur
+par pilote, **plus c'est bas, plus c'est rapide** (★ = record, anneau doré = séance commune).
 
 ### Historique
 
@@ -178,25 +178,32 @@ dernière séance et temps roulé.
 
 Une ligne par session, groupées par jour. Une session courue par plusieurs pilotes affichés n'occupe
 qu'**une ligne** (fond doré), avec le résultat de chacun dans son bloc et l'écart au milieu. Filtres :
-type de session, catégorie, circuit, **⇄ Communes uniquement** et **Sim complète**. Les sessions
+type de session (dont **Courses en équipe**), catégorie, circuit et **⇄ Communes uniquement** ; le
+menu **⋯** garde les filtres rares (simulation complète). Les sessions
 sans aucun tour chronométré sont masquées (un lien les réaffiche). Double-clic : l'analyse.
 
-### Analyse côte à côte
+### Analyse d'une session : tours
 
 ![Analyse d'une course commune](docs/images/07-analyse-cote-a-cote.png)
 
 Chaque colonne se lit de haut en bas :
 
-- la **carte de session** : voiture, équipe, et les chiffres clés (arrivée, départ, meilleur tour,
-  théorique, vitesse max, tours, arrêts, incidents, tours invalides). Au survol du **temps
-  théorique** : les trois meilleurs secteurs et le tour où chacun a été réalisé. Au survol de
-  **Invalides** : le détail des limites de piste, des contacts et des pénalités de la session ;
-- l'**analyse des tours cochés** : *Rythme* (moyenne et écart à la meilleure moyenne de l'équipe),
-  *Régularité* (écart-type), carburant, énergie virtuelle, usure des pneus et arrêts aux stands
-  avec le temps perdu, le carburant ajouté et les pneus changés ;
+- l'**en-tête** : catégorie, voiture et équipe sur une ligne (l'équipage au survol), la date ; puis
+  les chiffres clés : arrivée, départ, meilleur tour, théorique, tours, arrêts, incidents, tours
+  invalides. Au survol du **théorique** : les trois meilleurs secteurs et leur tour ; au survol des
+  **invalides** : limites de piste, contacts et pénalités ;
+- les **statistiques** des tours cochés : *Rythme* (moyenne et écart à la meilleure moyenne de
+  l'équipe), *Régularité*, *Carburant* (litres par tour), *Énergie virtuelle* (% par tour et
+  « 100 % = 30 tours »), *Usure* (les 4 pneus vus du dessus, du vert au rouge selon l'usure par
+  tour) et *Arrêts* (une frise des tours avec un repère par arrêt ; au survol : temps perdu, voie,
+  arrêt, carburant, pneus) ;
 - le **tableau tour par tour** : **Δ pilotes** donne l'écart au plus rapide de l'équipe sur chaque
   tour (★ = le plus rapide). **Rythme** coche les tours représentatifs ; cochez ou décochez des tours
   et les statistiques se recalculent. Un double-clic sur un tour ouvre sa télémétrie.
+
+**▾ Statistiques** et **▾ Tour par tour** se replient d'un clic, chez tous les pilotes à la fois :
+statistiques repliées, le tableau prend tout l'écran. Le bouton **Télémétrie →** superpose les tours
+de la séance.
 
 Le bouton **?** affiche la légende (capture ci-dessus). Les couleurs : vert = meilleur tour,
 rouge = pire tour, violet = meilleur secteur. La colonne **Info** reprend les décisions de la
@@ -222,17 +229,33 @@ l'affiche **entre parenthèses**, sans jamais le compter dans les statistiques. 
 pilote à l'arrivée, et un nouveau fichier à chaque fois qu'on rejoint la course (après un relais
 ou une déconnexion). TeamPace rassemble ces fichiers, garde la course une seule fois et donne à
 chacun **ses propres tours** (meilleur tour, rythme, arrêts), avec le résultat de la voiture. La
-carte de session indique l'équipage (par exemple *équipage : Amaury Marin 75 · Pascal Marin 51 tours*).
+carte de session donne l'équipage au survol (par exemple *Amaury Marin 75 · Pascal Marin 51 tours*).
 
 La course entière (chaque tour avec son pilote, le résultat, toutes les voitures) est aussi écrite
 dans le dossier d'équipe, sous-dossier `races` : chaque membre de l'équipage la retrouve avec ses
 propres tours, même si son TeamPace ne l'a pas importée ou est plus ancien. Dans l'**Historique**,
 une course en équipe porte le repère **ÉQUIPAGE**, et le filtre **Courses en équipe** les isole.
 
-### Analyse de course
+### Analyse d'une session : course
 
-Le bouton **Analyse de course →** d'une course ouvre son analyse dans la stratégie : face au plan,
-arrêt par arrêt, et face aux autres équipes (voir [Stratégie](#5-stratégie-dendurance)).
+L'onglet **Course** d'une course montre la course de la voiture, puis toutes les voitures, sur une
+seule page (le même bloc que dans [Stratégie › Analyse de course](#analyse-de-course)) :
+
+- **Prévu / réel** face au plan de l'équipe pour ce circuit, quand il y en a un : chiffres clés,
+  les deux frises sur la même échelle de temps, arrêt par arrêt avec le constat, et le bilan ;
+- **Où le temps est parti** face au vainqueur de la catégorie (ou à la voiture choisie d'un clic
+  sur sa ligne), et **ce qui a marché, ce qui est à revoir** face aux cinq premiers ;
+- **Toutes les voitures** : tours, rythme, arrêts, temps aux stands, relais et le déroulé de la
+  course de chacune (légende au-dessus du tableau). Les cases à cocher choisissent les voitures de la
+  courbe **d'écart au premier, tour par tour** ; *Toutes*, *Autour de nous* (les trois voitures
+  devant et derrière) ou *Aucune* en un clic.
+
+![Toutes les voitures de la catégorie](docs/images/16-analyse-de-course.png)
+
+LMU écrit les temps au tour, les positions et les changements de pilote de toutes les voitures,
+mais pas leur carburant, leur énergie ni leurs pneus. Les arrêts des autres sont donc repérés au
+temps perdu : au moins 40 s (ou moins quand LMU signale un passage aux stands ou un changement de
+pilote). Une pénalité de type stop and go compte comme un arrêt.
 
 ### Page circuit : télémétrie
 
@@ -241,7 +264,7 @@ arrêt par arrêt, et face aux autres équipes (voir [Stratégie](#5-stratégie-
 LMU enregistre toute la télémétrie de chacun de vos relais (dossier `UserData\Telemetry`).
 TeamPace en extrait chaque tour, le partage avec l'équipe par le dossier Google Drive et le
 superpose à ceux des autres pilotes. Elle s'ouvre depuis l'onglet **Télémétrie** de la page circuit,
-le bouton **Télémétrie des tours** d'une analyse, ou un **double-clic sur un tour**.
+le bouton **Télémétrie →** d'une analyse, ou un **double-clic sur un tour**.
 
 1. **Un tour par ligne**, jusqu'à 4 : pilote, séance (ou *Toutes les séances* pour choisir parmi
    les meilleurs tours du circuit) et tour. Le premier tour sert de **référence**.
@@ -275,7 +298,7 @@ choisi (son temps médian dans chaque virage) y est comparé, et il en sort **le
 travailler**, classés par temps à gagner. Chaque virage est découpé en trois phases (freinage, corde, sortie) ; la phase qui coûte le
 plus est expliquée par la mesure qui diffère le plus : point de freinage, vitesse à la corde, remise
 des gaz, vitesse de sortie, trajectoire, force G latérale, déclenchements de l'ABS et de
-l'antipatinage. Les étiquettes rouges montrent ce qui coûte, les vertes ce qui est déjà au niveau.
+l'antipatinage. Les étiquettes rouges montrent ce qui coûte ; **détail** affiche les autres mesures.
 
 - **Plan de travail de** : le pilote dont on voit les priorités. Chacun a les siennes, face au même
   tour idéal ; chaque priorité dit à qui appartient le meilleur passage du virage.
@@ -322,25 +345,8 @@ La stratégie a trois onglets : **Préparation**, **Analyse de course** et **Don
 
 ### Analyse de course
 
-Choisissez une course courue sur ce circuit (ou ouvrez-la depuis l'analyse d'une course, bouton
-**Analyse de course →**) :
-
-- **Prévu / réel** : les chiffres clés côte à côte (tours, arrêts, temps aux stands, rythme, tours
-  de chaque pilote) et les deux frises sur la même échelle de temps ; un arrêt réel y est aussi
-  large que le temps qu'il a coûté, en rouge s'il était imprévu ou trop long.
-- **Arrêt par arrêt** : chaque arrêt prévu en face de l'arrêt réel le plus proche, avec ce qui a
-  été remis et changé quand SimHub était ouvert, l'écart de temps et le constat (conforme, plus
-  long que prévu, arrêt imprévu, temps dans la voie anormal…).
-- **Bilan** : d'où viennent les tours gagnés ou perdus sur le plan.
-- **Face aux autres équipes** : l'écart avec le vainqueur de la catégorie découpé en rythme, arrêts
-  et temps perdu en piste ; **Toutes les voitures →** ouvre le détail de chaque voiture :
-
-![Toutes les voitures de la catégorie](docs/images/16-analyse-de-course.png)
-
-LMU écrit les temps au tour, les positions et les changements de pilote de toutes les voitures,
-mais pas leur carburant, leur énergie ni leurs pneus. Les arrêts des autres sont donc repérés au
-temps perdu : au moins 40 s (ou moins quand LMU signale un passage aux stands ou un changement de
-pilote). Une pénalité de type stop and go compte comme un arrêt.
+Choisissez une course courue sur ce circuit : la même page que l'onglet **Course** de son analyse
+([voir plus haut](#analyse-dune-session--course)), face au plan ouvert.
 
 ### Données mesurées
 
