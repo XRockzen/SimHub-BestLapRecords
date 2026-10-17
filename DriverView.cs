@@ -32,7 +32,12 @@ namespace User.TeamPace
         {
             get
             {
-                if (_sessions == null) _sessions = LmuSessionStore.GetAllSessions(DbPath);
+                if (_sessions == null)
+                {
+                    // Team races this driver drove in, as the crew shared them
+                    _sessions = TeamRaceStore.Complete(Name, LmuSessionStore.GetAllSessions(DbPath));
+                    _sessions.Sort((a, b) => b.SessionDate.CompareTo(a.SessionDate));
+                }
                 return _sessions;
             }
         }
@@ -88,6 +93,7 @@ namespace User.TeamPace
             if (a == null || b == null) return false;
             if (!string.Equals(a.TrackDisplayName, b.TrackDisplayName, StringComparison.OrdinalIgnoreCase)) return false;
             if (a.IsRace != b.IsRace || a.IsQuali != b.IsQuali) return false;
+            if (a.IsRace && TeamRaceStore.SameRace(a, b)) return true;
             DateTime ta, tb;
             if (a.BlockStartUtc != DateTime.MinValue && b.BlockStartUtc != DateTime.MinValue)
             {

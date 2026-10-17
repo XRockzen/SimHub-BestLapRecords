@@ -224,29 +224,15 @@ ou une déconnexion). TeamPace rassemble ces fichiers, garde la course une seule
 chacun **ses propres tours** (meilleur tour, rythme, arrêts), avec le résultat de la voiture. La
 carte de session indique l'équipage (par exemple *équipage : Amaury Marin 75 · Pascal Marin 51 tours*).
 
+La course entière (chaque tour avec son pilote, le résultat, toutes les voitures) est aussi écrite
+dans le dossier d'équipe, sous-dossier `races` : chaque membre de l'équipage la retrouve avec ses
+propres tours, même si son TeamPace ne l'a pas importée ou est plus ancien. Dans l'**Historique**,
+une course en équipe porte le repère **ÉQUIPAGE**, et le filtre **Courses en équipe** les isole.
+
 ### Analyse de course
 
-Sur l'analyse d'une course, **Analyse de course →** ouvre toutes les voitures de la course, catégorie
-par catégorie (la vôtre d'abord) :
-
-![Analyse de course : toutes les voitures de la catégorie](docs/images/16-analyse-de-course.png)
-
-- **Où le temps est parti** : l'écart avec une voiture de référence (le vainqueur de la catégorie,
-  ou la voiture de votre choix d'un clic sur sa ligne), découpé en *rythme*, *arrêts* et *temps
-  perdu en piste* (sorties, contacts, trafic) ;
-- **Ce qui a marché, ce qui est à revoir** : votre voiture comparée aux cinq premiers de la
-  catégorie (nombre d'arrêts, arrêts trop longs, longueur des relais, rythme, temps perdu en piste) ;
-- **le tableau** : pour chaque voiture, tours, rythme (tour médian), écart de rythme avec vous,
-  arrêts, temps passé aux stands, relais moyen, et le déroulé de la course : chaque arrêt y est
-  une barre aussi large que le temps qu'il a coûté, orange quand le pilote a changé ;
-- **l'écart au premier, tour par tour** : chaque marche est un arrêt, chaque pente une
-  différence de rythme.
-
-LMU écrit les temps au tour, les positions et les changements de pilote de toutes les voitures,
-mais pas leur carburant, leur énergie ni leurs pneus. Les arrêts des autres sont donc repérés au
-temps perdu : au moins 40 s (ou moins quand LMU signale un passage aux stands ou un changement de
-pilote). Une pénalité de type stop and go compte comme un arrêt. Les courses importées avant la
-version 3.5 sont relues automatiquement.
+Le bouton **Analyse de course →** d'une course ouvre son analyse dans la stratégie : face au plan,
+arrêt par arrêt, et face aux autres équipes (voir [Stratégie](#5-stratégie-dendurance)).
 
 ### Page circuit : télémétrie
 
@@ -302,32 +288,65 @@ l'antipatinage. Les étiquettes rouges montrent ce qui coûte, les vertes ce qui
 
 ## 5. Stratégie d'endurance
 
+La stratégie a trois onglets : **Préparation**, **Analyse de course** et **Données mesurées**.
+
 ![Stratégie d'endurance](docs/images/13-strategie.png)
 
-- **La course** (à gauche) : circuit et catégorie, durée, heure de départ, jeux de pneus,
-  réservoir, relais maximum et temps de conduite minimum par pilote, puis les pilotes de la course.
-- **Données de l'équipe** : mesurées sur vos sessions sur ce circuit et dans cette catégorie
-  (rythme et dégradation de chaque pilote, consommation, énergie virtuelle, usure des pneus, temps
-  aux stands, débit d'essence, changement des pneus, durée d'un train). La source de chaque valeur
-  est indiquée ; tapez une autre valeur pour la remplacer (elle passe en jaune), effacez-la pour
-  revenir à la mesure.
-- **Plan proposé** : les relais, de la durée que permettent le réservoir et l'énergie virtuelle,
-  répartis régulièrement ; les pneus sont changés quand le train arrive en fin de vie. Le menu
-  au-dessus de chaque relais choisit qui le prend (Pascal, Pascal, Amaury, Amaury…) et le plan se
-  recalcule. Sous le plan : chaque arrêt avec son tour, son heure, le carburant ajouté, les pneus,
-  le temps arrêté et le temps perdu, et les alertes (pneus insuffisants, temps de conduite minimum).
-- **Énergie de chaque arrêt** : comme dans LMU, on remet de l'**énergie virtuelle** et l'essence suit
-  (litres par % mesurés pour chaque pilote). *auto* remet juste ce qu'il faut pour le relais
-  suivant ; *plein* remet 100 % pour pousser un relais complet ; ou tapez un pourcentage (par
-  exemple 80, puis Entrée). Le temps d'arrêt et la longueur du relais suivant suivent. Sur une
-  voiture sans énergie virtuelle, la même colonne se règle en litres.
-- **Pneus de chaque arrêt** : *auto* les change quand le train arrive en fin de vie ; choisissez
-  aucun, 1, 2, 3 ou 4 pneus et le temps d'arrêt suit (2 et 4 pneus mesurés, 1 et 3 entre les deux).
-  Un choix fait à la main apparaît en jaune.
-- **Enregistrer le plan** l'écrit dans le dossier d'équipe (sous-dossier `strategy`) : chaque
+### Préparation
+
+- **La course** : circuit et catégorie, durée, heure de départ, jeux de pneus, réservoir, relais
+  maximum, temps de conduite minimum par pilote, et les pilotes de la course.
+- **Déroulé de la course** : les relais sur une frise à l'échelle du temps, une couleur par pilote,
+  avec les tours, la durée et l'état des pneus de chacun. Les relais durent ce que permettent le
+  réservoir et l'énergie virtuelle ; les pneus sont changés quand le train arrive en fin de vie.
+  - **Glisser un arrêt** (le carré jaune numéroté) vers la gauche ou la droite le déplace à un
+    autre tour ; la suite du plan se recalcule. Un relais qui dépasse l'autonomie est signalé.
+    « Remettre en automatique » sur la carte de l'arrêt annule le déplacement.
+  - **Glisser un pilote** (en haut à droite) sur un relais pour qu'il le prenne, ou cliquer sur
+    le relais pour choisir dans la liste.
+- **Une carte par arrêt** (clic sur un arrêt pour la mettre en évidence) :
+  - **Énergie** : comme dans LMU, on remet de l'**énergie virtuelle** et l'essence suit (litres
+    par % mesurés pour chaque pilote). *auto* remet juste ce qu'il faut pour le relais suivant ;
+    *plein* remet 100 % pour pousser un relais complet ; ou tapez un pourcentage (par exemple 80,
+    puis Entrée). Sur une voiture sans énergie virtuelle, la même case se règle en litres.
+  - **Pneus** : *auto*, 0, 2 ou 4 ; le temps d'arrêt suit (2 et 4 pneus mesurés).
+  - **Relais** : qui rend la voiture et qui la prend ; le temps arrêté et le temps perdu.
+- **Variantes calculées** : le même plan avec 4 pneus à chaque arrêt, sans changer de pneus, ou
+  le plein à chaque arrêt, et le temps gagné ou perdu sur la course.
+- **Courses sur ce circuit** : les courses courues dans cette catégorie, à comparer au plan.
+- **Enregistrer** écrit le plan dans le dossier d'équipe (sous-dossier `strategy`) : chaque
   coéquipier le retrouve dans **Plans de l'équipe**, avec qui l'a enregistré et quand. Un plan
   modifié puis enregistré par un coéquipier passe à son nom ; **Supprimer** le retire pour toute
   l'équipe.
+
+### Analyse de course
+
+Choisissez une course courue sur ce circuit (ou ouvrez-la depuis l'analyse d'une course, bouton
+**Analyse de course →**) :
+
+- **Prévu / réel** : les chiffres clés côte à côte (tours, arrêts, temps aux stands, rythme, tours
+  de chaque pilote) et les deux frises sur la même échelle de temps ; un arrêt réel y est aussi
+  large que le temps qu'il a coûté, en rouge s'il était imprévu ou trop long.
+- **Arrêt par arrêt** : chaque arrêt prévu en face de l'arrêt réel le plus proche, avec ce qui a
+  été remis et changé quand SimHub était ouvert, l'écart de temps et le constat (conforme, plus
+  long que prévu, arrêt imprévu, temps dans la voie anormal…).
+- **Bilan** : d'où viennent les tours gagnés ou perdus sur le plan.
+- **Face aux autres équipes** : l'écart avec le vainqueur de la catégorie découpé en rythme, arrêts
+  et temps perdu en piste ; **Toutes les voitures →** ouvre le détail de chaque voiture :
+
+![Toutes les voitures de la catégorie](docs/images/16-analyse-de-course.png)
+
+LMU écrit les temps au tour, les positions et les changements de pilote de toutes les voitures,
+mais pas leur carburant, leur énergie ni leurs pneus. Les arrêts des autres sont donc repérés au
+temps perdu : au moins 40 s (ou moins quand LMU signale un passage aux stands ou un changement de
+pilote). Une pénalité de type stop and go compte comme un arrêt.
+
+### Données mesurées
+
+Mesurées sur vos sessions sur ce circuit et dans cette catégorie : rythme et dégradation de chaque
+pilote, consommation, énergie virtuelle, usure des pneus, temps aux stands, débit d'essence,
+changement des pneus, durée d'un train. La source de chaque valeur est indiquée ; tapez une autre
+valeur pour la remplacer (elle passe en jaune), effacez-la pour revenir à la mesure.
 
 ## 6. Notifications
 
@@ -369,7 +388,7 @@ administrateur. Le lien **Vérifier les mises à jour**, en bas à droite du plu
 | Le dossier d'équipe est introuvable dans « Choisir… » | Le coéquipier doit d'abord l'**ajouter à son Drive** (étape 3.3). |
 | Pas de télémétrie pour un pilote | Il doit avoir TeamPace 2.6 ou plus et cliquer une fois sur **⟳ Tout mettre à jour**. La télémétrie de LMU doit être active (dossier `UserData\Telemetry` non vide). |
 | Rien n'arrive chez les coéquipiers (base, télémétrie, plans) | Google Drive a peut-être changé de lettre de lecteur (par exemple J: → I:) : TeamPace retrouve le dossier tout seul s'il existe sur une autre lettre. S'il reste introuvable, un ⚠ s'affiche en haut et dans les réglages : lancez Google Drive, ou choisissez de nouveau le dossier avec **📁 Choisir…**. |
-| Une course en équipe n'apparaît que chez le pilote de l'arrivée | Mettez à jour TeamPace (3.4 ou plus) chez **chaque** pilote : les courses sont relues automatiquement au démarrage suivant, puis cliquez sur **⟳ Tout mettre à jour**. |
+| Une course en équipe n'apparaît que chez le pilote de l'arrivée | Depuis la 3.7, il suffit qu'un des pilotes ait TeamPace à jour : la course est partagée dans le dossier d'équipe (`races`) et chacun y retrouve ses tours. Cliquez sur **⟳ Tout mettre à jour** chez les deux. |
 | Colonnes carburant / pneus vides | Ces valeurs sont capturées en direct : roulez avec SimHub ouvert. En ligne, LMU ne les écrit pas dans ses fichiers de résultats. |
 
 ## Pour le développeur

@@ -311,6 +311,15 @@ namespace User.TeamPace
             foreach (var lapEl in playerDriver.Elements("Lap"))
                 laps.Add(ParseLapElement(lapEl, fileId));
             session.CarLaps = laps.Count;
+            // A lap without official time lasted until the car's next lap started (kept, since
+            // a shared car's driver may not have the next lap)
+            for (int i = 0; i + 1 < laps.Count; i++)
+            {
+                var l = laps[i];
+                if (l.IsValid || l.LapTimeTicks > 0 || l.ElapsedTime < 1f) continue;
+                double sec = laps[i + 1].ElapsedTime - l.ElapsedTime;
+                if (sec > 10 && sec < 3600) l.ReconstructedTicks = TimeSpan.FromSeconds(sec).Ticks;
+            }
 
             // ── Shared car: keep the player's own laps ─────────────────────────
             string driverName = playerDriver.Element("Name").Value.Trim();
@@ -325,9 +334,11 @@ namespace User.TeamPace
                 catch (Exception ex) { SimHub.Logging.Current.Warn("[LmuXml] Race field: " + ex.Message); }
             }
 
+            var allLaps = laps;
+            Dictionary<int, string> owners = null;
             if (carNames.Count > 1)
             {
-                var owners = LapOwners(streams, carNames, laps);
+                owners = LapOwners(streams, carNames, laps);
                 if (owners != null)
                 {
                     var counts = new Dictionary<string, int>();
@@ -359,7 +370,45 @@ namespace User.TeamPace
             if (stream != null)
                 AttachStreamEvents(stream, driverName, laps);
 
+            // ── Race: the whole car, shared with the crew ──────────────────────
+            if (session.IsRace && allLaps.Count > 0)
+            {
+                try { session.Race = BuildTeamRace(session, allLaps, owners, driverName, stream); }
+                catch (Exception ex) { SimHub.Logging.Current.Warn("[LmuXml] Team race: " + ex.Message); }
+            }
+
             return true;
+        }
+
+        private static TeamRace BuildTeamRace(LmuSessionRecord session, List<LmuLapRecord> allLaps,
+                                              Dictionary<int, string> owners, string driverName, XElement stream)
+        {
+            var race = new TeamRace { Field = session.Field };
+            var byOwner = new Dictionary<string, List<LmuLapRecord>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var l in allLaps)
+            {
+                string o;
+                if (owners == null || !owners.TryGetValue(l.LapNum, out o)) o = driverName;
+                race.Laps.Add(l);
+                race.Owners.Add(o);
+                List<LmuLapRecord> list;
+                if (!byOwner.TryGetValue(o, out list)) byOwner[o] = list = new List<LmuLapRecord>();
+                list.Add(l);
+            }
+            // The teammates' race-control events (the player's are already attached)
+            if (stream != null)
+                foreach (var kv in byOwner)
+                    if (!NameMatches(kv.Key, driverName)) AttachStreamEvents(stream, kv.Key, kv.Value);
+
+            var field = session.Field;
+            session.Field = null;
+            try { race.Session = Newtonsoft.Json.JsonConvert.DeserializeObject<LmuSessionRecord>(Newtonsoft.Json.JsonConvert.SerializeObject(session)); }
+            finally { session.Field = field; }
+            race.Session.Race = null;
+            race.Session.TotalLaps = allLaps.Count;
+            race.Session.CarLaps = allLaps.Count;
+            race.Session.PlayerName = null;
+            return race;
         }
 
         // ─── Shared cars ───────────────────────────────────────────────────────

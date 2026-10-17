@@ -45,6 +45,8 @@ namespace User.TeamPace
         public int      CarLaps         { get; set; }  // laps of the whole car (team races: every driver)
         public string   TeamDrivers     { get; set; }  // "Amaury Marin 74 · Pascal Marin 52" when the car was shared
         public RaceField Field          { get; set; }  // races: every car, stored apart (LmuSessionStore.GetField)
+        [Newtonsoft.Json.JsonIgnore]
+        public TeamRace  Race           { get; set; }  // races: the whole car, shared with the crew (TeamRaceStore)
         public string   FinishStatus    { get; set; }
         public string   DNFReason       { get; set; }
         public string   ControlAndAids  { get; set; }

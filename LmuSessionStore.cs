@@ -22,7 +22,7 @@ namespace User.TeamPace
 
         // Bump when the parser starts accepting files it used to skip: clears
         // the "already parsed" flags once so those files get re-imported.
-        private const int ParserVersion = 7;   // 5: shared cars split by driver, session clock origin; 6: race field; 7: race start time
+        private const int ParserVersion = 8;   // 5: shared cars split by driver, session clock origin; 6: race field; 7: race start time; 8: team races shared
 
         public static string PlayerName  { get; private set; }
         public static string ResultsPath { get; private set; }
@@ -229,6 +229,7 @@ namespace User.TeamPace
 
                         MarkParsed(db, session.FileId);
                     }
+                    if (session.Race != null) TeamRaceStore.Save(session.Race);
                 }
                 catch (Exception ex)
                 {
@@ -292,6 +293,7 @@ namespace User.TeamPace
         {
             var result = new List<LmuLapRecord>();
             if (string.IsNullOrEmpty(_dbPath) || string.IsNullOrEmpty(fileId)) return result;
+            if (fileId.StartsWith(TeamRaceStore.Prefix)) return TeamRaceStore.LapsFor(fileId);
             try
             {
                 using (var db = new LiteDatabase(ReadConn(dbPath)))
@@ -307,6 +309,7 @@ namespace User.TeamPace
         public static RaceField GetField(string fileId, string dbPath = null)
         {
             if (string.IsNullOrEmpty(_dbPath) || string.IsNullOrEmpty(fileId)) return null;
+            if (fileId.StartsWith(TeamRaceStore.Prefix)) return null;
             try
             {
                 using (var db = new LiteDatabase(ReadConn(dbPath)))
@@ -533,6 +536,7 @@ namespace User.TeamPace
             d["LimitsNoAction"]    = new BsonValue(l.LimitsNoAction);
             d["Contacts"]          = new BsonValue(l.Contacts);
             d["Penalty"]           = new BsonValue(l.Penalty ?? "");
+            d["ReconstructedTicks"] = new BsonValue(l.ReconstructedTicks);
             return d;
         }
 
@@ -566,6 +570,7 @@ namespace User.TeamPace
                 LimitsNoAction    = Int(d, "LimitsNoAction"),
                 Contacts          = Int(d, "Contacts"),
                 Penalty           = Str(d, "Penalty"),
+                ReconstructedTicks = d.ContainsKey("ReconstructedTicks") ? d["ReconstructedTicks"].AsInt64 : 0,
             };
         }
 

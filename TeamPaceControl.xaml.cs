@@ -509,7 +509,13 @@ namespace User.TeamPace
         private void RenderStrategy()
         {
             SetHeader("Stratégie", _state.Circuit != null ? _state.Circuit + "  ·  " + _state.ClassLabel : "Planificateur d'endurance", _state.BadgeClass);
-            Fill(new StrategyView(_drivers, _state.Circuit, _state.ClassLabel));
+            var view = new StrategyView(_drivers, _state.Circuit, _state.ClassLabel);
+            view.FieldRequested += f => Navigate(new NavState
+            {
+                Screen = Screen.Race, Field = f, Circuit = _state.Circuit, ClassLabel = _state.ClassLabel, BadgeClass = _state.BadgeClass,
+                Title = _state.Circuit ?? "Course", Subtitle = "toutes les voitures", Crumb = "Toutes les voitures",
+            }, true);
+            Fill(view);
         }
 
         // ─── Circuit page ─────────────────────────────────────────────────────
@@ -764,13 +770,18 @@ namespace User.TeamPace
             var field = FieldOf(_state.Sessions);
             if (field != null)
             {
-                var race = Ui.Button("Analyse de course →", "Toutes les voitures de la course : arrêts, relais, rythme, et ce qui a marché ou pas face aux premiers");
+                var race = Ui.Button("Analyse de course →", "Dans la stratégie : la course face au plan, arrêt par arrêt, et face aux autres équipes");
                 race.Margin = new Thickness(8, 0, 0, 0);
-                race.Click += (s, e) => Navigate(new NavState
+                LmuSessionRecord any = null;
+                foreach (var x in _state.Sessions.Values) { any = x; break; }
+                race.Click += (s, e) =>
                 {
-                    Screen = Screen.Race, Field = field, Sessions = _state.Sessions, Circuit = _state.Circuit, ClassLabel = _state.ClassLabel,
-                    BadgeClass = _state.BadgeClass, Title = _state.Title, Subtitle = _state.Subtitle, Crumb = "Analyse de course",
-                }, true);
+                    StrategyView.ShowRace(any);
+                    Navigate(new NavState
+                    {
+                        Screen = Screen.Strategy, Circuit = _state.Circuit, ClassLabel = _state.ClassLabel, BadgeClass = _state.BadgeClass, Crumb = "Analyse de course",
+                    }, true);
+                };
                 HeaderActions.Children.Insert(0, race);
                 race.Margin = new Thickness(0, 0, 8, 0);
             }
@@ -835,6 +846,12 @@ namespace User.TeamPace
                 LmuSessionRecord s;
                 if (!sessions.TryGetValue(d.Key, out s) || !s.IsRace) continue;
                 var f = LmuSessionStore.GetField(s.FileId, d.DbPath);
+                if (f != null && f.Cars.Count > 1) return f;
+            }
+            // Shared by a crew member in the team folder
+            foreach (var s in sessions.Values)
+            {
+                var f = TeamRaceStore.FieldFor(s);
                 if (f != null && f.Cars.Count > 1) return f;
             }
             return null;
@@ -910,8 +927,8 @@ namespace User.TeamPace
                     return "Une ligne par session, groupées par jour. Une session courue par plusieurs pilotes affichés n'occupe qu'une ligne (fond doré), avec le résultat de chacun.\n" +
                            "Double-clic : l'analyse de la session, côte à côte si elle est commune. Les sessions sans aucun tour chronométré sont masquées.";
                 case Screen.Strategy:
-                    return "Saisissez la course à gauche. Les données de l'équipe sont mesurées sur vos sessions sur ce circuit et dans cette catégorie ; une valeur saisie à la main passe en jaune (effacez-la pour revenir à la mesure).\n" +
-                           "Le plan est recalculé à chaque changement. Le menu au-dessus de chaque relais choisit qui le prend. « Enregistrer le plan » le garde pour plus tard.";
+                    return "Préparation : glissez un arrêt (carré jaune) pour le déplacer, glissez un pilote sur un relais ou cliquez le relais pour le choisir ; chaque arrêt se règle sur sa carte (énergie, pneus). « Enregistrer » partage le plan avec l'équipe.\n" +
+                           "Analyse de course : une course réelle face au plan, arrêt par arrêt, et face aux autres équipes. Données mesurées : les mesures de l'équipe ; une valeur saisie passe en jaune (effacez-la pour revenir à la mesure).";
                 case Screen.Race:
                     return "Les arrêts des autres voitures sont repérés au temps perdu : LMU n'écrit ni leur carburant, ni leur énergie, ni leurs pneus. Un arrêt coûte au moins 40 s ; en dessous, c'est du temps perdu en piste (sortie, contact, trafic).\n" +
                            "« Où le temps est parti » décompose l'écart avec la voiture de référence (clic sur une ligne pour en changer) ; les constats comparent notre voiture aux premiers de la catégorie.";

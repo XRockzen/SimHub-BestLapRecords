@@ -92,7 +92,8 @@ namespace User.TeamPace
         private bool Passes(Event e)
         {
             var s = e.Any;
-            if (_type != "ALL" && !(s.SessionType ?? "").StartsWith(_type, StringComparison.OrdinalIgnoreCase)) return false;
+            if (_type == "TEAM") { if (!s.IsRace || Crew(e) == null) return false; }
+            else if (_type != "ALL" && !(s.SessionType ?? "").StartsWith(_type, StringComparison.OrdinalIgnoreCase)) return false;
             if (_class != null && LmuCategoryStyle.GetShortName(s.CarClass) != _class) return false;
             if (_circuit != null && s.TrackDisplayName != _circuit) return false;
             if (_commonOnly && e.Count < 2) return false;
@@ -105,7 +106,7 @@ namespace User.TeamPace
         private void BuildFilters(int emptyCount)
         {
             _filters.Children.Clear();
-            foreach (var t in new[] { new[] { "ALL", "Tout" }, new[] { "R", "Courses" }, new[] { "Q", "Qualifs" }, new[] { "P", "Essais" } })
+            foreach (var t in new[] { new[] { "ALL", "Tout" }, new[] { "R", "Courses" }, new[] { "TEAM", "Courses en équipe" }, new[] { "Q", "Qualifs" }, new[] { "P", "Essais" } })
             {
                 var tag = t[0];
                 var b = Ui.Button(t[1]);
@@ -265,6 +266,13 @@ namespace User.TeamPace
                 _rows.Children.Add(new TextBlock { Text = "Aucune session pour ces filtres.", Margin = new Thickness(12, 20, 0, 0), Foreground = Ui.Faint, FontStyle = FontStyles.Italic, FontSize = 13 });
         }
 
+        /// <summary>The crew when the car was shared ("Amaury Marin 75 · Pascal Marin 51"), else null.</summary>
+        private static string Crew(Event e)
+        {
+            foreach (var s in e.Sessions) if (s != null && !string.IsNullOrEmpty(s.TeamDrivers)) return s.TeamDrivers;
+            return null;
+        }
+
         private Border BuildRow(Event e)
         {
             var g = NewGrid();
@@ -273,7 +281,20 @@ namespace User.TeamPace
             Place(g, Ui.T(e.Date == DateTime.MinValue ? "" : e.Date.ToString("HH:mm"), 12.5, Ui.Muted), 0, 1, new Thickness(10, 0, 4, 0));
             var circuit = Ui.T(s0.TrackDisplayName, 13);
             circuit.ToolTip = s0.TrackDisplayName;
-            Place(g, circuit, 1, 1, new Thickness(6, 0, 6, 0));
+            var crew = s0.IsRace ? Crew(e) : null;
+            if (crew != null)
+            {
+                // A shared car: the crew, whichever of its drivers are shown
+                var badge = Ui.Badge("ÉQUIPAGE", "#FF5E4B8B", 10);
+                badge.Margin = new Thickness(8, 0, 0, 0);
+                badge.ToolTip = "Course en équipe · " + crew + " tours";
+                var dock = new DockPanel();
+                DockPanel.SetDock(badge, Dock.Right);
+                dock.Children.Add(badge);
+                dock.Children.Add(circuit);
+                Place(g, dock, 1, 1, new Thickness(6, 0, 6, 0));
+            }
+            else Place(g, circuit, 1, 1, new Thickness(6, 0, 6, 0));
             var typeRow = new LmuSessionRow { Record = s0 };
             Place(g, Ui.Badge(typeRow.TypeLabel, typeRow.TypeBg), 2, 1, new Thickness(6, 0, 0, 0));
             Place(g, Ui.Badge(typeRow.CarClassLabel, typeRow.CarClassBg), 3, 1, new Thickness(6, 0, 0, 0));

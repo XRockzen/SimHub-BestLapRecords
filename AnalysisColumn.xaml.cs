@@ -623,9 +623,11 @@ namespace User.TeamPace
             for (int i = 0; i + 1 < laps.Count; i++)
             {
                 var l = laps[i];
-                if (l.IsValid) continue;
+                if (l.IsValid || l.ReconstructedTicks > 0) continue;
                 // A lap starting at session opening includes the time spent in the garage
                 if (l.ElapsedTime < 1f) continue;
+                // Shared car: the next lap in the list may be the next stint of this driver
+                if (laps[i + 1].LapNum != l.LapNum + 1) continue;
                 double sec = laps[i + 1].ElapsedTime - l.ElapsedTime;
                 if (sec > 10 && sec < 3600) l.ReconstructedTicks = TimeSpan.FromSeconds(sec).Ticks;
             }

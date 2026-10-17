@@ -3,6 +3,27 @@
 Chaque version est publiée dans les [releases](../../releases) et proposée automatiquement dans
 TeamPace par le bandeau de mise à jour.
 
+## 3.7.0
+
+- **Stratégie refaite**, en trois onglets :
+  - *Préparation* : le plan sur une frise des relais à l'échelle du temps. On **glisse un arrêt**
+    pour le déplacer à un autre tour, on **glisse un pilote** sur un relais (ou clic sur le relais).
+    Une carte par arrêt règle l'énergie, les pneus (auto, 0, 2, 4) et montre le relais, le temps
+    arrêté et le temps perdu. Variantes calculées (4 pneus à chaque arrêt, sans pneus, le plein à
+    chaque arrêt) et courses courues sur le circuit.
+  - *Analyse de course* : une course réelle face au plan, prévu / réel sur la même échelle de
+    temps, arrêt par arrêt avec le constat (conforme, trop long, imprévu…), le bilan, et la
+    comparaison avec les autres équipes (l'écran « toutes les voitures » y est rattaché).
+  - *Données mesurées* : les mesures de l'équipe, modifiables comme avant.
+- **Courses en équipe partagées dans le dossier d'équipe** (`races`) : la course entière, chaque tour
+  avec son pilote, le résultat et toutes les voitures. Chaque membre de l'équipage la voit avec ses
+  propres tours, même si son coéquipier n'a pas encore mis à jour TeamPace (l'ancienne version
+  prenait toute la voiture pour lui). Les deux résultats sont reconnus comme la même course.
+- **Historique** : repère **ÉQUIPAGE** sur les courses en équipe et filtre « Courses en équipe ».
+- Correction : le temps d'un tour sans chrono au moment d'un relais était faux (calculé jusqu'au
+  relais suivant du même pilote) ; il est maintenant pris jusqu'au tour suivant de la voiture.
+- Le bouton « Analyse de course » d'une course ouvre son analyse dans la stratégie.
+
 ## 3.6.0
 
 - **Plan de travail** : la référence est maintenant le **tour idéal de l'équipe**, le meilleur
