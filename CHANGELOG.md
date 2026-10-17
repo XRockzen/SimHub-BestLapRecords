@@ -3,6 +3,20 @@
 Chaque version est publiée dans les [releases](../../releases) et proposée automatiquement dans
 TeamPace par le bandeau de mise à jour.
 
+## 3.5.0
+
+- **Analyse de course** (bouton sur l'analyse d'une course) : toutes les voitures de la course,
+  catégorie par catégorie, avec leurs arrêts, leurs relais, leur rythme et le temps perdu en piste.
+  - *Où le temps est parti* : l'écart avec le vainqueur (ou la voiture choisie) découpé en rythme,
+    arrêts et temps perdu en piste.
+  - *Ce qui a marché, ce qui est à revoir* : comparaison avec les cinq premiers de la catégorie
+    (nombre d'arrêts, arrêts trop longs, relais, rythme, sorties et contacts).
+  - Déroulé de la course de chaque voiture (un arrêt = une barre aussi large que le temps perdu,
+    orange quand le pilote change) et courbe d'écart au premier, tour par tour.
+- Les arrêts des autres voitures sont repérés au temps perdu : LMU n'écrit pas leur carburant,
+  leur énergie ni leurs pneus.
+- Les courses déjà importées sont relues automatiquement au premier démarrage.
+
 ## 3.4.0
 
 - **Correction importante, courses en équipe** : quand une voiture était partagée (relais entre

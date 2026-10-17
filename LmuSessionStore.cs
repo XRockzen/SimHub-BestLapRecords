@@ -22,7 +22,7 @@ namespace User.TeamPace
 
         // Bump when the parser starts accepting files it used to skip: clears
         // the "already parsed" flags once so those files get re-imported.
-        private const int ParserVersion = 5;   // 5: shared cars split by driver, session clock origin
+        private const int ParserVersion = 6;   // 5: shared cars split by driver, session clock origin; 6: race field
 
         public static string PlayerName  { get; private set; }
         public static string ResultsPath { get; private set; }
@@ -41,6 +41,7 @@ namespace User.TeamPace
                     db.GetCollection("sessions").EnsureIndex("FileId");
                     db.GetCollection("laps").EnsureIndex("SessionId");
                     db.GetCollection("parsed_files").EnsureIndex("FileId");
+                    db.GetCollection("fields").EnsureIndex("FileId");
 
                     // Load settings
                     var row = db.GetCollection("settings")
@@ -216,6 +217,16 @@ namespace User.TeamPace
                                 col.Insert(LapToDoc(lap));
                         }
 
+                        var fields = db.GetCollection("fields");
+                        fields.Delete(Query.EQ("FileId", new BsonValue(session.FileId)));
+                        if (session.Field != null)
+                        {
+                            var f = new BsonDocument();
+                            f["FileId"] = new BsonValue(session.FileId);
+                            f["Json"]   = new BsonValue(Newtonsoft.Json.JsonConvert.SerializeObject(session.Field));
+                            fields.Insert(f);
+                        }
+
                         MarkParsed(db, session.FileId);
                     }
                 }
@@ -256,6 +267,7 @@ namespace User.TeamPace
                 if (Math.Max(other.CarLaps, other.TotalLaps) > Math.Max(session.CarLaps, session.TotalLaps)) return false;
                 sessions.Delete(d["_id"]);
                 laps.Delete(Query.EQ("SessionId", new BsonValue(other.FileId)));
+                db.GetCollection("fields").Delete(Query.EQ("FileId", new BsonValue(other.FileId)));
             }
             return true;
         }
@@ -289,6 +301,22 @@ namespace User.TeamPace
             }
             catch { }
             return result.OrderBy(l => l.LapNum).ToList();
+        }
+
+        /// <summary>Every car of a race (null when the race was imported before 3.5 or is not a race).</summary>
+        public static RaceField GetField(string fileId, string dbPath = null)
+        {
+            if (string.IsNullOrEmpty(_dbPath) || string.IsNullOrEmpty(fileId)) return null;
+            try
+            {
+                using (var db = new LiteDatabase(ReadConn(dbPath)))
+                {
+                    var doc = db.GetCollection("fields").FindOne(Query.EQ("FileId", new BsonValue(fileId)));
+                    if (doc != null) return Newtonsoft.Json.JsonConvert.DeserializeObject<RaceField>(doc["Json"].AsString);
+                }
+            }
+            catch { }
+            return null;
         }
 
         public static int GetSessionCount()

@@ -107,6 +107,8 @@
     <Compile Include="CoachingView.cs" />
     <Compile Include="StrategyEngine.cs" />
     <Compile Include="StrategyView.cs" />
+    <Compile Include="RaceField.cs" />
+    <Compile Include="RaceFieldView.cs" />
     <Compile Include="CareerColumn.xaml.cs">
       <DependentUpon>CareerColumn.xaml</DependentUpon>
     </Compile>

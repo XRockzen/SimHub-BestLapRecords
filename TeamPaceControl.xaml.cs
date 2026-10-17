@@ -33,7 +33,7 @@ namespace User.TeamPace
     /// </summary>
     public partial class TeamPaceControl : UserControl
     {
-        private enum Screen { Career, History, Strategy, Circuit, Analysis }
+        private enum Screen { Career, History, Strategy, Circuit, Analysis, Race }
         private enum CircuitTab { Progress, Telemetry, Work }
 
         private class NavState
@@ -49,6 +49,7 @@ namespace User.TeamPace
             public string BadgeClass; // raw car class for the title badge
             public List<TelemetryView.Preset> Presets;   // telemetry: laps shown, kept up to date by the view
             public double ZoomFrom = double.NaN, ZoomTo = double.NaN;
+            public RaceField Field;   // race analysis: every car
         }
 
         private ProgressionChart _progressChart;
@@ -372,7 +373,7 @@ namespace User.TeamPace
             // The tab the current path started from stays highlighted
             var rootScreen = _back.Count > 0 ? new List<NavState>(_back)[_back.Count - 1].Screen : _state.Screen;
             SetTabActive(BtnTabCareer,   rootScreen == Screen.Career || rootScreen == Screen.Circuit);
-            SetTabActive(BtnTabHistory,  rootScreen == Screen.History || rootScreen == Screen.Analysis);
+            SetTabActive(BtnTabHistory,  rootScreen == Screen.History || rootScreen == Screen.Analysis || rootScreen == Screen.Race);
             SetTabActive(BtnTabStrategy, rootScreen == Screen.Strategy);
 
             ClassFilterBar.Visibility     = _state.Screen == Screen.Career ? Visibility.Visible : Visibility.Collapsed;
@@ -388,6 +389,7 @@ namespace User.TeamPace
                 case Screen.Strategy: RenderStrategy(); break;
                 case Screen.Circuit:  RenderCircuit();  break;
                 case Screen.Analysis: RenderAnalysis(); break;
+                case Screen.Race:     RenderRace();     break;
             }
             UpdateHelp();
         }
@@ -752,6 +754,20 @@ namespace User.TeamPace
             circuit.Click += (s, e) => OpenCircuit(_state.Circuit, _state.ClassLabel, _state.BadgeClass, CircuitTab.Progress, true);
             HeaderActions.Children.Add(circuit);
 
+            var field = FieldOf(_state.Sessions);
+            if (field != null)
+            {
+                var race = Ui.Button("Analyse de course →", "Toutes les voitures de la course : arrêts, relais, rythme, et ce qui a marché ou pas face aux premiers");
+                race.Margin = new Thickness(8, 0, 0, 0);
+                race.Click += (s, e) => Navigate(new NavState
+                {
+                    Screen = Screen.Race, Field = field, Sessions = _state.Sessions, Circuit = _state.Circuit, ClassLabel = _state.ClassLabel,
+                    BadgeClass = _state.BadgeClass, Title = _state.Title, Subtitle = _state.Subtitle, Crumb = "Analyse de course",
+                }, true);
+                HeaderActions.Children.Insert(0, race);
+                race.Margin = new Thickness(0, 0, 8, 0);
+            }
+
             foreach (var d in _drivers)
             {
                 LmuSessionRecord s;
@@ -799,6 +815,27 @@ namespace User.TeamPace
             else foreach (var c in _analysisCols) c.SetTeamDeltas(null);
 
             UpdateAverageReferences();
+        }
+
+        /// <summary>Every car of the race, from whichever displayed driver's database has it.</summary>
+        private RaceField FieldOf(Dictionary<string, LmuSessionRecord> sessions)
+        {
+            foreach (var d in _drivers)
+            {
+                LmuSessionRecord s;
+                if (!sessions.TryGetValue(d.Key, out s) || !s.IsRace) continue;
+                var f = LmuSessionStore.GetField(s.FileId, d.DbPath);
+                if (f != null && f.Cars.Count > 1) return f;
+            }
+            return null;
+        }
+
+        // ─── Race ─────────────────────────────────────────────────────────────
+
+        private void RenderRace()
+        {
+            SetHeader(_state.Title, "Analyse de course · " + _state.Subtitle, _state.BadgeClass);
+            Fill(new RaceFieldView(_state.Field));
         }
 
         private void UpdateAverageReferences()
@@ -865,6 +902,9 @@ namespace User.TeamPace
                 case Screen.Strategy:
                     return "Saisissez la course à gauche. Les données de l'équipe sont mesurées sur vos sessions sur ce circuit et dans cette catégorie ; une valeur saisie à la main passe en jaune (effacez-la pour revenir à la mesure).\n" +
                            "Le plan est recalculé à chaque changement. Le menu au-dessus de chaque relais choisit qui le prend. « Enregistrer le plan » le garde pour plus tard.";
+                case Screen.Race:
+                    return "Les arrêts des autres voitures sont repérés au temps perdu : LMU n'écrit ni leur carburant, ni leur énergie, ni leurs pneus. Un arrêt coûte au moins 40 s ; en dessous, c'est du temps perdu en piste (sortie, contact, trafic).\n" +
+                           "« Où le temps est parti » décompose l'écart avec la voiture de référence (clic sur une ligne pour en changer) ; les constats comparent notre voiture aux premiers de la catégorie.";
                 case Screen.Analysis:
                     return "Cochez ou décochez des tours : les statistiques et les couleurs se recalculent pour chaque pilote. « Rythme » coche les tours représentatifs.\n" +
                            "Double-clic sur un tour : sa télémétrie. Au survol du temps théorique et des invalides : le détail. Repères et couleurs ci-dessous.";

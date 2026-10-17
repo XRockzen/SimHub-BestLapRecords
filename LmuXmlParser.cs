@@ -310,9 +310,20 @@ namespace User.TeamPace
 
             // ── Shared car: keep the player's own laps ─────────────────────────
             string driverName = playerDriver.Element("Name").Value.Trim();
+            List<XElement> streams = null;
+            if (carNames.Count > 1 || session.IsRace)
+                streams = SessionStreams(filePath, session, stream);
+
+            // ── Race: every car, to compare strategies ────────────────────────
+            if (session.IsRace)
+            {
+                try { session.Field = RaceFieldBuilder.Build(block, streams, playerDriver); }
+                catch (Exception ex) { SimHub.Logging.Current.Warn("[LmuXml] Race field: " + ex.Message); }
+            }
+
             if (carNames.Count > 1)
             {
-                var owners = LapOwners(filePath, header, session, stream, carNames, laps);
+                var owners = LapOwners(streams, carNames, laps);
                 if (owners != null)
                 {
                     var counts = new Dictionary<string, int>();
@@ -415,44 +426,14 @@ namespace User.TeamPace
         }
 
         /// <summary>
-        /// Who drove each lap of a shared car, from the race log: lap crossings ("Name(slot)
-        /// lap=N") and driver swaps. A file only logs what happened after the player joined, so
-        /// the other results files of the same session (written at each swap or reconnection)
-        /// are read too. Null when nothing tells.
+        /// The session's logs: this file's, then those of the other results files of the same
+        /// session. A file only logs what happened after the player joined, and LMU writes one at
+        /// each swap or reconnection.
         /// </summary>
-        private static Dictionary<int, string> LapOwners(string filePath, XElement header, LmuSessionRecord session,
-                                                          XElement stream, HashSet<string> names, List<LmuLapRecord> laps)
+        private static List<XElement> SessionStreams(string filePath, LmuSessionRecord session, XElement stream)
         {
-            var events = new List<KeyValuePair<double, string>>();   // from this time on, this driver
-            var before = new List<KeyValuePair<double, string>>();   // until this time, this driver (swap "Old")
-            Action<XElement> collect = st =>
-            {
-                if (st == null) return;
-                foreach (var ev in st.Elements())
-                {
-                    float et = AttrFloat(ev, "et", -1f);
-                    if (et < 0) continue;
-                    var n = ev.Name.LocalName;
-                    if (n == "Score")
-                    {
-                        var m = ScoreRx.Match(ev.Value ?? "");
-                        if (m.Success && names.Contains(m.Groups[1].Value.Trim()))
-                            events.Add(new KeyValuePair<double, string>(et, m.Groups[1].Value.Trim()));
-                    }
-                    else if (n == "DriverChange")
-                    {
-                        var m = ChangeRx.Match(ev.Value ?? "");
-                        if (!m.Success) continue;
-                        string oldName = m.Groups[2].Value.Trim(), newName = m.Groups[3].Value.Trim();
-                        if (!names.Contains(oldName) && !names.Contains(newName)) continue;
-                        events.Add(new KeyValuePair<double, string>(et, newName));
-                        before.Add(new KeyValuePair<double, string>(et, oldName));
-                    }
-                }
-            };
-            collect(stream);
-
-            // Other files of the same session, same track, written around the same time
+            var streams = new List<XElement>();
+            if (stream != null) streams.Add(stream);
             try
             {
                 var dir = Path.GetDirectoryName(filePath);
@@ -477,15 +458,50 @@ namespace User.TeamPace
                     var st = b.Element("Stream") ?? h.Element("Stream");
                     double unix;
                     var dt = b.Element("DateTime");
-                    if (dt == null || !double.TryParse(dt.Value, NumberStyles.Any, CultureInfo.InvariantCulture, out unix)) continue;
+                    if (st == null || dt == null || !double.TryParse(dt.Value, NumberStyles.Any, CultureInfo.InvariantCulture, out unix)) continue;
                     var start = DateTimeOffset.FromUnixTimeSeconds((long)unix).UtcDateTime.AddSeconds(-FirstEventTime(st));
                     if (Math.Abs((start - session.BlockStartUtc).TotalMinutes) > 3) continue;
-                    collect(st);
+                    streams.Add(st);
                 }
             }
             catch (Exception ex)
             {
-                SimHub.Logging.Current.Warn("[LmuXml] Shared car files: " + ex.Message);
+                SimHub.Logging.Current.Warn("[LmuXml] Session files: " + ex.Message);
+            }
+            return streams;
+        }
+
+        /// <summary>
+        /// Who drove each lap of a shared car, from the session's logs: lap crossings ("Name(slot)
+        /// lap=N") and driver swaps. Null when nothing tells.
+        /// </summary>
+        private static Dictionary<int, string> LapOwners(List<XElement> streams, HashSet<string> names, List<LmuLapRecord> laps)
+        {
+            var events = new List<KeyValuePair<double, string>>();   // from this time on, this driver
+            var before = new List<KeyValuePair<double, string>>();   // until this time, this driver (swap "Old")
+            foreach (var st in streams)
+            {
+                foreach (var ev in st.Elements())
+                {
+                    float et = AttrFloat(ev, "et", -1f);
+                    if (et < 0) continue;
+                    var n = ev.Name.LocalName;
+                    if (n == "Score")
+                    {
+                        var m = ScoreRx.Match(ev.Value ?? "");
+                        if (m.Success && names.Contains(m.Groups[1].Value.Trim()))
+                            events.Add(new KeyValuePair<double, string>(et, m.Groups[1].Value.Trim()));
+                    }
+                    else if (n == "DriverChange")
+                    {
+                        var m = ChangeRx.Match(ev.Value ?? "");
+                        if (!m.Success) continue;
+                        string oldName = m.Groups[2].Value.Trim(), newName = m.Groups[3].Value.Trim();
+                        if (!names.Contains(oldName) && !names.Contains(newName)) continue;
+                        events.Add(new KeyValuePair<double, string>(et, newName));
+                        before.Add(new KeyValuePair<double, string>(et, oldName));
+                    }
+                }
             }
 
             if (events.Count == 0) return null;

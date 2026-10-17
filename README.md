@@ -30,6 +30,7 @@ les courses d'endurance : un planificateur calcule les relais à partir de vos p
 | **Historique** | une ligne par session, les sessions courues ensemble détectées automatiquement |
 | **Progression** | courbe du meilleur tour de chaque pilote sur un circuit, session après session |
 | **Analyse tour par tour** | secteurs, écart au coéquipier sur chaque tour, carburant, énergie virtuelle, usure des pneus, arrêts aux stands |
+| **Analyse de course** | toutes les voitures d'une course : arrêts, relais, rythme, où le temps est parti face aux premiers |
 | **Télémétrie** | n'importe quel tour de chaque pilote superposé : écart cumulé, vitesse, pédales, rapport, volant, régime, trajectoires sur la carte du circuit |
 | **Plan de travail** | les trois virages où gagner du temps, avec la phase et la mesure en cause |
 | **Stratégie** | planificateur d'endurance : relais, arrêts, carburant, pneus, à partir de vos mesures |
@@ -222,6 +223,30 @@ pilote à l'arrivée, et un nouveau fichier à chaque fois qu'on rejoint la cour
 ou une déconnexion). TeamPace rassemble ces fichiers, garde la course une seule fois et donne à
 chacun **ses propres tours** (meilleur tour, rythme, arrêts), avec le résultat de la voiture. La
 carte de session indique l'équipage (par exemple *équipage : Amaury Marin 75 · Pascal Marin 51 tours*).
+
+### Analyse de course
+
+Sur l'analyse d'une course, **Analyse de course →** ouvre toutes les voitures de la course, catégorie
+par catégorie (la vôtre d'abord) :
+
+![Analyse de course : toutes les voitures de la catégorie](docs/images/16-analyse-de-course.png)
+
+- **Où le temps est parti** : l'écart avec une voiture de référence (le vainqueur de la catégorie,
+  ou la voiture de votre choix d'un clic sur sa ligne), découpé en *rythme*, *arrêts* et *temps
+  perdu en piste* (sorties, contacts, trafic) ;
+- **Ce qui a marché, ce qui est à revoir** : votre voiture comparée aux cinq premiers de la
+  catégorie (nombre d'arrêts, arrêts trop longs, longueur des relais, rythme, temps perdu en piste) ;
+- **le tableau** : pour chaque voiture, tours, rythme (tour médian), écart de rythme avec vous,
+  arrêts, temps passé aux stands, relais moyen, et le déroulé de la course : chaque arrêt y est
+  une barre aussi large que le temps qu'il a coûté, orange quand le pilote a changé ;
+- **l'écart au premier, tour par tour** : chaque marche est un arrêt, chaque pente une
+  différence de rythme.
+
+LMU écrit les temps au tour, les positions et les changements de pilote de toutes les voitures,
+mais pas leur carburant, leur énergie ni leurs pneus. Les arrêts des autres sont donc repérés au
+temps perdu : au moins 40 s (ou moins quand LMU signale un passage aux stands ou un changement de
+pilote). Une pénalité de type stop and go compte comme un arrêt. Les courses importées avant la
+version 3.5 sont relues automatiquement.
 
 ### Page circuit : télémétrie
 
