@@ -166,8 +166,8 @@ ligne. Un **double-clic** ouvre la page du circuit.
 Le menu en haut à droite change de circuit sans revenir en arrière ; **Préparer une course ici**
 ouvre la stratégie déjà réglée sur ce circuit.
 
-La **courbe** : chaque point est le meilleur tour d'une session, une couleur par pilote, et la ligne
-suit le record de chacun. **Plus c'est bas, plus c'est rapide** (★ = record, anneau doré = session
+La **courbe** (bouton **📈 Graphique**, masquée par défaut) : chaque point est le meilleur tour
+d'une session, une couleur par pilote, et la ligne suit le record de chacun. **Plus c'est bas, plus c'est rapide** (★ = record, anneau doré = session
 commune). Un clic sélectionne la session dans les tableaux ; un double-clic l'analyse. Sous la
 courbe, les chiffres clés de chaque pilote : record, écart au meilleur de l'équipe, progression,
 dernière séance et temps roulé.
@@ -262,8 +262,9 @@ le bouton **Télémétrie des tours** d'une analyse, ou un **double-clic sur un 
 2. **Courbes** : cochez celles à afficher. L'**écart** montre, mètre par mètre, le temps gagné ou
    perdu sur la référence : une courbe qui monte, c'est du temps perdu. Molette pour zoomer,
    glisser pour se déplacer, double-clic pour revoir le tour entier.
-3. Les **noms des virages** au-dessus des courbes, et les valeurs de chaque tour sous le curseur à
-   droite.
+3. **Sous le curseur**, juste au-dessus des courbes, une ligne par tour : écart, vitesse, rapport,
+   accélérateur, frein, volant, régime et placement, en gros chiffres pendant qu'on balaie la
+   courbe. Les **noms des virages** s'affichent au-dessus des courbes.
 4. **La carte** suit le zoom des courbes : piste avec ses bords, ligne de chaque tour, **début de
    freinage** (anneau rouge) et **remise des gaz** (anneau vert) de chaque pilote. Un clic sur un
    virage zoome dessus ; **⤢ Agrandir** la passe en grand.
@@ -282,17 +283,21 @@ extraite automatiquement à la fin de chaque session, et à la demande avec **�
 
 ![Plan de travail](docs/images/12-plan-de-travail.png)
 
-Plutôt qu'une avalanche de chiffres, **les trois virages où travailler**, classés par temps à
-gagner. Chaque virage est découpé en trois phases (freinage, corde, sortie) ; la phase qui coûte le
+La référence est le **tour idéal de l'équipe** : le meilleur passage de n'importe quel pilote dans
+chaque virage, mis bout à bout. Il est le même pour tout le monde. Le **passage habituel** du pilote
+choisi (son temps médian dans chaque virage) y est comparé, et il en sort **les trois virages où
+travailler**, classés par temps à gagner. Chaque virage est découpé en trois phases (freinage, corde, sortie) ; la phase qui coûte le
 plus est expliquée par la mesure qui diffère le plus : point de freinage, vitesse à la corde, remise
 des gaz, vitesse de sortie, trajectoire, force G latérale, déclenchements de l'ABS et de
 l'antipatinage. Les étiquettes rouges montrent ce qui coûte, les vertes ce qui est déjà au niveau.
 
-- **Comparer à** : ton meilleur passage dans chaque virage, un coéquipier, ou le meilleur de l'équipe.
-- Seuls les écarts qui **se répètent** sur plusieurs tours comptent : un tour raté ne fait pas une
-  priorité. Un virage dont le temps varie beaucoup d'un tour à l'autre devient une priorité de
-  **régularité**.
-- **Ton tour idéal** : tes meilleurs virages mis bout à bout.
+- **Plan de travail de** : le pilote dont on voit les priorités. Chacun a les siennes, face au même
+  tour idéal ; chaque priorité dit à qui appartient le meilleur passage du virage.
+- En haut : le tour idéal de l'équipe, le record de l'équipe (et qui le détient), le record du pilote
+  et son écart au tour idéal, et le temps à gagner sur les trois priorités.
+- Sont pris en compte les 40 tours propres les plus récents de chaque pilote et ses 10 plus
+  rapides (un record de qualif compte même après une longue course). Un virage dont le temps varie
+  beaucoup d'un tour à l'autre devient une priorité de **régularité**.
 - **Voir dans la télémétrie** ouvre les deux tours superposés, zoomés sur ce virage.
 
 ## 5. Stratégie d'endurance

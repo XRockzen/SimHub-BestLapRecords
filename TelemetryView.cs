@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -75,7 +76,8 @@ namespace User.TeamPace
         private readonly StackPanel _side = new StackPanel { Margin = new Thickness(12, 0, 0, 0) };
         private readonly ScrollViewer _sideScroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         private readonly StackPanel _cornerPanel = new StackPanel { Margin = new Thickness(0, 8, 0, 0) };
-        private readonly StackPanel _readout = new StackPanel { Margin = new Thickness(0, 8, 0, 0) };
+        private readonly Grid _readout = new Grid { Margin = new Thickness(0, 0, 0, 6) };   // values under the cursor, above the curves
+        private readonly DockPanel _chartHost = new DockPanel();
         private readonly Button _btnLarge = new Button { Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
         private static bool _large;   // kept while browsing laps
         private TrackModel _model;
@@ -207,7 +209,9 @@ namespace User.TeamPace
             mapDock.Children.Add(_map);
             _mapHost.Child = mapDock;
             _side.Children.Add(_cornerPanel);
-            _side.Children.Add(_readout);
+            DockPanel.SetDock(_readout, Dock.Top);
+            _chartHost.Children.Add(_readout);
+            _chartHost.Children.Add(_chart);
             _sideScroll.Content = _side;
             root.Children.Add(_center);
 
@@ -243,7 +247,7 @@ namespace User.TeamPace
                 _mapHost.Height = double.NaN;
                 _mapHost.Margin = new Thickness(0, 0, 0, 8);
                 _center.Children.Add(_mapHost);
-                Grid.SetRow(_chart, 1); Grid.SetRow(_empty, 1);
+                Grid.SetRow(_chartHost, 1); Grid.SetRow(_empty, 1);
                 Grid.SetRowSpan(scroll, 2);
             }
             else
@@ -251,9 +255,9 @@ namespace User.TeamPace
                 _mapHost.Height = 290;
                 _mapHost.Margin = new Thickness(0);
                 _side.Children.Insert(0, _mapHost);
-                Grid.SetRow(_chart, 0); Grid.SetRow(_empty, 0);
+                Grid.SetRow(_chartHost, 0); Grid.SetRow(_empty, 0);
             }
-            _center.Children.Add(_chart);
+            _center.Children.Add(_chartHost);
             _center.Children.Add(_empty);
             _center.Children.Add(scroll);
 
@@ -648,66 +652,102 @@ namespace User.TeamPace
                 row.Background = row.Tag == current ? new SolidColorBrush(Color.FromArgb(36, 255, 200, 87)) : Brushes.Transparent;
         }
 
-        /// <summary>Values under the cursor, or each lap's summary when the mouse is elsewhere.</summary>
+        private static readonly string[] ReadoutHeads = { "Δ", "Vitesse", "Rapport", "Accél.", "Frein", "Volant", "Régime", "Placement" };
+
+        /// <summary>
+        /// One line per lap above the curves: the values under the cursor, big enough to read
+        /// while sweeping, or each lap's summary when the mouse is elsewhere.
+        /// </summary>
         private void UpdateReadout(double dist)
         {
             _readout.Children.Clear();
+            _readout.RowDefinitions.Clear();
+            if (_readout.ColumnDefinitions.Count == 0)
+            {
+                _readout.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 220 });
+                foreach (var w in new[] { 82.0, 86, 64, 64, 64, 68, 82, 96 }) _readout.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(w) });
+            }
+            var live = _slots.Where(x => x.Trace != null).ToList();
+            _readout.Visibility = live.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            if (live.Count == 0) return;
             bool cursor = !double.IsNaN(dist);
-            _readout.Children.Add(new TextBlock
-            {
-                Text = cursor ? string.Format(Inv, "À {0:0} m", dist) : "Survolez les courbes pour lire les valeurs",
-                FontSize = 12, Foreground = new SolidColorBrush(Color.FromArgb(166, 255, 255, 255)), Margin = new Thickness(0, 0, 0, 6),
-            });
+            var muted = new SolidColorBrush(Color.FromArgb(150, 255, 255, 255));
 
-            Slot refSlot = _slots.Count > 0 && _slots[0].Trace != null ? _slots[0] : null;
-            foreach (var s in _slots)
+            _readout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            var bg = new Border { Background = new SolidColorBrush(Color.FromArgb(13, 255, 255, 255)), CornerRadius = new CornerRadius(6) };
+            Grid.SetColumnSpan(bg, 9); Grid.SetRowSpan(bg, live.Count + 1);
+            _readout.Children.Add(bg);
+            AddCell(new TextBlock { Text = cursor ? string.Format(Inv, "À {0:0} m", dist) : "Survolez les courbes : les valeurs s'affichent ici",
+                                    FontSize = 12, Foreground = cursor ? Brushes.White : muted, FontWeight = cursor ? FontWeights.SemiBold : FontWeights.Normal }, 0, 0);
+            for (int c = 0; c < ReadoutHeads.Length; c++)
+                AddCell(new TextBlock { Text = ReadoutHeads[c], FontSize = 11.5, Foreground = muted, HorizontalAlignment = HorizontalAlignment.Right }, 0, c + 1);
+
+            Slot refSlot = live[0];
+            int row = 1;
+            foreach (var s in live)
             {
-                if (s.Trace == null) continue;
                 var t = s.Trace;
-                var box = new Border
+                var brush = new SolidColorBrush(s.Color);
+                _readout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                var name = new Border
                 {
-                    BorderBrush = new SolidColorBrush(s.Color), BorderThickness = new Thickness(3, 0, 0, 0),
-                    Background = new SolidColorBrush(Color.FromArgb(13, 255, 255, 255)),
-                    Padding = new Thickness(8, 5, 8, 5), Margin = new Thickness(0, 0, 0, 5),
+                    BorderBrush = brush, BorderThickness = new Thickness(3, 0, 0, 0), Padding = new Thickness(7, 0, 0, 0),
+                    Child = new TextBlock
+                    {
+                        Text = string.Format("{0}  ·  T{1}  ·  {2}", s.Driver.Name, s.Lap.LapNum, Fmt.LapSec(s.Lap.LapSec)),
+                        FontSize = 12.5, FontWeight = FontWeights.SemiBold, Foreground = brush, TextTrimming = TextTrimming.CharacterEllipsis,
+                        ToolTip = s.Lap.SessionLabel + (s.Lap.Remark != null ? "  ·  " + s.Lap.Remark : ""),
+                    },
                 };
-                var panel = new StackPanel();
-                panel.Children.Add(new TextBlock
-                {
-                    Text = string.Format("{0}  ·  T{1}  ·  {2}", s.Driver.Name, s.Lap.LapNum, Fmt.LapSec(s.Lap.LapSec)),
-                    FontSize = 12.5, FontWeight = FontWeights.SemiBold, Foreground = new SolidColorBrush(s.Color),
-                    TextTrimming = TextTrimming.CharacterEllipsis,
-                });
+                AddCell(name, row, 0);
 
-                string line;
+                var vals = new string[8];
+                for (int k = 0; k < 8; k++) vals[k] = "—";
+                Brush gapBrush = Brushes.White;
                 if (cursor && dist >= t.FirstDist && dist <= t.DistAt(t.N - 1))
                 {
                     int i = t.IndexAt(dist);
-                    string gap = "";
-                    if (refSlot != null && s != refSlot)
+                    if (s != refSlot)
                     {
                         double tr = refSlot.Trace.TimeAt(dist), ts = t.TimeAt(dist);
                         if (!double.IsNaN(tr) && !double.IsNaN(ts))
-                            gap = string.Format(Inv, "Δ {0}{1:0.000} s   ", ts - tr >= 0 ? "+" : "−", Math.Abs(ts - tr));
+                        {
+                            vals[0] = string.Format(Inv, "{0}{1:0.000}", ts - tr >= 0 ? "+" : "−", Math.Abs(ts - tr));
+                            gapBrush = ts - tr > 0 ? Ui.Red : Ui.Green;
+                        }
                     }
-                    line = string.Format(Inv, "{0}{1:0} km/h   rapport {2}\naccél. {3:0} %   frein {4:0} %   volant {5:+0;-0;0} %   {6:0} tr/min",
-                                         gap, t.Speed[i], t.Gear[i] < 0 ? "R" : t.Gear[i] == 0 ? "N" : t.Gear[i].ToString(Inv),
-                                         t.Throttle[i], t.Brake[i], t.Steer[i], t.Rpm[i]);
-                    if (t.HasLateral)
-                        line += string.Format(Inv, "\nplacement {0:0.0} m à {1} du centre", Math.Abs(t.Lateral[i]), t.Lateral[i] > 0 ? "droite" : "gauche");
+                    else vals[0] = "réf.";
+                    vals[1] = string.Format(Inv, "{0:0} km/h", t.Speed[i]);
+                    vals[2] = t.Gear[i] < 0 ? "R" : t.Gear[i] == 0 ? "N" : t.Gear[i].ToString(Inv);
+                    vals[3] = string.Format(Inv, "{0:0} %", t.Throttle[i]);
+                    vals[4] = string.Format(Inv, "{0:0} %", t.Brake[i]);
+                    vals[5] = string.Format(Inv, "{0:+0;-0;0} %", t.Steer[i]);
+                    vals[6] = string.Format(Inv, "{0:0}", t.Rpm[i]);
+                    if (t.HasLateral) vals[7] = string.Format(Inv, "{0:0.0} m {1}", Math.Abs(t.Lateral[i]), t.Lateral[i] > 0 ? "dr." : "g.");
                 }
-                else if (cursor) line = "hors de ce tour";
-                else
+                else if (!cursor)
                 {
                     float top = 0;
                     for (int i = 0; i < t.N; i++) top = Math.Max(top, t.Speed[i]);
-                    line = string.Format(Inv, "{0}\nV. max {1:0} km/h{2}", s.Lap.SessionLabel, top,
-                                         s.Lap.Remark != null ? "   ·   " + s.Lap.Remark : "");
+                    vals[1] = string.Format(Inv, "max {0:0}", top);
                 }
-                panel.Children.Add(new TextBlock { Text = line, FontSize = 12, Foreground = new SolidColorBrush(Color.FromArgb(220, 255, 255, 255)),
-                                                   Margin = new Thickness(0, 2, 0, 0) });
-                box.Child = panel;
-                _readout.Children.Add(box);
+                for (int k = 0; k < 8; k++)
+                    AddCell(new TextBlock
+                    {
+                        Text = vals[k], FontSize = 15, FontWeight = FontWeights.SemiBold,
+                        Foreground = k == 0 ? gapBrush : vals[k] == "—" ? muted : Brushes.White,
+                        HorizontalAlignment = HorizontalAlignment.Right,
+                    }, row, k + 1);
+                row++;
             }
+        }
+
+        private void AddCell(FrameworkElement e, int row, int col)
+        {
+            e.Margin = new Thickness(col == 0 ? 8 : 4, row == 0 ? 5 : 2, col == 8 ? 10 : 4, 3);
+            e.VerticalAlignment = VerticalAlignment.Center;
+            Grid.SetRow(e, row); Grid.SetColumn(e, col);
+            _readout.Children.Add(e);
         }
     }
 }

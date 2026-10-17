@@ -6,14 +6,13 @@ namespace User.TeamPace
 {
     /// <summary>
     /// The work plan of a circuit: where the time goes, corner by corner, without drowning the
-    /// driver in numbers. Each corner is split into three phases (braking, apex, exit); the
-    /// three biggest repeatable losses become priorities, each explained by the measure that
-    /// differs most in its worst phase.
+    /// driver in numbers. The reference is the team's ideal lap: the best passage of any driver
+    /// in each corner. A driver's usual passage is compared with it; each corner is split into
+    /// three phases (braking, apex, exit), and the three biggest losses become priorities, each
+    /// explained by the measure that differs most in its worst phase.
     /// </summary>
     internal static class CoachingEngine
     {
-        public enum Mode { MyBest, Driver, Team }
-
         public class Lap
         {
             public DriverView Driver;
@@ -57,15 +56,17 @@ namespace User.TeamPace
         {
             public TrackModel.Corner Corner;
             public double MyBest, MyMedian, Reference, Gain;
+            public string ReferenceBy;      // who holds the team's best passage
             public string Phase;
         }
 
         public class Result
         {
             public string Error;
-            public double MyRecord, Ideal, ReferenceRecord;
-            public string ReferenceName;
-            public int MyLaps, ReferenceLaps;
+            public string SubjectName;
+            public double SubjectRecord = double.NaN, TeamRecord = double.NaN, Ideal = double.NaN;
+            public string TeamRecordBy;
+            public int SubjectLaps, TeamLaps;
             public List<Priority> Priorities = new List<Priority>();
             public List<CornerRow> Corners = new List<CornerRow>();
         }
@@ -73,59 +74,47 @@ namespace User.TeamPace
         private static readonly string[] PhaseNames = { "au freinage", "à la corde", "en sortie" };
         private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
-        public static Result Analyze(TrackModel model, List<Lap> mine, List<Lap> others, Mode mode, string referenceName)
+        /// <param name="team">clean laps of every driver shown (the subject's included)</param>
+        /// <param name="subject">the driver whose plan it is</param>
+        public static Result Analyze(TrackModel model, List<Lap> team, DriverView subject)
         {
-            var r = new Result { MyLaps = mine.Count, ReferenceLaps = others.Count, ReferenceName = referenceName };
+            var mine = team.FindAll(l => l.Driver == subject);
+            var r = new Result { SubjectName = subject.Name, SubjectLaps = mine.Count, TeamLaps = team.Count };
             if (model == null || model.Corners.Count == 0) { r.Error = "Pas encore de tracé pour ce circuit : il faut au moins un tour propre avec la télémétrie."; return r; }
-            if (mine.Count < 3) { r.Error = "Il faut au moins 3 tours propres avec la télémétrie sur ce circuit pour établir ton plan de travail."; return r; }
-            if (mode != Mode.MyBest && others.Count < 2) { r.Error = "Pas assez de tours propres de " + referenceName + " sur ce circuit pour comparer (2 minimum)."; return r; }
+            if (mine.Count < 3) { r.Error = "Il faut au moins 3 tours propres de " + subject.Name + " avec la télémétrie sur ce circuit pour établir son plan de travail."; return r; }
 
-            r.MyRecord = double.MaxValue;
-            foreach (var l in mine) r.MyRecord = Math.Min(r.MyRecord, l.Ref.LapSec);
-            r.ReferenceRecord = double.MaxValue;
-            foreach (var l in others) r.ReferenceRecord = Math.Min(r.ReferenceRecord, l.Ref.LapSec);
+            foreach (var l in mine) if (double.IsNaN(r.SubjectRecord) || l.Ref.LapSec < r.SubjectRecord) r.SubjectRecord = l.Ref.LapSec;
+            foreach (var l in team)
+                if (double.IsNaN(r.TeamRecord) || l.Ref.LapSec < r.TeamRecord) { r.TeamRecord = l.Ref.LapSec; r.TeamRecordBy = l.Driver.Name; }
 
             var sectors = model.CornerSectors();
             var candidates = new List<Priority>();
-            r.Ideal = 0;
+            double ideal = 0;
+            bool complete = true;
             for (int i = 0; i < model.Corners.Count; i++)
             {
                 var c = model.Corners[i];
                 double a = sectors[i].Key, b = sectors[i].Value;
-                var my = Typical(Passes(mine, c, a, b));
+                var all = Typical(Passes(team, c, a, b));
+                var my = all.FindAll(p => p.Lap.Driver == subject);
+                if (all.Count == 0) { complete = false; continue; }
+                all.Sort((x, y) => x.Sector.CompareTo(y.Sector));
+                var best = all[0];   // the team's best passage: one corner of the ideal lap
+                ideal += best.Sector;
                 if (my.Count < 3) continue;
                 my.Sort((x, y) => x.Sector.CompareTo(y.Sector));
-                var myBest = my[0];
                 var myMedian = my[my.Count / 2];
-                r.Ideal += myBest.Sector;
 
-                Pass reference;
-                string against;
-                if (mode == Mode.MyBest) { reference = myBest; against = "face à ton meilleur passage"; }
-                else
+                var row = new CornerRow
                 {
-                    var theirs = Typical(Passes(others, c, a, b));
-                    if (theirs.Count < 2) continue;
-                    theirs.Sort((x, y) => x.Sector.CompareTo(y.Sector));
-                    reference = theirs[theirs.Count / 2];
-                    against = "face à " + reference.Lap.Driver.Name;
-                    // Only a loss that repeats: most of my laps slower than their typical lap
-                    int slower = 0;
-                    foreach (var p in my) if (p.Sector > reference.Sector) slower++;
-                    if (slower < my.Count * 0.7) reference = null;
-                }
-
-                var row = new CornerRow { Corner = c, MyBest = myBest.Sector, MyMedian = myMedian.Sector };
-                if (reference != null)
+                    Corner = c, MyBest = my[0].Sector, MyMedian = myMedian.Sector, Reference = best.Sector,
+                    ReferenceBy = best.Lap.Driver.Name, Gain = myMedian.Sector - best.Sector,
+                };
+                if (row.Gain > 0.03)
                 {
-                    row.Reference = reference.Sector;
-                    row.Gain = myMedian.Sector - reference.Sector;
-                    if (row.Gain > 0.03)
-                    {
-                        var pr = Explain(c, myMedian, reference, mode, against);
-                        row.Phase = PhaseNames[Worst(pr.PhaseLoss)];
-                        candidates.Add(pr);
-                    }
+                    var pr = Explain(c, myMedian, best, subject);
+                    row.Phase = PhaseNames[Worst(pr.PhaseLoss)];
+                    candidates.Add(pr);
                 }
                 r.Corners.Add(row);
 
@@ -133,6 +122,7 @@ namespace User.TeamPace
                 double q1 = my[my.Count / 4].Sector, q3 = my[(my.Count * 3) / 4].Sector;
                 if (q3 - q1 > 0.12) candidates.Add(Regularity(c, my, q3 - q1));
             }
+            if (complete && ideal > 0) r.Ideal = ideal;
 
             // One card per corner, the biggest gains first
             candidates.Sort((x, y) => y.Gain.CompareTo(x.Gain));
@@ -144,7 +134,6 @@ namespace User.TeamPace
                 p.Rank = r.Priorities.Count + 1;
                 r.Priorities.Add(p);
             }
-            if (r.Ideal <= 0 || r.Corners.Count < model.Corners.Count) r.Ideal = double.NaN;
             return r;
         }
 
@@ -222,14 +211,15 @@ namespace User.TeamPace
 
         // ─── Explanations ─────────────────────────────────────────────────────
 
-        private static Priority Explain(TrackModel.Corner c, Pass me, Pass reference, Mode mode, string against)
+        private static Priority Explain(TrackModel.Corner c, Pass me, Pass reference, DriverView subject)
         {
+            bool self = reference.Lap.Driver == subject;
+            string against = self ? "face au tour idéal : ton meilleur passage" : "face au tour idéal : passage de " + reference.Lap.Driver.Name;
             var p = new Priority { Corner = c, Against = against, Gain = me.Sector - reference.Sector, Mine = me.Lap, Reference = reference.Lap };
             p.PhaseLoss[0] = me.Brake - reference.Brake;
             p.PhaseLoss[1] = me.Mid - reference.Mid;
             p.PhaseLoss[2] = me.Exit - reference.Exit;
             int phase = Worst(p.PhaseLoss);
-            bool self = mode == Mode.MyBest;
             string who = self ? null : reference.Lap.Driver.Name;
 
             // Every measure, then the sentence from the ones of the worst phase
@@ -281,7 +271,7 @@ namespace User.TeamPace
 
             p.Basis = self
                 ? string.Format("Ton meilleur passage : {0} · ton passage habituel : {1}", LapName(reference.Lap), LapName(me.Lap))
-                : string.Format("{0} : {1} (passage habituel) · toi : {2}", who, LapName(reference.Lap), LapName(me.Lap));
+                : string.Format("Meilleur passage de l'équipe : {0}, {1} · ton passage habituel : {2}", who, LapName(reference.Lap), LapName(me.Lap));
             return p;
         }
 

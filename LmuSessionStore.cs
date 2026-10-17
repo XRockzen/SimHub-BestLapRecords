@@ -22,7 +22,7 @@ namespace User.TeamPace
 
         // Bump when the parser starts accepting files it used to skip: clears
         // the "already parsed" flags once so those files get re-imported.
-        private const int ParserVersion = 6;   // 5: shared cars split by driver, session clock origin; 6: race field
+        private const int ParserVersion = 7;   // 5: shared cars split by driver, session clock origin; 6: race field; 7: race start time
 
         public static string PlayerName  { get; private set; }
         public static string ResultsPath { get; private set; }

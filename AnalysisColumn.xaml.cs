@@ -176,6 +176,12 @@ namespace User.TeamPace
         public int PitCount { get; private set; }
 
         /// <summary>Same height for every driver's pit block, sized on the longest list.</summary>
+        /// <summary>The lap table fills the visible height; the blocks above scroll away.</summary>
+        public void SetLapTableHeight(double height)
+        {
+            LapGrid.Height = Math.Max(260, height);
+        }
+
         public void SetPitBlockStops(int stops)
         {
             StatsPitPanel.Height = Math.Max(120, 36 + Math.Max(1, stops) * 41);
@@ -502,7 +508,6 @@ namespace User.TeamPace
                 {
                     parts.Add(string.Format(Inv, "voie {0:F1} s", p.LaneSec));
                     parts.Add(string.Format(Inv, "arrêt {0:F1} s", p.StoppedSec));
-                    if (p.LimiterSec > 0)   parts.Add(string.Format(Inv, "limiteur {0:F1} s", p.LimiterSec));
                     if (p.FuelAddedL > 0.5) parts.Add(string.Format(Inv, "+{0:F1} L", p.FuelAddedL));
                     if (p.TyresCount > 0)   parts.Add(p.TyresCount == 1 ? "1 pneu" : p.TyresCount + " pneus");
                     else if (p.TyresChanged) parts.Add("pneus changés");

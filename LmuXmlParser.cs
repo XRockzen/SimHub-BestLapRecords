@@ -233,7 +233,11 @@ namespace User.TeamPace
             // from the session start: move the start back so both share the session clock.
             double firstEt = FirstEventTime(stream);
             if (session.BlockStartUtc != DateTime.MinValue && firstEt > 60)
+            {
                 session.BlockStartUtc = session.BlockStartUtc.AddSeconds(-firstEt);
+                // A race is shown at its start, the same for every driver of the car
+                if (session.IsRace) session.SessionDate = session.BlockStartUtc;
+            }
             if (stream != null)
             {
                 foreach (var ev in stream.Elements("Incident"))

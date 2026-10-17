@@ -10,20 +10,20 @@ using System.Windows.Media;
 namespace User.TeamPace
 {
     /// <summary>
-    /// Work plan of a circuit: the three corners worth working on, each with the phase that
-    /// costs time and the measure that explains it, against the driver's own best passage, a
-    /// teammate or the best of the team.
+    /// Work plan of a circuit: the team's ideal lap (best passage of anyone in each corner),
+    /// then, for the chosen driver, the three corners worth working on against it, each with
+    /// the phase that costs time and the measure that explains it.
     /// </summary>
     internal class CoachingView : UserControl
     {
         /// <summary>Open the telemetry on two laps, zoomed on a corner (from, to in metres).</summary>
         public event Action<List<TelemetryView.Preset>, double, double> TelemetryRequested;
 
-        private static string _modeKey = "best";   // "best", "team" or a driver key
+        private static string _subjectKey = "";   // the driver whose plan is shown
 
         private readonly List<DriverView> _drivers;
         private readonly string _circuit, _classLabel;
-        private readonly DriverView _me;
+        private DriverView _subject;
         private readonly StackPanel _modes = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 10) };
         private readonly Grid _body = new Grid();
         private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
@@ -31,7 +31,7 @@ namespace User.TeamPace
         public CoachingView(List<DriverView> drivers, string circuit, string classLabel)
         {
             _drivers = drivers; _circuit = circuit; _classLabel = classLabel;
-            _me = drivers.Find(d => d.DbPath == null) ?? drivers[0];
+            _subject = drivers.Find(d => d.Key == _subjectKey) ?? drivers.Find(d => d.DbPath == null) ?? drivers[0];
             var root = new DockPanel();
             DockPanel.SetDock(_modes, Dock.Top);
             root.Children.Add(_modes);
@@ -44,18 +44,15 @@ namespace User.TeamPace
         private void BuildModes()
         {
             _modes.Children.Clear();
-            _modes.Children.Add(Ui.T("Comparer à", 12.5, Ui.Muted));
-            var options = new List<KeyValuePair<string, string>> { new KeyValuePair<string, string>("best", "mon meilleur passage") };
-            foreach (var d in _drivers) if (d != _me) options.Add(new KeyValuePair<string, string>(d.Key, d.Name));
-            if (_drivers.Count > 2) options.Add(new KeyValuePair<string, string>("team", "le meilleur de l'équipe"));
-            if (!options.Exists(o => o.Key == _modeKey)) _modeKey = "best";
-            foreach (var o in options)
+            if (_drivers.Count < 2) return;
+            _modes.Children.Add(Ui.T("Plan de travail de", 12.5, Ui.Muted));
+            foreach (var d in _drivers)
             {
-                var key = o.Key;
-                var b = Ui.Button(o.Value);
+                var driver = d;
+                var b = Ui.Button(d.DbPath == null ? d.Name + " (moi)" : d.Name, "Ses priorités face au tour idéal de l'équipe");
                 b.Margin = new Thickness(8, 0, 0, 0);
-                Ui.SetOn(b, _modeKey == key);
-                b.Click += (s, e) => { _modeKey = key; BuildModes(); Run(); };
+                Ui.SetOn(b, driver == _subject);
+                b.Click += (s, e) => { _subject = driver; _subjectKey = driver.Key; BuildModes(); Run(); };
                 _modes.Children.Add(b);
             }
         }
@@ -66,35 +63,30 @@ namespace User.TeamPace
         {
             _body.Children.Clear();
             _body.Children.Add(new TextBlock { Text = "Analyse des tours…", Foreground = Ui.Faint, FontStyle = FontStyles.Italic, FontSize = 13, Margin = new Thickness(4, 20, 0, 0) });
-            var mode = _modeKey == "best" ? CoachingEngine.Mode.MyBest : _modeKey == "team" ? CoachingEngine.Mode.Team : CoachingEngine.Mode.Driver;
-            var refDriver = _drivers.Find(d => d.Key == _modeKey);
+            var subject = _subject;
             Task.Run(() =>
             {
                 CoachingEngine.Result result = null;
                 TrackModel model = null;
                 try
                 {
-                    var mine = Laps(_me);
-                    var others = new List<CoachingEngine.Lap>();
-                    if (mode == CoachingEngine.Mode.Driver && refDriver != null) others = Laps(refDriver);
-                    else if (mode == CoachingEngine.Mode.Team) foreach (var d in _drivers) if (d != _me) others.AddRange(Laps(d));
+                    var team = new List<CoachingEngine.Lap>();
                     var known = new List<TeleLapRef>();
-                    foreach (var d in _drivers) known.AddRange(TelemetryService.GetLaps(d, _circuit));
-                    model = TelemetryService.TrackModelFor(_circuit, known);
-                    if (model != null)
+                    foreach (var d in _drivers)
                     {
-                        mine = Consistent(mine, model);
-                        others = Consistent(others, model);
+                        team.AddRange(Laps(d));
+                        known.AddRange(TelemetryService.GetLaps(d, _circuit));
                     }
-                    result = CoachingEngine.Analyze(model, mine, others, mode,
-                        mode == CoachingEngine.Mode.Driver && refDriver != null ? refDriver.Name : "l'équipe");
+                    model = TelemetryService.TrackModelFor(_circuit, known);
+                    if (model != null) team = Consistent(team, model);
+                    result = CoachingEngine.Analyze(model, team, subject);
                 }
                 catch (Exception ex)
                 {
                     SimHub.Logging.Current.Warn("[TeamPace] Work plan: " + ex);
                     result = new CoachingEngine.Result { Error = "Analyse impossible : " + ex.Message };
                 }
-                Dispatcher.BeginInvoke(new Action(() => Render(result, model, mode)));
+                Dispatcher.BeginInvoke(new Action(() => Render(result, model)));
             });
         }
 
@@ -107,8 +99,13 @@ namespace User.TeamPace
             var refs = TelemetryService.GetLaps(d, _circuit).FindAll(l =>
                 l.IsClean && l.File.Version >= 2 && l.Session != null && l.XmlLap != null &&
                 (_classLabel == null || LmuCategoryStyle.GetShortName(l.Session.CarClass) == _classLabel));
+            // The 40 most recent laps (the usual passage), plus the 10 fastest (a record set in
+            // qualifying before a long race must count in the ideal lap)
+            var fastest = new List<TeleLapRef>(refs);
+            fastest.Sort((a, b) => a.LapSec.CompareTo(b.LapSec));
             refs.Sort((a, b) => b.Date.CompareTo(a.Date));
             if (refs.Count > 40) refs.RemoveRange(40, refs.Count - 40);
+            for (int i = 0; i < Math.Min(10, fastest.Count); i++) if (!refs.Contains(fastest[i])) refs.Add(fastest[i]);
             var laps = new List<CoachingEngine.Lap>();
             foreach (var r in refs)
             {
@@ -134,7 +131,7 @@ namespace User.TeamPace
 
         // ─── Rendering ────────────────────────────────────────────────────────
 
-        private void Render(CoachingEngine.Result r, TrackModel model, CoachingEngine.Mode mode)
+        private void Render(CoachingEngine.Result r, TrackModel model)
         {
             _body.Children.Clear();
             _body.ColumnDefinitions.Clear();
@@ -152,16 +149,17 @@ namespace User.TeamPace
             _body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(340) });
 
             var left = new StackPanel();
-            left.Children.Add(Kpis(r, mode));
+            left.Children.Add(Kpis(r));
 
             var title = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 14, 0, 8) };
-            title.Children.Add(Ui.T(r.Priorities.Count > 0 ? "Tes " + r.Priorities.Count + " priorités" : "Aucune priorité nette", 16, Ui.Text, FontWeights.SemiBold));
+            bool own = _subject.DbPath == null;
+            title.Children.Add(Ui.T(r.Priorities.Count > 0 ? (own ? "Tes " : "Les ") + r.Priorities.Count + " priorités" + (own ? "" : " de " + r.SubjectName) : "Aucune priorité nette", 16, Ui.Text, FontWeights.SemiBold));
             var hint = Ui.T("  ⓘ", 13, Ui.Faint);
-            hint.ToolTip = "Classées par temps à gagner. Seuls les écarts qui se répètent sur plusieurs tours sont retenus : un tour raté ne compte pas.";
+            hint.ToolTip = "Classées par temps à gagner : le passage habituel (médian) dans chaque virage, comparé au meilleur passage de l'équipe. Un tour raté ne compte pas.";
             title.Children.Add(hint);
             left.Children.Add(title);
             if (r.Priorities.Count == 0)
-                left.Children.Add(Ui.T("Tes passages sont proches de la référence dans tous les virages.", 13, Ui.Muted));
+                left.Children.Add(Ui.T("Les passages habituels sont proches du tour idéal dans tous les virages.", 13, Ui.Muted));
             foreach (var p in r.Priorities) left.Children.Add(Card(p));
 
             left.Children.Add(AllCorners(r));
@@ -183,8 +181,10 @@ namespace User.TeamPace
             basis.Children.Add(Ui.T("Sur quoi c'est calculé", 13, Ui.Text, FontWeights.SemiBold));
             basis.Children.Add(new TextBlock
             {
-                Text = string.Format("Tes {0} tours propres sur ce circuit{1}. Chaque virage est découpé en freinage, corde et sortie : on garde la phase qui coûte le plus et la mesure qui l'explique.",
-                    r.MyLaps, mode == CoachingEngine.Mode.MyBest ? "" : string.Format(" et {0} tours de {1}", r.ReferenceLaps, r.ReferenceName)),
+                Text = string.Format("Le tour idéal met bout à bout le meilleur passage de l'équipe dans chaque virage, tous pilotes confondus ({0} tours propres avec la télémétrie). " +
+                                     "Il est le même pour tout le monde. Le passage habituel de {1} ({2} tours) y est comparé virage par virage : " +
+                                     "chaque virage est découpé en freinage, corde et sortie, et on garde la phase qui coûte le plus et la mesure qui l'explique.",
+                    r.TeamLaps, r.SubjectName, r.SubjectLaps),
                 TextWrapping = TextWrapping.Wrap, FontSize = 12.5, Foreground = Ui.Muted, Margin = new Thickness(0, 6, 0, 0),
             });
             var card = Ui.Card(basis);
@@ -194,18 +194,16 @@ namespace User.TeamPace
             _body.Children.Add(side);
         }
 
-        private UIElement Kpis(CoachingEngine.Result r, CoachingEngine.Mode mode)
+        private UIElement Kpis(CoachingEngine.Result r)
         {
             var grid = new System.Windows.Controls.Primitives.UniformGrid { Rows = 1 };
             double gain = 0;
             foreach (var p in r.Priorities) gain += p.Gain;
-            grid.Children.Add(Kpi("TON RECORD (télémétrie)", Fmt.LapSec(r.MyRecord), Ui.Green, "sur tes tours propres"));
-            grid.Children.Add(Kpi("TON TOUR IDÉAL", double.IsNaN(r.Ideal) ? "—" : Fmt.LapSec(r.Ideal), Ui.Amber, "tes meilleurs virages mis bout à bout"));
-            if (mode != CoachingEngine.Mode.MyBest)
-                grid.Children.Add(Kpi(r.ReferenceName.ToUpperInvariant(), Fmt.LapSec(r.ReferenceRecord), Ui.Text,
-                    r.ReferenceRecord < r.MyRecord ? "+" + Fmt.Seconds(TimeSpan.FromSeconds(r.MyRecord - r.ReferenceRecord)) + " devant toi"
-                                                   : Fmt.Seconds(TimeSpan.FromSeconds(r.ReferenceRecord - r.MyRecord)) + " derrière toi"));
-            grid.Children.Add(Kpi("À GAGNER (" + r.Priorities.Count + " PRIORITÉS)", string.Format(Inv, "−{0:0.00} s", gain), Ui.Text, "sur ton passage habituel"));
+            grid.Children.Add(Kpi("TOUR IDÉAL DE L'ÉQUIPE", double.IsNaN(r.Ideal) ? "—" : Fmt.LapSec(r.Ideal), Ui.Amber, "le meilleur passage de chacun, virage par virage"));
+            grid.Children.Add(Kpi("RECORD DE L'ÉQUIPE", double.IsNaN(r.TeamRecord) ? "—" : Fmt.LapSec(r.TeamRecord), Ui.Green, r.TeamRecordBy ?? ""));
+            grid.Children.Add(Kpi("RECORD DE " + r.SubjectName.ToUpperInvariant(), double.IsNaN(r.SubjectRecord) ? "—" : Fmt.LapSec(r.SubjectRecord), Ui.Text,
+                double.IsNaN(r.Ideal) || double.IsNaN(r.SubjectRecord) ? "" : "+" + Fmt.Seconds(TimeSpan.FromSeconds(Math.Max(0, r.SubjectRecord - r.Ideal))) + " du tour idéal"));
+            grid.Children.Add(Kpi("À GAGNER (" + r.Priorities.Count + " PRIORITÉS)", string.Format(Inv, "−{0:0.00} s", gain), Ui.Text, "sur le passage habituel"));
             return grid;
         }
 
@@ -328,18 +326,26 @@ namespace User.TeamPace
                 }
                 return new Border { Child = g, BorderBrush = Ui.Line, BorderThickness = new Thickness(0, 0, 0, 1), Background = head ? Ui.HeaderBg : Brushes.Transparent };
             };
-            table.Children.Add(row(new[] { "Virage", "Ton meilleur", "Ton habituel", "Référence", "À gagner", "Phase" }, Ui.Text, true));
+            table.Children.Add(row(new[] { "Virage", "Meilleur", "Habituel", "Tour idéal", "À gagner", "Phase" }, Ui.Text, true));
             foreach (var c in r.Corners)
                 table.Children.Add(row(new[]
                 {
                     string.Format(Inv, "{0} · {1} {2:0}°", c.Corner.Name, c.Corner.Left ? "G" : "D", c.Corner.Angle),
                     string.Format(Inv, "{0:0.000}", c.MyBest), string.Format(Inv, "{0:0.000}", c.MyMedian),
-                    c.Reference > 0 ? string.Format(Inv, "{0:0.000}", c.Reference) : "—",
+                    c.Reference > 0 ? string.Format(Inv, "{0:0.000}  {1}", c.Reference, Initials(c.ReferenceBy)) : "—",
                     c.Gain > 0.005 ? string.Format(Inv, "−{0:0.00} s", c.Gain) : "—",
                     c.Phase ?? "",
                 }, c.Gain > 0.1 ? Ui.Amber : Ui.Muted, false));
             exp.Content = table;
             return exp;
+        }
+
+        private static string Initials(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return "";
+            var s = "";
+            foreach (var w in name.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)) s += char.ToUpperInvariant(w[0]);
+            return "(" + s + ")";
         }
     }
 }

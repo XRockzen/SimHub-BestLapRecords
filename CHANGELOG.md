@@ -3,6 +3,24 @@
 Chaque version est publiée dans les [releases](../../releases) et proposée automatiquement dans
 TeamPace par le bandeau de mise à jour.
 
+## 3.6.0
+
+- **Plan de travail** : la référence est maintenant le **tour idéal de l'équipe**, le meilleur
+  passage de n'importe quel pilote dans chaque virage. Il est le même pour tous ; « Plan de travail
+  de » choisit le pilote dont on voit les priorités. En haut : tour idéal, record de l'équipe (et qui
+  le détient), record du pilote et son écart au tour idéal. Le record d'une qualif compte même
+  après une longue course.
+- **Télémétrie** : les valeurs sous le curseur (écart, vitesse, rapport, pédales, volant, régime,
+  placement) s'affichent en gros au-dessus des courbes, une ligne par tour ; la carte et les virages
+  restent visibles à droite.
+- **Carrière** : le roulage s'affiche en heures entières (« 97 h »), et l'en-tête du tableau reste
+  aligné avec les lignes quand la barre de défilement apparaît.
+- **Progression** : la courbe est masquée par défaut (bouton « 📈 Graphique »).
+- **Analyse** : chaque colonne défile, le tableau tour par tour reste accessible sous les blocs ;
+  le temps au limiteur n'est plus affiché dans les arrêts (le temps dans la voie suffit).
+- Une course rejointe en cours de route (relais) s'affiche à son heure de départ, la même pour tous
+  les pilotes de la voiture. Les courses sont relues au premier démarrage.
+
 ## 3.5.0
 
 - **Analyse de course** (bouton sur l'analyse d'une course) : toutes les voitures de la course,

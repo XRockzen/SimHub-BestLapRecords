@@ -121,6 +121,12 @@ namespace User.TeamPace
             var head = BuildHeader();
             DockPanel.SetDock(head, Dock.Top);
             table.Children.Add(head);
+            // The rows' scroll bar narrows them: the header follows, so the columns stay aligned
+            _scroll.LayoutUpdated += (s, e) =>
+            {
+                double bar = Math.Max(0, _scroll.ActualWidth - _scroll.ViewportWidth);
+                if (Math.Abs(((FrameworkElement)head).Margin.Right - bar) > 0.5) ((FrameworkElement)head).Margin = new Thickness(0, 0, bar, 0);
+            };
             foreach (var l in _lines) { l.Row = BuildRow(l); _rows.Children.Add(l.Row); }
             _scroll.Content = _rows;
             table.Children.Add(_scroll);
@@ -327,7 +333,7 @@ namespace User.TeamPace
                     if (count > 1 && l.Cells[i] != null && l.Cells[i].BestTicks == l.Best) records++;
                 }
                 values.Add(new[] { races.ToString(), wins.ToString(), podiums.ToString(), top5.ToString(), dnf.ToString(),
-                                   _drivers.Count > 1 ? records.ToString() : "—", laps.ToString(), Fmt.TotalTime(driving) });
+                                   _drivers.Count > 1 ? records.ToString() : "—", laps.ToString(), Hours(driving) });
             }
 
             var grid = new UniformGrid { Rows = 1 };
@@ -350,6 +356,13 @@ namespace User.TeamPace
                 grid.Children.Add(card);
             }
             return grid;
+        }
+
+        /// <summary>Driving time in whole hours ("97 h"), minutes under an hour.</summary>
+        private static string Hours(TimeSpan t)
+        {
+            if (t <= TimeSpan.Zero) return "—";
+            return t.TotalHours < 1 ? string.Format("{0} min", Math.Max(1, (int)Math.Round(t.TotalMinutes))) : string.Format("{0} h", (int)Math.Round(t.TotalHours));
         }
 
         // ─── Activity ─────────────────────────────────────────────────────────

@@ -61,6 +61,7 @@ namespace User.TeamPace
         private readonly DispatcherTimer _loadTimer;
         private bool _lmuSettingsDirty;
         private bool _helpOpen;
+        private static bool _progressChartOn;   // the progression chart is folded until asked for
 
         private List<DriverView> _drivers = new List<DriverView>();
         private NavState _state;
@@ -378,7 +379,7 @@ namespace User.TeamPace
 
             ClassFilterBar.Visibility     = _state.Screen == Screen.Career ? Visibility.Visible : Visibility.Collapsed;
             CircuitTabs.Visibility        = _state.Screen == Screen.Circuit ? Visibility.Visible : Visibility.Collapsed;
-            ProgressChartPanel.Visibility = _state.Screen == Screen.Circuit && _state.Tab == CircuitTab.Progress ? Visibility.Visible : Visibility.Collapsed;
+            ProgressChartPanel.Visibility = _state.Screen == Screen.Circuit && _state.Tab == CircuitTab.Progress && _progressChartOn ? Visibility.Visible : Visibility.Collapsed;
             TxtLegendTeam.Visibility      = _drivers.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
             TxtStatus.Text = "";
 
@@ -558,7 +559,13 @@ namespace User.TeamPace
 
             switch (_state.Tab)
             {
-                case CircuitTab.Progress:  RenderProgress(); break;
+                case CircuitTab.Progress:
+                    var chart = Ui.Button(_progressChartOn ? "Masquer le graphique" : "📈 Graphique", "Courbe du meilleur tour de chaque séance");
+                    chart.Margin = new Thickness(0, 0, 8, 0);
+                    chart.Click += (s, e) => { _progressChartOn = !_progressChartOn; Render(); };
+                    HeaderActions.Children.Insert(0, chart);
+                    RenderProgress();
+                    break;
                 case CircuitTab.Telemetry: RenderTelemetry(); break;
                 case CircuitTab.Work:      RenderWork(); break;
             }
@@ -777,7 +784,10 @@ namespace User.TeamPace
                     col.StatsChanged += c => UpdateAverageReferences();
                     col.LapOpened    += (c, lapNum) => OpenTelemetryFromAnalysis(c.Driver.Key, lapNum);
                     _analysisCols.Add(col);
-                    AddColumn(d, col, s.SessionTypeLong);
+                    // The column scrolls as a whole, so the lap table stays reachable under tall blocks
+                    var scroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = col };
+                    scroll.SizeChanged += (sv, e) => col.SetLapTableHeight(scroll.ViewportHeight - 40);
+                    AddColumn(d, scroll, s.SessionTypeLong);
                 }
                 else
                 {
