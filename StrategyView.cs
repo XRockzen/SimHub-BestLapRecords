@@ -486,16 +486,69 @@ namespace User.TeamPace
                 var g = row(new[]
                 {
                     (i + 1).ToString(), s.Lap.ToString(), Clock(s.At),
-                    string.Format(Inv, "+{0:0} L{1}", s.FuelL, last ? " (jusqu'à l'arrivée)" : ""),
+                    null,
                     null,
                     string.Format(Inv, "{0:0} s", s.Stopped), string.Format(Inv, "+{0:0} s", s.Lost),
                     d != null ? d.Name : "",
                 }, d != null ? Ui.Light(d.Brush) : Ui.Text, false);
+                g.Children.Add(FuelChoice(i, s, last));
                 g.Children.Add(TyreChoice(i, s));
                 panel.Children.Add(wrap(g, false));
             }
             if (sim.Stops.Count == 0) panel.Children.Add(Ui.T("Aucun arrêt nécessaire.", 13, Ui.Muted));
             return panel;
+        }
+
+        /// <summary>
+        /// Fuel put in at a stop: automatic (what the next stint needs), a full tank, or litres
+        /// typed by hand. The stop time and the next stint's length follow.
+        /// </summary>
+        private ComboBox FuelChoice(int stop, StrategyEngine.StopPlan s, bool last)
+        {
+            var cb = new ComboBox
+            {
+                Height = 24, FontSize = 12.5, Margin = new Thickness(4, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center,
+                IsEditable = true,
+                ToolTip = "auto : juste ce qu'il faut pour le relais suivant · plein : remplir le réservoir · ou tapez des litres (ex. 60) puis Entrée",
+            };
+            string auto = string.Format(Inv, "auto · +{0:0} L{1}", s.FuelL, last ? " (jusqu'à l'arrivée)" : "");
+            string full = "plein";
+            cb.Items.Add(auto);
+            cb.Items.Add(full);
+            if (s.FuelChosen)
+            {
+                cb.Text = s.Full && Math.Abs(ValueAt(stop) - StrategyPlan.Full) < 1 ? string.Format(Inv, "plein · +{0:0} L", s.FuelL) : string.Format(Inv, "{0:0} L", s.FuelL);
+                cb.Foreground = Ui.Amber;
+            }
+            else cb.SelectedIndex = 0;
+
+            Action<double> apply = litres =>
+            {
+                while (_plan.StopFuel.Count <= stop) _plan.StopFuel.Add(-1);
+                _plan.StopFuel[stop] = litres;
+                Dispatcher.BeginInvoke(new Action(Rebuild));
+            };
+            cb.SelectionChanged += (snd, e) =>
+            {
+                if (_building || cb.SelectedIndex < 0) return;
+                apply(cb.SelectedIndex == 0 ? -1 : StrategyPlan.Full);
+            };
+            Action typed = () =>
+            {
+                if (_building || cb.SelectedIndex >= 0) return;
+                var text = (cb.Text ?? "").Replace("L", "").Replace("l", "").Replace("+", "").Replace(',', '.').Trim();
+                double litres;
+                if (double.TryParse(text, NumberStyles.Float, Inv, out litres) && litres >= 0) apply(litres);
+            };
+            cb.LostFocus += (snd, e) => typed();
+            cb.KeyDown += (snd, e) => { if (e.Key == System.Windows.Input.Key.Enter) typed(); };
+            Grid.SetColumn(cb, 3);
+            return cb;
+        }
+
+        private double ValueAt(int stop)
+        {
+            return stop < _plan.StopFuel.Count ? _plan.StopFuel[stop] : -1;
         }
 
         /// <summary>How many tyres to change at a stop: automatic, or 0 to 4 chosen by hand.</summary>
